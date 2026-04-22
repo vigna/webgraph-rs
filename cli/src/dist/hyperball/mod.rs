@@ -4,8 +4,9 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
+
 use crate::{FloatSliceFormat, GranularityArgs, LogIntervalArg, NumThreadsArg, get_thread_pool};
-use anyhow::{Result, bail, ensure};
+use anyhow::{Result, bail};
 use clap::{ArgGroup, Args, Parser};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::{ProgressLog, concurrent_progress_logger};
@@ -67,7 +68,7 @@ pub struct CliArgs {
     /// The basename of the graph.​
     pub basename: PathBuf,
 
-    #[clap(long, default_value_t = false)]
+    #[clap(long, default_value_t = false, conflicts_with = "transposed")]
     /// The graph is symmetric (it will be used as its own transpose).​
     pub symm: bool,
 
@@ -90,7 +91,7 @@ pub struct CliArgs {
     /// trades ~33% extra space for significantly faster merge operations.​
     pub hll8: bool,
 
-    #[clap(long, default_value_t = usize::MAX)]
+    #[clap(long, default_value = "usize::MAX")]
     /// Maximum number of iterations to run.​
     pub upper_bound: usize,
 
@@ -115,11 +116,6 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    ensure!(
-        !args.symm || args.transposed.is_none(),
-        "If the graph is symmetric, you should not pass the transpose."
-    );
-
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => hyperball::<BE>(args),
@@ -145,6 +141,7 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
             args.basename.display()
         );
     }
+
     let deg_cumul = unsafe {
         DCF::mmap(
             args.basename.with_extension(DEG_CUMUL_EXTENSION),
@@ -152,22 +149,21 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
         )
     }?;
 
-    log::info!("Loading Transposed graph...");
-    let mut transposed = None;
-    if let Some(transposed_path) = args.transposed.as_ref() {
-        transposed = Some(BvGraph::with_basename(transposed_path).load()?);
-    }
-    let mut transposed_ref = transposed.as_ref();
-    if args.symm {
-        transposed_ref = Some(&graph);
-    }
+    let transpose = if args.symm {
+        Some(&graph)
+    } else if let Some(transposed_path) = args.transposed {
+        log::info!("Loading transpose...");
+        Some(&BvGraph::with_basename(transposed_path).load()?)
+    } else {
+        None
+    };
 
     /// Runs HyperBall and stores results. We use a macro because different
     /// estimation logics produce different `HyperBall` types.
     macro_rules! run_and_store {
         ($hb:expr) => {{
             let mut hb = $hb;
-            log::info!("Starting HyperBall...");
+
             let rng = rand::rngs::SmallRng::seed_from_u64(args.seed);
             thread_pool.install(|| hb.run(args.upper_bound, args.threshold, rng, &mut pl))?;
 
@@ -198,10 +194,9 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
     }
 
     if args.hll8 {
-        log::info!("Using HyperLogLog8 (byte-sized registers)");
         let hb = HyperBallBuilder::with_hyper_log_log8(
             &graph,
-            transposed_ref,
+            transpose,
             deg_cumul.uncase(),
             args.log2m,
             None,
@@ -212,10 +207,9 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
         .build(&mut pl);
         run_and_store!(hb);
     } else {
-        log::info!("Using HyperLogLog (packed registers)");
         let hb = HyperBallBuilder::with_hyper_log_log(
             &graph,
-            transposed_ref,
+            transpose,
             deg_cumul.uncase(),
             args.log2m,
             None,

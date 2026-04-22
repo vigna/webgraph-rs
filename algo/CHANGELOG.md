@@ -15,9 +15,18 @@
   `usize` per node instead of three. It is also possible to pass the identity
   permutation to exploit locality in the graph, if present.
 
+### Improved
+
+- The space occupancy of `ExactSumSweep` has been reduced by a factor of two for
+  symmetric graphs, and in generall by 1/3 if you give up on the "total"
+  heuristics tie-breaker.
+
 ### New
 
 - New `BiRank` implementation.
+
+- `USE_TOT` boolean type parameter decides whether to use the "total" heuristics
+  tie-breaker in `ExactSumSweep`.
 
 ### Fixed
 

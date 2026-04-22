@@ -38,8 +38,9 @@ pub(super) struct DirExactSumSweepComputer<
     G2: RandomAccessGraph + Sync,
     V1: Parallel<EventNoPred> + Sync,
     V2: Parallel<EventNoPred> + Sync,
-    OL: Level,
+    OL: Level<USE_TOT>,
     const USE_TOT: bool,
+    const SYMMETRIC: bool,
 > {
     pub graph: &'a G1,
     pub transpose: &'a G2,
@@ -87,8 +88,17 @@ pub(super) struct DirExactSumSweepComputer<
     _marker: std::marker::PhantomData<OL>,
 }
 
-impl<'a, G: RandomAccessGraph + Sync, OL: Level, const USE_TOT: bool>
-    DirExactSumSweepComputer<'a, G, G, ParFairNoPred<&'a G>, ParFairNoPred<&'a G>, OL, USE_TOT>
+impl<'a, G: RandomAccessGraph + Sync, OL: Level<USE_TOT>, const USE_TOT: bool>
+    DirExactSumSweepComputer<
+        'a,
+        G,
+        G,
+        ParFairNoPred<&'a G>,
+        ParFairNoPred<&'a G>,
+        OL,
+        USE_TOT,
+        true,
+    >
 {
     /// Builds a new instance to compute the *ExactSumSweep* algorithm on
     /// symmetric (i.e., undirected) graphs.
@@ -113,8 +123,17 @@ impl<'a, G: RandomAccessGraph + Sync, OL: Level, const USE_TOT: bool>
     }
 }
 
-impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level, const USE_TOT: bool>
-    DirExactSumSweepComputer<'a, G1, G2, ParFairNoPred<&'a G1>, ParFairNoPred<&'a G2>, OL, USE_TOT>
+impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level<USE_TOT>, const USE_TOT: bool>
+    DirExactSumSweepComputer<
+        'a,
+        G1,
+        G2,
+        ParFairNoPred<&'a G1>,
+        ParFairNoPred<&'a G2>,
+        OL,
+        USE_TOT,
+        false,
+    >
 {
     /// Builds a new instance to compute the *ExactSumSweep* algorithm on
     /// directed graphs.
@@ -164,9 +183,10 @@ impl<
     G2: RandomAccessGraph + Sync,
     V1: Parallel<EventNoPred> + Sync,
     V2: Parallel<EventNoPred> + Sync,
-    OL: Level,
+    OL: Level<USE_TOT>,
     const USE_TOT: bool,
-> DirExactSumSweepComputer<'a, G1, G2, V1, V2, OL, USE_TOT>
+    const SYMMETRIC: bool,
+> DirExactSumSweepComputer<'a, G1, G2, V1, V2, OL, USE_TOT, SYMMETRIC>
 {
     #[allow(clippy::too_many_arguments)]
     fn _new(
@@ -195,12 +215,28 @@ impl<
             graph,
             transpose,
             num_nodes,
-            forward_tot: if USE_TOT { vec![0; num_nodes].into_boxed_slice() } else { Box::default() },
-            backward_tot: if USE_TOT { vec![0; num_nodes].into_boxed_slice() } else { Box::default() },
+            forward_tot: if USE_TOT {
+                vec![0; num_nodes].into_boxed_slice()
+            } else {
+                Box::default()
+            },
+            backward_tot: if USE_TOT && !SYMMETRIC {
+                vec![0; num_nodes].into_boxed_slice()
+            } else {
+                Box::default()
+            },
             forward_low: vec![0; num_nodes].into_boxed_slice(),
             forward_high: vec![num_nodes; num_nodes].into_boxed_slice(),
-            backward_low: vec![0; num_nodes].into_boxed_slice(),
-            backward_high: vec![num_nodes; num_nodes].into_boxed_slice(),
+            backward_low: if SYMMETRIC {
+                Box::default()
+            } else {
+                vec![0; num_nodes].into_boxed_slice()
+            },
+            backward_high: if SYMMETRIC {
+                Box::default()
+            } else {
+                vec![num_nodes; num_nodes].into_boxed_slice()
+            },
             scc_graph,
             scc,
             diameter_low: 0,
@@ -226,9 +262,10 @@ impl<
     G2: RandomAccessGraph + Sync,
     V1: Parallel<EventNoPred> + Sync,
     V2: Parallel<EventNoPred> + Sync,
-    OL: Level,
+    OL: Level<USE_TOT>,
     const USE_TOT: bool,
-> DirExactSumSweepComputer<'_, G1, G2, V1, V2, OL, USE_TOT>
+    const SYMMETRIC: bool,
+> DirExactSumSweepComputer<'_, G1, G2, V1, V2, OL, USE_TOT, SYMMETRIC>
 {
     #[inline(always)]
     fn incomplete_forward(&self, index: usize) -> bool {
@@ -237,7 +274,44 @@ impl<
 
     #[inline(always)]
     fn incomplete_backward(&self, index: usize) -> bool {
-        self.backward_low[index] != self.backward_high[index]
+        if SYMMETRIC {
+            self.incomplete_forward(index)
+        } else {
+            self.backward_low[index] != self.backward_high[index]
+        }
+    }
+
+    /// Returns a reference to the backward lower-bound array, redirecting to
+    /// the forward array when `SYMMETRIC`.
+    #[inline(always)]
+    fn bw_low(&self) -> &[usize] {
+        if SYMMETRIC {
+            &self.forward_low
+        } else {
+            &self.backward_low
+        }
+    }
+
+    /// Returns a reference to the backward upper-bound array, redirecting to
+    /// the forward array when `SYMMETRIC`.
+    #[inline(always)]
+    fn bw_high(&self) -> &[usize] {
+        if SYMMETRIC {
+            &self.forward_high
+        } else {
+            &self.backward_high
+        }
+    }
+
+    /// Returns a reference to the backward total-distance array, redirecting
+    /// to the forward array when `SYMMETRIC`.
+    #[inline(always)]
+    fn bw_tot(&self) -> &[usize] {
+        if SYMMETRIC {
+            &self.forward_tot
+        } else {
+            &self.backward_tot
+        }
     }
 
     /// Performs `iterations` steps of the SumSweep heuristic, starting from vertex `start`.
@@ -264,11 +338,11 @@ impl<
         for i in 2..=iterations {
             if i % 2 == 0 {
                 let v = if USE_TOT {
-                    math::argmax_filtered(&self.backward_tot, &self.backward_low, |i, _| {
+                    math::argmax_filtered(self.bw_tot(), self.bw_low(), |i, _| {
                         self.incomplete_backward(i)
                     })
                 } else {
-                    math::argmax_filtered(&self.backward_low, std::iter::repeat(0usize), |i, _| {
+                    math::argmax_filtered(self.bw_low(), std::iter::repeat(0usize), |i, _| {
                         self.incomplete_backward(i)
                     })
                 };
@@ -378,15 +452,13 @@ impl<
                 }
                 3 => {
                     let v = if USE_TOT {
-                        math::argmax_filtered(&self.backward_high, &self.backward_tot, |i, _| {
+                        math::argmax_filtered(self.bw_high(), self.bw_tot(), |i, _| {
                             self.incomplete_backward(i)
                         })
                     } else {
-                        math::argmax_filtered(
-                            &self.backward_high,
-                            std::iter::repeat(0usize),
-                            |i, _| self.incomplete_backward(i),
-                        )
+                        math::argmax_filtered(self.bw_high(), std::iter::repeat(0usize), |i, _| {
+                            self.incomplete_backward(i)
+                        })
                     };
                     self.step_sum_sweep(v, false, &mut cpl, |node| {
                         format!(
@@ -397,15 +469,13 @@ impl<
                 }
                 4 => {
                     let v = if USE_TOT {
-                        math::argmax_filtered(&self.backward_tot, &self.backward_high, |i, _| {
+                        math::argmax_filtered(self.bw_tot(), self.bw_high(), |i, _| {
                             self.incomplete_backward(i)
                         })
                     } else {
-                        math::argmax_filtered(
-                            &self.backward_high,
-                            std::iter::repeat(0usize),
-                            |i, _| self.incomplete_backward(i),
-                        )
+                        math::argmax_filtered(self.bw_high(), std::iter::repeat(0usize), |i, _| {
+                            self.incomplete_backward(i)
+                        })
                     };
                     self.step_sum_sweep(v, false, &mut cpl, |node| {
                         format!(
@@ -457,10 +527,12 @@ impl<
         pl.display_memory(false);
         pl.start("Computing best pivots...");
 
+        let bw_low = self.bw_low();
+        let bw_tot = self.bw_tot();
         for (v, &component) in components.iter().enumerate().rev() {
             if let Some(p) = pivot[component] {
                 let p = p.into();
-                let current = self.backward_low[v]
+                let current = bw_low[v]
                     + self.forward_low[v]
                     + if self.incomplete_forward(v) {
                         0
@@ -473,7 +545,7 @@ impl<
                         self.num_nodes
                     };
 
-                let best = self.backward_low[p]
+                let best = bw_low[p]
                     + self.forward_low[p]
                     + if self.incomplete_forward(p) {
                         0
@@ -489,8 +561,7 @@ impl<
                 if current < best
                     || (USE_TOT
                         && current == best
-                        && self.forward_tot[v] + self.backward_tot[v]
-                            <= self.forward_tot[p] + self.backward_tot[p])
+                        && self.forward_tot[v] + bw_tot[v] <= self.forward_tot[p] + bw_tot[p])
                 {
                     pivot[component] = NonMaxUsize::new(v);
                 }
@@ -642,8 +713,13 @@ impl<
 
         let ecc_start = max_dist.load(Ordering::Relaxed);
 
-        self.backward_low[start] = ecc_start;
-        self.backward_high[start] = ecc_start;
+        if SYMMETRIC {
+            self.forward_low[start] = ecc_start;
+            self.forward_high[start] = ecc_start;
+        } else {
+            self.backward_low[start] = ecc_start;
+            self.backward_high[start] = ecc_start;
+        }
 
         (self.radius_high, self.radius_vertex) = radius.into_inner().unwrap();
 
@@ -668,8 +744,21 @@ impl<
 
         let max_dist = CachePadded::new(AtomicUsize::new(0));
 
-        let backward_low = self.backward_low.as_sync_slice();
-        let backward_tot = self.backward_tot.as_sync_slice();
+        let bw_high = if SYMMETRIC {
+            &*self.forward_high
+        } else {
+            &*self.backward_high
+        };
+        let backward_low = if SYMMETRIC {
+            self.forward_low.as_sync_slice()
+        } else {
+            self.backward_low.as_sync_slice()
+        };
+        let backward_tot = if SYMMETRIC {
+            self.forward_tot.as_sync_slice()
+        } else {
+            self.backward_tot.as_sync_slice()
+        };
 
         self.visit.reset();
         self.visit
@@ -679,7 +768,7 @@ impl<
                     pl.light_update();
                     max_dist.fetch_max(distance, Ordering::Relaxed);
 
-                    let node_backward_high = self.backward_high[node];
+                    let node_backward_high = bw_high[node];
                     let node_backward_low = unsafe { backward_low[node].get() };
 
                     if USE_TOT {
@@ -859,8 +948,8 @@ impl<
                     dist_pivot_f[start] + 1 + dist_pivot_b[end] + ecc_pivot_b[c],
                 );
 
-                if ecc_pivot_b[next_c] >= self.backward_high[pivot[next_c]] {
-                    ecc_pivot_b[next_c] = self.backward_high[pivot[next_c]];
+                if ecc_pivot_b[next_c] >= self.bw_high()[pivot[next_c]] {
+                    ecc_pivot_b[next_c] = self.bw_high()[pivot[next_c]];
                 }
             }
             pl.light_update();
@@ -869,7 +958,11 @@ impl<
         let radius = RwLock::new((self.radius_high, self.radius_vertex));
 
         let forward_high = self.forward_high.as_sync_slice();
-        let backward_high = self.backward_high.as_sync_slice();
+        let backward_high = if SYMMETRIC {
+            forward_high
+        } else {
+            self.backward_high.as_sync_slice()
+        };
 
         pl.info(format_args!("Refining upper bounds of nodes..."));
 
@@ -949,7 +1042,7 @@ impl<
                 }
                 if self.incomplete_backward(node) {
                     acc.all_backward += 1;
-                    if self.backward_high[node] > self.diameter_low {
+                    if self.bw_high()[node] > self.diameter_low {
                         acc.diameter_backward += 1;
                     }
                 }

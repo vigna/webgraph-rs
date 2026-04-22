@@ -97,7 +97,7 @@
 //! let transpose = VecGraph::from_arcs([(1, 0), (2, 1), (3, 2), (0, 3), (4, 2)]);
 //!
 //! // Let's compute all eccentricities
-//! let result = exact_sum_sweep::All::run(
+//! let result = <exact_sum_sweep::All as Level>::run(
 //!     &graph,
 //!     &transpose,
 //!     None,
@@ -110,7 +110,7 @@
 //! assert_eq!(result.backward_eccentricities.as_ref(), &vec![3, 3, 3, 3, 4]);
 //!
 //! // Let's just compute the radius and diameter
-//! let result = exact_sum_sweep::RadiusDiameter::run(
+//! let result = <exact_sum_sweep::RadiusDiameter as Level>::run(
 //!     &graph,
 //!     &transpose,
 //!     None,
@@ -130,7 +130,7 @@
 //! let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0), (2, 4)]);
 //! let transpose = VecGraph::from_arcs([(1, 0), (2, 1), (3, 2), (0, 3), (4, 2)]);
 //!
-//! let result = exact_sum_sweep::RadiusDiameter::run(
+//! let result = <exact_sum_sweep::RadiusDiameter as Level>::run(
 //!     &graph,
 //!     &transpose,
 //!     None,
@@ -156,7 +156,7 @@
 //!     [(0, 1), (1, 0), (1, 2), (2, 1), (2, 0), (0, 2), (3, 4), (4, 3)]
 //! );
 //!
-//! let result = exact_sum_sweep::RadiusDiameter::run_symm(
+//! let result = <exact_sum_sweep::RadiusDiameter as Level>::run_symm(
 //!     &graph,
 //!     no_logging![]
 //! );
