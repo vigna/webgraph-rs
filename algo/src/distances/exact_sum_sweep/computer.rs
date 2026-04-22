@@ -104,8 +104,7 @@ impl<'a, G: RandomAccessGraph + Sync, OL: Level<USE_TOT>, const USE_TOT: bool>
     /// symmetric (i.e., undirected) graphs.
     pub(super) fn new_symm(graph: &'a G, pl: &mut impl ProgressLog) -> Self {
         // TODO debug_assert!(check_symmetric(graph), "graph should be symmetric");
-
-        let scc = sccs::symm_seq(graph, pl);
+        let scc = sccs::symm_par(graph, &mut pl.concurrent());
         let scc_graph = SccGraph::new_symm(&scc);
         let visit = ParFairNoPred::new(graph);
         let transposed_visit = ParFairNoPred::new(graph);
@@ -123,7 +122,13 @@ impl<'a, G: RandomAccessGraph + Sync, OL: Level<USE_TOT>, const USE_TOT: bool>
     }
 }
 
-impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level<USE_TOT>, const USE_TOT: bool>
+impl<
+    'a,
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    OL: Level<USE_TOT>,
+    const USE_TOT: bool,
+>
     DirExactSumSweepComputer<
         'a,
         G1,
