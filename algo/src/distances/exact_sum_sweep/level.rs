@@ -11,13 +11,31 @@ use sux::bits::AtomicBitVec;
 use webgraph::traits::RandomAccessGraph;
 
 #[doc(hidden)]
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct Missing {
     pub radius: usize,
     pub diameter_forward: usize,
     pub diameter_backward: usize,
     pub all_forward: usize,
     pub all_backward: usize,
+    pub diameter_high_forward: usize,
+    pub diameter_high_backward: usize,
+    pub radius_low: usize,
+}
+
+impl Default for Missing {
+    fn default() -> Self {
+        Self {
+            radius: 0,
+            diameter_forward: 0,
+            diameter_backward: 0,
+            all_forward: 0,
+            all_backward: 0,
+            diameter_high_forward: 0,
+            diameter_high_backward: 0,
+            radius_low: usize::MAX,
+        }
+    }
 }
 
 impl core::ops::Add for Missing {
@@ -30,6 +48,9 @@ impl core::ops::Add for Missing {
             diameter_backward: self.diameter_backward + rhs.diameter_backward,
             all_forward: self.all_forward + rhs.all_forward,
             all_backward: self.all_backward + rhs.all_backward,
+            diameter_high_forward: self.diameter_high_forward.max(rhs.diameter_high_forward),
+            diameter_high_backward: self.diameter_high_backward.max(rhs.diameter_high_backward),
+            radius_low: self.radius_low.min(rhs.radius_low),
         }
     }
 }

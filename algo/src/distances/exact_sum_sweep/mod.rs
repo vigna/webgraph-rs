@@ -214,6 +214,10 @@ struct ExactSumSweep<
     pub radial_vertices: AtomicBitVec,
     /// The lower bound of the diameter.
     pub diameter_low: usize,
+    /// The upper bound of the diameter.
+    pub diameter_high: usize,
+    /// The lower bound of the radius.
+    pub radius_low: usize,
     /// The upper bound of the radius.
     pub radius_high: usize,
     /// A vertex whose eccentricity equals the diameter.
@@ -424,7 +428,13 @@ impl<
             scc_graph,
             scc,
             diameter_low: 0,
-            radius_high: usize::MAX,
+            diameter_high: num_nodes - 1,
+            radius_low: 0,
+            radius_high: if SYMMETRIC {
+                num_nodes / 2
+            } else {
+                num_nodes - 1
+            },
             radius_iterations: None,
             diameter_iterations: None,
             all_iter: None,
@@ -585,11 +595,7 @@ impl<
         let mut missing_nodes = self.find_missing_nodes(&mut cpl);
         let mut old_missing_nodes;
 
-        pl.info(format_args!(
-            "Missing nodes: {} out of {}",
-            missing_nodes,
-            self.num_nodes * 2
-        ));
+        self.log_status(pl, missing_nodes);
 
         while missing_nodes > 0 {
             let step_to_perform = math::argmax(points).expect("Could not find step to perform");
@@ -694,6 +700,9 @@ impl<
             // For more information see Section 4.6 of the paper.
 
             old_missing_nodes = missing_nodes;
+            let had_radius = self.radius_iterations.is_some();
+            let had_diameter = self.diameter_iterations.is_some();
+
             missing_nodes = self.find_missing_nodes(&mut cpl);
             points[step_to_perform] = (old_missing_nodes - missing_nodes) as f64;
 
@@ -705,14 +714,45 @@ impl<
                 }
             }
 
-            pl.info(format_args!(
-                "Missing nodes: {} out of {}",
-                missing_nodes,
-                self.num_nodes * 2
-            ));
+            if !had_radius && self.radius_iterations.is_some() {
+                pl.info(format_args!(
+                    "Radius determined: {} (vertex {})",
+                    self.radius_high, self.radius_vertex,
+                ));
+            }
+            if !had_diameter && self.diameter_iterations.is_some() {
+                pl.info(format_args!(
+                    "Diameter determined: {} (vertex {})",
+                    self.diameter_low, self.diameter_vertex,
+                ));
+            }
+
+            self.log_status(pl, missing_nodes);
         }
 
         pl.done();
+    }
+
+    fn log_status(&self, pl: &mut impl ProgressLog, missing_nodes: usize) {
+        if self.radius_high == usize::MAX {
+            pl.info(format_args!(
+                "Missing nodes: {} out of {}; {} ≤ diameter ≤ {} (no radial vertices)",
+                missing_nodes,
+                self.num_nodes * 2,
+                self.diameter_low,
+                self.diameter_high,
+            ));
+        } else {
+            pl.info(format_args!(
+                "Missing nodes: {} out of {}; {} ≤ diameter ≤ {}, {} ≤ radius ≤ {}",
+                missing_nodes,
+                self.num_nodes * 2,
+                self.diameter_low,
+                self.diameter_high,
+                self.radius_low,
+                self.radius_high,
+            ));
+        }
     }
 
     /// Uses a heuristic to decide which is the best pivot to choose in each strongly connected
@@ -1224,6 +1264,11 @@ impl<
         let missing = (0..self.num_nodes)
             .into_par_iter() // TODO: with_min_len (also elsewhere)
             .fold(Default::default, |mut acc: Missing, node| {
+                acc.diameter_high_forward = acc.diameter_high_forward.max(self.forward_high[node]);
+                acc.diameter_high_backward = acc.diameter_high_backward.max(self.bw_high()[node]);
+                if self.radial_vertices[node] {
+                    acc.radius_low = acc.radius_low.min(self.forward_low[node]);
+                }
                 if self.incomplete_forward(node) {
                     acc.all_forward += 1;
                     if self.forward_high[node] > self.diameter_low {
@@ -1244,6 +1289,16 @@ impl<
             .reduce(Default::default, |acc, elem| acc + elem);
 
         pl.update_with_count(self.num_nodes);
+
+        self.diameter_high = missing
+            .diameter_high_forward
+            .min(missing.diameter_high_backward);
+        self.radius_low = missing.radius_low;
+
+        if missing.radius_low == usize::MAX {
+            self.radius_high = usize::MAX;
+            self.radius_low = usize::MAX;
+        }
 
         if missing.radius == 0 && self.radius_iterations.is_none() {
             self.radius_iterations = Some(self.iterations);
