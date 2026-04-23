@@ -832,7 +832,10 @@ impl<
         let component = self.scc.components();
         let scc_sizes = self.scc.compute_sizes();
         let max_size_scc = math::argmax(&scc_sizes).expect("Could not find max size scc.");
-
+        pl.info(format_args!(
+            "The largest component contains {max_size_scc} nodes ({:.3}%)",
+            100.0 * max_size_scc as f64 / self.num_nodes as f64
+        ));
         let mut v = self.num_nodes;
 
         while v > 0 {
