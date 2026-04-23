@@ -736,17 +736,21 @@ impl<
     fn log_status(&self, pl: &mut impl ProgressLog, missing_nodes: usize) {
         if self.radius_high == usize::MAX {
             pl.info(format_args!(
-                "Missing nodes: {} out of {}; {} ≤ diameter ≤ {} (no radial vertices)",
+                "Missing bounds: {} out of 2 · {} = {} ({:3}%); {} ≤ diameter ≤ {} (no radial vertices)",
                 missing_nodes,
+                self.num_nodes,
                 self.num_nodes * 2,
+                (100.0 * missing_nodes as f64) / (self.num_nodes as f64 * 2.0),
                 self.diameter_low,
                 self.diameter_high,
             ));
         } else {
             pl.info(format_args!(
-                "Missing nodes: {} out of {}; {} ≤ diameter ≤ {}, {} ≤ radius ≤ {}",
+                "Missing bounds: {} out of 2 · {} = {} ({:3}%); {} ≤ diameter ≤ {}, {} ≤ radius ≤ {}",
                 missing_nodes,
+                self.num_nodes,
                 self.num_nodes * 2,
+                (100.0 * missing_nodes as f64) / (self.num_nodes as f64 * 2.0),
                 self.diameter_low,
                 self.diameter_high,
                 self.radius_low,
@@ -1262,7 +1266,7 @@ impl<
     fn find_missing_nodes(&mut self, pl: &mut impl ProgressLog) -> usize {
         pl.item_name("node");
         pl.expected_updates(self.num_nodes);
-        pl.start("Computing missing nodes...");
+        pl.start("Computing missing bounds...");
 
         let missing = (0..self.num_nodes)
             .into_par_iter() // TODO: with_min_len (also elsewhere)
