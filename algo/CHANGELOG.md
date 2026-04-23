@@ -32,6 +32,8 @@
 
 - Fixed problems with granularity interpretation in HyperBall.
 
+- Fixed minor discrepancies with the ExactSumSweep paper.
+
 ## [0.6.1] - 2026-02-23
 
 ### New

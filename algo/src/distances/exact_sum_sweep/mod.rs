@@ -519,7 +519,7 @@ impl<
             )
         });
 
-        for i in 2..=iterations {
+        for i in 2..iterations {
             if i % 2 == 0 {
                 let v = if USE_TOT {
                     math::argmax_filtered(self.bw_tot(), self.bw_low(), |i, _| {
@@ -581,7 +581,7 @@ impl<
 
         self.sum_sweep_heuristic(max_outdegree_vertex, 6, &mut cpl);
 
-        let mut points = [self.graph.num_nodes() as f64; 5];
+        let mut points = [self.graph.num_nodes() as f64; 6];
         let mut missing_nodes = self.find_missing_nodes(&mut cpl);
         let mut old_missing_nodes;
 
@@ -668,7 +668,26 @@ impl<
                         )
                     })
                 }
-                5.. => panic!(),
+                5 => {
+                    let v = if USE_TOT {
+                        math::argmax_filtered(&self.forward_tot, &self.forward_high, |i, _| {
+                            self.incomplete_forward(i)
+                        })
+                    } else {
+                        math::argmax_filtered(
+                            &self.forward_high,
+                            std::iter::repeat(0usize),
+                            |i, _| self.incomplete_forward(i),
+                        )
+                    };
+                    self.step_sum_sweep(v, true, &mut cpl, |node| {
+                        format!(
+                            "Performing a forward BFV from a node maximizing the distance sum ({})...",
+                            node
+                        )
+                    })
+                }
+                6.. => panic!(),
             }
 
             // Update each step utility.
