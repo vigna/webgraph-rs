@@ -23,11 +23,9 @@ use webgraph::visits::{
 
 /// Computes connected components of symmetric graphs by parallel visits.
 pub fn symm_par(graph: impl RandomAccessGraph + Sync, pl: &mut impl ConcurrentProgressLog) -> Sccs {
-    // TODO debug_assert!(check_symmetric(&graph));
-
     let num_nodes = graph.num_nodes();
     pl.item_name("node");
-    pl.expected_updates(Some(num_nodes));
+    pl.expected_updates(num_nodes);
     pl.start("Computing connected components...");
 
     let mut visit = ParFairNoPred::new(&graph);

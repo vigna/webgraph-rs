@@ -54,9 +54,7 @@ impl<G: RandomAccessGraph> SccGraph<G, G> {
 
 impl<G1: RandomAccessGraph, G2: RandomAccessGraph> SccGraph<G1, G2> {
     pub(super) fn new(graph: &G1, transpose: &G2, scc: &Sccs, pl: &mut impl ProgressLog) -> Self {
-        pl.display_memory(false);
-        pl.expected_updates(None);
-        pl.start("Computing strongly connected components graph...");
+        pl.start("Computing DAG of strongly connected components...");
 
         let (vec_lengths, vec_connections) =
             Self::find_edges_through_scc(graph, transpose, scc, pl);
@@ -91,7 +89,7 @@ impl<G1: RandomAccessGraph, G2: RandomAccessGraph> SccGraph<G1, G2> {
     ) -> (Vec<usize>, Vec<SccGraphConnection>) {
         pl.item_name("node");
         pl.display_memory(false);
-        pl.expected_updates(Some(graph.num_nodes()));
+        pl.expected_updates(graph.num_nodes());
         pl.start("Selecting arcs...");
 
         let number_of_scc = sccs.num_components();

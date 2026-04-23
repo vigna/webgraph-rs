@@ -75,7 +75,7 @@ fn _test_par_bvcomp(basename: &std::path::Path) -> Result<()> {
         let mut pr = ProgressLogger::default();
         pr.display_memory(true)
             .item_name("node")
-            .expected_updates(Some(graph.num_nodes()));
+            .expected_updates(graph.num_nodes());
         pr.start("Checking that the generated offsets are correct...");
 
         let mut offset = 0;

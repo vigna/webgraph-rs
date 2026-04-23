@@ -72,7 +72,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         perms.iter().all(|p| p.len() == len),
         "All permutations must have the same length"
     );
-    pl.expected_updates(Some(len));
+    pl.expected_updates(len);
 
     // Dispatch on the concrete type for static dispatch in the composition
     // loop. All perms share the same variant since they are loaded with the

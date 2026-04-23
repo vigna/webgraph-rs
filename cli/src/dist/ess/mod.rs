@@ -18,6 +18,11 @@ use webgraph_algo::distances::exact_sum_sweep::{
 #[derive(Parser, Debug)]
 #[command(name = "exact-sum-sweep", about = "Computes radius, diameter, and possibly eccentricities using the ExactSumSweep algorithm (scalar values are printed on stdout).", long_about = None, next_line_help = true)]
 pub struct CliArgs {
+    /// The items to be computed ("all-forward" computes forward eccentricities,
+    /// "all" computes both forward and backward eccentricities).​
+    #[arg(value_enum)]
+    pub level: LevelArg,
+
     /// The basename of the graph.​
     pub basename: PathBuf,
 
@@ -35,10 +40,6 @@ pub struct CliArgs {
     /// Output path for the backward eccentricities.​
     #[arg(short, long)]
     pub backward: Option<PathBuf>,
-
-    /// The items to be computed (all-forward computes forward eccentricities, all computes both forward and backward eccentricities).​
-    #[arg(long, value_enum)]
-    pub level: LevelArg,
 
     #[arg(long, value_enum, default_value_t = IntSliceFormat::Ascii)]
     /// The storage format for eccentricities.​
@@ -111,7 +112,7 @@ pub fn exact_sum_sweep<E: Endianness>(args: CliArgs) -> Result<()> {
     let graph = BvGraph::with_basename(&args.basename).load()?;
 
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
-    let mut pl = concurrent_progress_logger![];
+    let mut pl = concurrent_progress_logger![display_memory = true, local_speed = true];
     if let Some(log_interval) = args.log_interval.log_interval {
         pl.log_interval(log_interval);
     }

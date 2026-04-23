@@ -84,7 +84,7 @@ where
         let label_offsets_path = basename.with_extension(LABELOFFSETS_EXTENSION);
         if label_offsets_path.exists() {
             let file_len = file_len_bits(&basename.with_extension(LABELS_EXTENSION))?;
-            pl.expected_updates(Some(num_nodes));
+            pl.expected_updates(num_nodes);
             let mut efb = EliasFanoBuilder::<u64>::new(num_nodes + 1, file_len);
             info!("The label offsets file exists, reading it to build Elias–Fano");
             let of = <MmapHelper<u32>>::mmap(label_offsets_path, MmapFlags::SEQUENTIAL)?;
@@ -123,7 +123,7 @@ where
             let map = java_properties::read(BufReader::new(f))?;
             Ok(map.get("nodes").unwrap().parse::<usize>()?)
         })?;
-    pl.expected_updates(Some(num_nodes));
+    pl.expected_updates(num_nodes);
 
     let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len);
 

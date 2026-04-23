@@ -201,7 +201,7 @@ fn visit(graph: impl RandomAccessGraph) -> Result<()> {
     pl.display_memory(true)
         .item_name("node")
         .local_speed(true)
-        .expected_updates(Some(num_nodes));
+        .expected_updates(num_nodes);
     pl.start("Visiting graph...");
 
     for start in 0..num_nodes {

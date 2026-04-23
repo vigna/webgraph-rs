@@ -287,7 +287,7 @@ pub fn layered_label_propagation_labels_only<
         let mut rand = SmallRng::seed_from_u64(seed);
 
         for update in 0.. {
-            update_pl.expected_updates(Some(num_nodes));
+            update_pl.expected_updates(num_nodes);
             update_pl.start(format!(
                 "Starting update {} (for gamma={}, {}/{})...",
                 update,
@@ -460,7 +460,7 @@ pub fn layered_label_propagation_labels_only<
             invert_permutation(perm, inv_perm);
         });
 
-        update_pl.expected_updates(Some(num_nodes));
+        update_pl.expected_updates(num_nodes);
         update_pl.start("Computing log-gap cost...");
 
         let gap_cost = gap_cost::compute_log_gap_cost(

@@ -541,7 +541,7 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64> + Sync> PageR
             let mut counts = vec![0.0; n].into_boxed_slice();
 
             pl.item_name("node");
-            pl.expected_updates(Some(n));
+            pl.expected_updates(n);
             pl.start("Computing outdegrees...");
             for_![(_, succ) in self.transpose.iter() {
                 for j in succ {
@@ -603,7 +603,7 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64> + Sync> PageR
             let rank_sync = self.rank.as_sync_slice();
 
             cpl.item_name("node");
-            cpl.expected_updates(Some(n));
+            cpl.expected_updates(n);
             cpl.start(format!("Iteration {}...", self.iteration + 1));
 
             rayon::broadcast(|_| {

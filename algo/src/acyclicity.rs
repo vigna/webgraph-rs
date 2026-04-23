@@ -20,7 +20,7 @@ use webgraph::{
 pub fn is_acyclic(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> bool {
     let num_nodes = graph.num_nodes();
     pl.item_name("node");
-    pl.expected_updates(Some(num_nodes));
+    pl.expected_updates(num_nodes);
     pl.start("Checking acyclicity");
 
     let mut visit = SeqPath::new(&graph);

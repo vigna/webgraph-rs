@@ -59,7 +59,7 @@ use webgraph::visits::{Sequential, StoppedWhenDone, depth_first::*};
 pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs {
     let num_nodes = graph.num_nodes();
     pl.item_name("node");
-    pl.expected_updates(Some(num_nodes));
+    pl.expected_updates(num_nodes);
     pl.start("Computing strongly connected components...");
 
     let mut visit = SeqPred::new(&graph);

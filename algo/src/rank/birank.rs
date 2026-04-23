@@ -459,7 +459,7 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
             let mut inv_sqrt_d = vec![0.0; n].into_boxed_slice();
 
             pl.item_name("node");
-            pl.expected_updates(Some(n));
+            pl.expected_updates(n);
             pl.start("Computing inverse square-root degrees...");
 
             for i in 0..num_u {
@@ -521,7 +521,7 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
                 let p_cursor = AtomicUsize::new(0);
 
                 cpl.item_name("node");
-                cpl.expected_updates(Some(num_p));
+                cpl.expected_updates(num_p);
                 cpl.start(format!(
                     "Iteration {} phase 1 (target nodes)...",
                     self.iteration + 1
@@ -584,7 +584,7 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
                 let u_cursor = AtomicUsize::new(0);
 
                 cpl.item_name("node");
-                cpl.expected_updates(Some(num_u));
+                cpl.expected_updates(num_u);
                 cpl.start(format!(
                     "Iteration {} phase 2 (source nodes)...",
                     self.iteration + 1

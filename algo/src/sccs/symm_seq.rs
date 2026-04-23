@@ -18,7 +18,7 @@ pub fn symm_seq(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Scc
 
     let num_nodes = graph.num_nodes();
     pl.item_name("node");
-    pl.expected_updates(Some(num_nodes));
+    pl.expected_updates(num_nodes);
     pl.start("Computing connected components...");
 
     let mut visit = depth_first::SeqNoPred::new(&graph);
