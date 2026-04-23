@@ -42,11 +42,11 @@ fn arc_value<G1: RandomAccessGraph, G2: RandomAccessGraph>(
     start_value + end_value
 }
 
-impl<G: RandomAccessGraph> SccGraph<G, G> {
-    pub(super) fn new_symm(sccs: &Sccs) -> Self {
+impl<G1: RandomAccessGraph, G2: RandomAccessGraph> Default for SccGraph<G1, G2> {
+    fn default() -> Self {
         Self {
-            segments_offset: vec![0; sccs.num_components()].into_boxed_slice(),
-            data: Vec::new().into_boxed_slice(),
+            segments_offset: Box::default(),
+            data: Box::default(),
             _marker: PhantomData,
         }
     }
@@ -88,7 +88,6 @@ impl<G1: RandomAccessGraph, G2: RandomAccessGraph> SccGraph<G1, G2> {
         pl: &mut impl ProgressLog,
     ) -> (Vec<usize>, Vec<SccGraphConnection>) {
         pl.item_name("node");
-        pl.display_memory(false);
         pl.expected_updates(graph.num_nodes());
         pl.start("Selecting arcs...");
 

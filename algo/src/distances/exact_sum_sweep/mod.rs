@@ -68,6 +68,23 @@
 //! _O_(_mn_), but in many networks it achieves performance similar to the
 //! textbook algorithm that performs a breadth-first search from each node.
 //!
+//! # Memory requirements
+//!
+//! All large allocations are in `usize`. For the symmetric case the algorithm
+//! permanently allocates three arrays of size _n_ (two for forward-eccentricity
+//! bounds and one for the SCC component assignment), plus one array of size _n_
+//! if `USE_TOT` is true. At the time of pivot computation, one more array of
+//! size _n_ and one array of size equal to the number of components are
+//! allocated. Thus, normal usage is three `usize` per node (plus one if
+//! `USE_TOT` is true), while at peak there is one additional `usize` per
+//! node and one per component.
+//!
+//! For the directed case, the eccentricity-bound and total-distance arrays are
+//! doubled, bringing the permanent allocation to five `usize` per node (plus
+//! two if `USE_TOT` is true). The peak allocation increases, too (two
+//! additional arrays of size _n_ and three of size equal to the number of
+//! components).
+//!
 //! # Usage
 //!
 //! Depending on what you intend to compute, you have to choose the right
@@ -184,13 +201,14 @@ use no_break::NoBreak;
 use nonmax::NonMaxUsize;
 use rayon::prelude::*;
 use std::{
+    iter::repeat_with,
     ops::ControlFlow::Continue,
     sync::{
         RwLock,
         atomic::{AtomicUsize, Ordering},
     },
 };
-use sux::{bits::AtomicBitVec, traits::AtomicBitVecOps};
+use sux::{bits::AtomicBitVec, traits::AtomicBitVecOps, utils::transmute_boxed_slice_from_atomic};
 use sync_cell_slice::SyncSlice;
 use webgraph::traits::RandomAccessGraph;
 use webgraph::visits::{
@@ -270,7 +288,6 @@ impl<'a, G: RandomAccessGraph + Sync, OL: Level<USE_TOT>, const USE_TOT: bool>
             "Number of connected components: {}",
             scc.num_components(),
         ));
-        let scc_graph = SccGraph::new_symm(&scc);
         let visit = ParFairNoPred::new(graph);
         let transposed_visit = ParFairNoPred::new(graph);
 
@@ -279,7 +296,7 @@ impl<'a, G: RandomAccessGraph + Sync, OL: Level<USE_TOT>, const USE_TOT: bool>
             graph,
             None,
             scc,
-            scc_graph,
+            SccGraph::default(),
             visit,
             transposed_visit,
             pl,
@@ -1066,7 +1083,7 @@ impl<
         pivot: &[usize],
         forward: bool,
         pl: &mut impl ProgressLog,
-    ) -> (Vec<usize>, Vec<usize>) {
+    ) -> (Box<[usize]>, Box<[usize]>) {
         let (dist_pivot, usize_ecc_pivot) = if forward {
             pl.start("Computing forward dist pivots...");
             self.compute_dist_pivot_from_graph(pivot, self.graph)
@@ -1084,12 +1101,15 @@ impl<
         &self,
         pivot: &[usize],
         graph: &(impl RandomAccessGraph + Sync),
-    ) -> (Vec<usize>, Vec<usize>) {
+    ) -> (Box<[usize]>, Box<[usize]>) {
         let components = self.scc.components();
-        let mut ecc_pivot = Vec::with_capacity(self.scc.num_components());
-        ecc_pivot.resize_with(self.scc.num_components(), || AtomicUsize::new(0));
-        let mut dist_pivot = vec![0; self.num_nodes];
+
+        let ecc_pivot: Box<[AtomicUsize]> = repeat_with(|| AtomicUsize::new(0))
+            .take(self.scc.num_components())
+            .collect();
+        let mut dist_pivot = vec![0; self.num_nodes].into_boxed_slice();
         let dist_pivot_mut = dist_pivot.as_sync_slice();
+
         let current_index = CachePadded::new(AtomicUsize::new(0));
 
         rayon::broadcast(|_| {
@@ -1118,16 +1138,7 @@ impl<
             }
         });
 
-        let usize_ecc_pivot = unsafe {
-            let mut clone = std::mem::ManuallyDrop::new(ecc_pivot);
-            Vec::from_raw_parts(
-                clone.as_mut_ptr() as *mut usize,
-                clone.len(),
-                clone.capacity(),
-            )
-        };
-
-        (dist_pivot, usize_ecc_pivot)
+        (dist_pivot, transmute_boxed_slice_from_atomic(ecc_pivot))
     }
 
     /// Performs a step of the ExactSumSweep algorithm.
@@ -1138,16 +1149,71 @@ impl<
     /// * `pl` - A progress logger.
     fn all_cc_upper_bound(&mut self, pl: &mut impl ProgressLog) {
         pl.item_name("element");
-        pl.display_memory(false);
         pl.expected_updates(2 * self.scc.num_components() + self.num_nodes);
 
         let pivot = self.find_best_pivot(pl);
 
         let (dist_pivot_f, mut ecc_pivot_f) = self.compute_dist_pivot(&pivot, true, pl);
-        let (dist_pivot_b, mut ecc_pivot_b) = self.compute_dist_pivot(&pivot, false, pl);
         let components = self.scc.components();
 
-        if !SYMMETRIC {
+        if SYMMETRIC {
+            // In the symmetric case each SCC is a connected component, so
+            // the component DAG has no edges and no propagation is needed.
+            // A single BFS per pivot suffices since graph == transpose.
+            let radius = RwLock::new((self.radius_high, self.radius_vertex));
+            let forward_high = self.forward_high.as_sync_slice();
+
+            pl.info(format_args!("Refining upper bounds of nodes..."));
+
+            (0..self.num_nodes).into_par_iter().for_each(|node| {
+                let pivot_value = dist_pivot_f[node] + ecc_pivot_f[components[node]];
+                // SAFETY: each node is accessed exactly once.
+                let node_forward_high = unsafe { forward_high[node].get() };
+
+                if pivot_value < node_forward_high {
+                    // SAFETY: each node is accessed exactly once.
+                    unsafe { forward_high[node].set(pivot_value) };
+
+                    if pivot_value == self.forward_low[node] && self.radial_vertices[node] {
+                        let mut update_radius = false;
+                        {
+                            let radius_lock = radius.read().unwrap();
+                            if pivot_value < radius_lock.0 {
+                                update_radius = true;
+                            }
+                        }
+                        if update_radius {
+                            let mut radius_lock = radius.write().unwrap();
+                            if pivot_value < radius_lock.0 {
+                                radius_lock.0 = pivot_value;
+                                radius_lock.1 = node;
+                            }
+                        }
+                    }
+                } else if node_forward_high == self.forward_low[node] && self.radial_vertices[node]
+                {
+                    let mut update_radius = false;
+                    {
+                        let radius_lock = radius.read().unwrap();
+                        if node_forward_high < radius_lock.0 {
+                            update_radius = true;
+                        }
+                    }
+                    if update_radius {
+                        let mut radius_lock = radius.write().unwrap();
+                        if node_forward_high < radius_lock.0 {
+                            radius_lock.0 = node_forward_high;
+                            radius_lock.1 = node;
+                        }
+                    }
+                }
+            });
+
+            pl.update_with_count(self.num_nodes);
+            (self.radius_high, self.radius_vertex) = radius.into_inner().unwrap();
+        } else {
+            let (dist_pivot_b, mut ecc_pivot_b) = self.compute_dist_pivot(&pivot, false, pl);
+
             // Tarjan's algorithm emits components in reverse topological order.
             // In order to bound forward eccentricities in reverse topological order the components
             // are traversed as is.
@@ -1194,65 +1260,60 @@ impl<
                 }
                 pl.light_update();
             }
-        }
 
-        let radius = RwLock::new((self.radius_high, self.radius_vertex));
+            let radius = RwLock::new((self.radius_high, self.radius_vertex));
 
-        let forward_high = self.forward_high.as_sync_slice();
-        let backward_high = if SYMMETRIC {
-            forward_high
-        } else {
-            self.backward_high.as_sync_slice()
-        };
+            let forward_high = self.forward_high.as_sync_slice();
+            let backward_high = self.backward_high.as_sync_slice();
 
-        pl.info(format_args!("Refining upper bounds of nodes..."));
+            pl.info(format_args!("Refining upper bounds of nodes..."));
 
-        (0..self.num_nodes).into_par_iter().for_each(|node| {
-            // SAFETY: each node gets accessed exactly once, so no data
-            // races can happen.
-            let mut node_forward_high = unsafe { forward_high[node].get() };
-            let pivot_value = dist_pivot_b[node] + ecc_pivot_f[components[node]];
+            (0..self.num_nodes).into_par_iter().for_each(|node| {
+                // SAFETY: each node gets accessed exactly once, so no data
+                // races can happen.
+                let mut node_forward_high = unsafe { forward_high[node].get() };
+                let pivot_value = dist_pivot_b[node] + ecc_pivot_f[components[node]];
 
-            if pivot_value < node_forward_high {
-                // SAFETY: each node is accessed exactly once, so there are no data races.
-                unsafe { forward_high[node].set(pivot_value) };
-                node_forward_high = pivot_value;
-            }
+                if pivot_value < node_forward_high {
+                    // SAFETY: each node is accessed exactly once, so there are no data races.
+                    unsafe { forward_high[node].set(pivot_value) };
+                    node_forward_high = pivot_value;
+                }
 
-            if node_forward_high == self.forward_low[node] {
-                let new_ecc = node_forward_high;
+                if node_forward_high == self.forward_low[node] {
+                    let new_ecc = node_forward_high;
 
-                if self.radial_vertices[node] {
-                    let mut update_radius = false;
-                    {
-                        let radius_lock = radius.read().unwrap();
-                        if new_ecc < radius_lock.0 {
-                            update_radius = true;
+                    if self.radial_vertices[node] {
+                        let mut update_radius = false;
+                        {
+                            let radius_lock = radius.read().unwrap();
+                            if new_ecc < radius_lock.0 {
+                                update_radius = true;
+                            }
                         }
-                    }
 
-                    if update_radius {
-                        let mut radius_lock = radius.write().unwrap();
-                        if new_ecc < radius_lock.0 {
-                            radius_lock.0 = new_ecc;
-                            radius_lock.1 = node;
+                        if update_radius {
+                            let mut radius_lock = radius.write().unwrap();
+                            if new_ecc < radius_lock.0 {
+                                radius_lock.0 = new_ecc;
+                                radius_lock.1 = node;
+                            }
                         }
                     }
                 }
-            }
 
-            // SAFETY: each node is accessed exactly once, so there are no data races.
-            unsafe {
-                backward_high[node].set(std::cmp::min(
-                    backward_high[node].get(),
-                    dist_pivot_f[node] + ecc_pivot_b[components[node]],
-                ))
-            };
-        });
+                // SAFETY: each node is accessed exactly once, so there are no data races.
+                unsafe {
+                    backward_high[node].set(std::cmp::min(
+                        backward_high[node].get(),
+                        dist_pivot_f[node] + ecc_pivot_b[components[node]],
+                    ))
+                };
+            });
 
-        pl.update_with_count(self.num_nodes);
-
-        (self.radius_high, self.radius_vertex) = radius.into_inner().unwrap();
+            pl.update_with_count(self.num_nodes);
+            (self.radius_high, self.radius_vertex) = radius.into_inner().unwrap();
+        }
 
         self.iterations += 3;
 
