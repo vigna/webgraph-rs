@@ -149,11 +149,16 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
         )
     }?;
 
+    // As soon as we can use a more recent compiler, this can be avoided using
+    // Some(&BvGraph::with_basename(transposed_path).load()?) below.
+    let mut _transpose_loaded = None;
+
     let transpose = if args.symm {
         Some(&graph)
     } else if let Some(transposed_path) = args.transposed {
         log::info!("Loading transpose...");
-        Some(&BvGraph::with_basename(transposed_path).load()?)
+        _transpose_loaded = Some(BvGraph::with_basename(transposed_path).load()?);
+        _transpose_loaded.as_ref()
     } else {
         None
     };
