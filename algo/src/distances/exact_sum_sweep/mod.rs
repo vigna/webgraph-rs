@@ -765,7 +765,7 @@ impl<
     fn log_status(&self, pl: &mut impl ProgressLog, missing_nodes: usize) {
         if self.radius_high == usize::MAX {
             pl.info(format_args!(
-                "Missing bounds: {} out of 2 · {} = {} ({:.3}%); {} ≤ diameter ≤ {} (no radial vertices)",
+                "Missing bounds: {} out of 2⨉{} = {} ({:.3}%); {} ≤ diameter ≤ {} (no radial vertices)",
                 missing_nodes,
                 self.num_nodes,
                 self.num_nodes * 2,
@@ -1098,10 +1098,10 @@ impl<
         pl: &mut impl ProgressLog,
     ) -> (Box<[usize]>, Box<[usize]>) {
         let (dist_pivot, usize_ecc_pivot) = if forward {
-            pl.start("Computing forward dist pivots...");
+            pl.start("Computing forward distance pivots...");
             self.compute_dist_pivot_from_graph(pivot, self.graph)
         } else {
-            pl.start("Computing backwards dist pivots...");
+            pl.start("Computing backward distance pivots...");
             self.compute_dist_pivot_from_graph(pivot, self.transpose)
         };
 
