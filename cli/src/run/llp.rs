@@ -58,6 +58,13 @@ pub struct CliArgs {
     /// 0-0 is 0.​
     pub gammas: Vec<String>,
 
+    #[clap(flatten)]
+    pub num_threads: NumThreadsArg,
+
+    #[arg(long)]
+    /// Whether to use the identity instead of a random permutation
+    pub no_perm: bool,
+
     #[arg(short = 'u', long, default_value_t = 100)]
     /// Maximum number of updates for a given ɣ.​
     pub max_updates: usize,
@@ -72,7 +79,7 @@ pub struct CliArgs {
     /// percentage.​
     pub perc_modified: Option<f64>,
 
-    #[arg(short = 't', long, default_value_t = MinGain::DEFAULT_THRESHOLD)]
+    #[arg(short = 'g', long, default_value_t = MinGain::DEFAULT_THRESHOLD)]
     /// The gain threshold used to stop the computation (0 to disable).​
     pub gain_threshold: f64,
 
@@ -81,24 +88,12 @@ pub struct CliArgs {
     /// improvement used to stop the computation (-Inf to disable).​
     pub improv_threshold: f64,
 
-    #[clap(flatten)]
-    pub num_threads: NumThreadsArg,
-
     #[arg(short, long, default_value_t = 0)]
     /// The seed to use for the PRNG.​
     pub seed: u64,
 
     #[clap(flatten)]
     pub granularity: GranularityArgs,
-
-    #[arg(long)]
-    /// The chunk size used to localize the random permutation
-    /// (advanced option).​
-    pub chunk_size: Option<usize>,
-
-    #[arg(long)]
-    /// Whether to use the identity instead of a random permutation
-    pub no_perm: bool,
 }
 
 /// Stores a permutation using the given format.

@@ -285,6 +285,7 @@ impl<'a, G: RandomAccessGraph + Sync, OL: Level<USE_TOT>, const USE_TOT: bool>
     /// Builds a new instance to compute the *ExactSumSweep* algorithm on
     /// symmetric (i.e., undirected) graphs.
     pub(super) fn new_symm(graph: &'a G, pl: &mut impl ProgressLog) -> Self {
+        assert!(graph.num_nodes() > 0, "The graph must be nonempty");
         // TODO debug_assert!(check_symmetric(graph), "graph should be symmetric");
         let scc = sccs::symm_par(graph, &mut pl.concurrent());
         pl.info(format_args!(
@@ -333,6 +334,7 @@ impl<
         radial_vertices: Option<AtomicBitVec>,
         pl: &mut impl ProgressLog,
     ) -> Self {
+        assert!(graph.num_nodes() > 0, "The graph must be nonempty");
         assert_eq!(
             graph.num_nodes(),
             transpose.num_nodes(),
@@ -758,7 +760,7 @@ impl<
     fn log_status(&self, pl: &mut impl ProgressLog, missing_nodes: usize) {
         if self.radius_high == usize::MAX {
             pl.info(format_args!(
-                "Missing bounds: {} out of 2 · {} = {} ({:3}%); {} ≤ diameter ≤ {} (no radial vertices)",
+                "Missing bounds: {} out of 2 · {} = {} ({:.3}%); {} ≤ diameter ≤ {} (no radial vertices)",
                 missing_nodes,
                 self.num_nodes,
                 self.num_nodes * 2,
@@ -857,10 +859,11 @@ impl<
 
         let component = self.scc.components();
         let scc_sizes = self.scc.compute_sizes();
-        let max_size_scc = math::argmax(&scc_sizes).expect("Could not find max size scc.");
+        let max_size_scc = math::argmax(&scc_sizes).unwrap();
         pl.info(format_args!(
-            "The largest component contains {max_size_scc} nodes ({:.3}%)",
-            100.0 * max_size_scc as f64 / self.num_nodes as f64
+            "The largest component contains {} nodes ({:.3}%)",
+            scc_sizes[max_size_scc],
+            100.0 * scc_sizes[max_size_scc] as f64 / self.num_nodes as f64
         ));
         let mut v = self.num_nodes;
 
