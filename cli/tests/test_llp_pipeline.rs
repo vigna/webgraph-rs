@@ -95,6 +95,7 @@ fn test_llp_pipeline() -> Result<()> {
         "llp",
         "--seed",
         "0",
+        "--no-perm",
         &format!("{}-simple", basename),
         &format!("{}.llp", basename),
     ])?;
