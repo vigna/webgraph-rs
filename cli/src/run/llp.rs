@@ -79,7 +79,7 @@ pub struct CliArgs {
     /// percentage.​
     pub perc_modified: Option<f64>,
 
-    #[arg(short = 'g', long, default_value_t = MinGain::DEFAULT_THRESHOLD)]
+    #[arg(short = 'G', long, default_value_t = MinGain::DEFAULT_THRESHOLD)]
     /// The gain threshold used to stop the computation (0 to disable).​
     pub gain_threshold: f64,
 

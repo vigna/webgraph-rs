@@ -25,7 +25,8 @@
 
 ### Changed
 
-- The number of threads is now specified `-t`/`--num-threads` instead of `j`.
+- The number of threads is now specified `-t`/`--num-threads` instead of `-j`.
+  Consequently, in LLP `gain_threshold` has short name `-G` instead of `-t`.
 
 - `webgraph transform` now defaults to the parallel version.
 

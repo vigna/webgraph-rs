@@ -68,6 +68,11 @@
 //! _O_(_mn_), but in many networks it achieves performance similar to the
 //! textbook algorithm that performs a breadth-first search from each node.
 //!
+//! In the worst case, the algorithm might have to perform _n_ visits, but in
+//! practice it performs much fewer; moreover, after each round of refinement
+//! the current bounds are logged, providing an approximation even if the
+//! algorithm is stopped before completion.
+//!
 //! # Memory requirements
 //!
 //! All large allocations are in `usize`. For the symmetric case the algorithm
