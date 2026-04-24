@@ -215,7 +215,7 @@ pub fn num_threads_parser(arg: &str) -> Result<usize> {
 /// Shared CLI arguments for commands that specify a number of threads.​
 #[derive(Args, Debug)]
 pub struct NumThreadsArg {
-    #[arg(short = 'j', long, default_value_t = rayon::current_num_threads().max(1), value_parser = num_threads_parser)]
+    #[arg(short = 't', long, default_value_t = rayon::current_num_threads().max(1), value_parser = num_threads_parser)]
     /// The number of threads to use.​
     pub num_threads: usize,
 }

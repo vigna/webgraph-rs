@@ -144,7 +144,7 @@ impl<const USE_TOT: bool> Level<USE_TOT> for All {
         radial_vertices: Option<AtomicBitVec>,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT, false>::new(
+        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new(
             &graph,
             &transpose,
             radial_vertices,
@@ -175,7 +175,7 @@ impl<const USE_TOT: bool> Level<USE_TOT> for All {
         graph: impl RandomAccessGraph + Sync,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT, true>::new_symm(&graph, pl);
+        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new_symm(&graph, pl);
         computer.compute(pl);
 
         assert!(computer.forward_iter.is_some());
@@ -213,7 +213,7 @@ impl<const USE_TOT: bool> Level<USE_TOT> for AllForward {
         radial_vertices: Option<AtomicBitVec>,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT, false>::new(
+        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new(
             &graph,
             &transpose,
             radial_vertices,
@@ -264,7 +264,7 @@ impl<const USE_TOT: bool> Level<USE_TOT> for RadiusDiameter {
         radial_vertices: Option<AtomicBitVec>,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT, false>::new(
+        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new(
             &graph,
             &transpose,
             radial_vertices,
@@ -289,7 +289,7 @@ impl<const USE_TOT: bool> Level<USE_TOT> for RadiusDiameter {
         graph: impl RandomAccessGraph + Sync,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT, true>::new_symm(&graph, pl);
+        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new_symm(&graph, pl);
         computer.compute(pl);
 
         assert!(computer.diameter_iterations.is_some());
@@ -324,7 +324,7 @@ impl<const USE_TOT: bool> Level<USE_TOT> for Diameter {
         radial_vertices: Option<AtomicBitVec>,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT, false>::new(
+        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new(
             &graph,
             &transpose,
             radial_vertices,
@@ -345,7 +345,7 @@ impl<const USE_TOT: bool> Level<USE_TOT> for Diameter {
         graph: impl RandomAccessGraph + Sync,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT, true>::new_symm(&graph, pl);
+        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new_symm(&graph, pl);
         computer.compute(pl);
 
         assert!(computer.diameter_iterations.is_some());
@@ -376,7 +376,7 @@ impl<const USE_TOT: bool> Level<USE_TOT> for Radius {
         radial_vertices: Option<AtomicBitVec>,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT, false>::new(
+        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new(
             &graph,
             &transpose,
             radial_vertices,
@@ -397,7 +397,7 @@ impl<const USE_TOT: bool> Level<USE_TOT> for Radius {
         graph: impl RandomAccessGraph + Sync,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT, true>::new_symm(&graph, pl);
+        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new_symm(&graph, pl);
         computer.compute(pl);
 
         assert!(computer.radius_iterations.is_some());

@@ -227,7 +227,6 @@ struct ExactSumSweep<
     V2: Parallel<EventNoPred> + Sync,
     OL: Level<USE_TOT>,
     const USE_TOT: bool,
-    const SYMMETRIC: bool,
 > {
     pub graph: &'a G1,
     pub transpose: &'a G2,
@@ -274,13 +273,14 @@ struct ExactSumSweep<
     /// of the next vertex to process).
     pub backward_tot: Box<[usize]>,
     pub compute_radial_vertices: bool,
+    pub symmetric: bool,
     pub visit: V1,
     pub transposed_visit: V2,
     _marker: std::marker::PhantomData<OL>,
 }
 
 impl<'a, G: RandomAccessGraph + Sync, OL: Level<USE_TOT>, const USE_TOT: bool>
-    ExactSumSweep<'a, G, G, ParFairNoPred<&'a G>, ParFairNoPred<&'a G>, OL, USE_TOT, true>
+    ExactSumSweep<'a, G, G, ParFairNoPred<&'a G>, ParFairNoPred<&'a G>, OL, USE_TOT>
 {
     /// Builds a new instance to compute the *ExactSumSweep* algorithm on
     /// symmetric (i.e., undirected) graphs.
@@ -297,6 +297,7 @@ impl<'a, G: RandomAccessGraph + Sync, OL: Level<USE_TOT>, const USE_TOT: bool>
         Self::_new(
             graph,
             graph,
+            true,
             None,
             scc,
             SccGraph::default(),
@@ -313,7 +314,7 @@ impl<
     G2: RandomAccessGraph + Sync,
     OL: Level<USE_TOT>,
     const USE_TOT: bool,
-> ExactSumSweep<'a, G1, G2, ParFairNoPred<&'a G1>, ParFairNoPred<&'a G2>, OL, USE_TOT, false>
+> ExactSumSweep<'a, G1, G2, ParFairNoPred<&'a G1>, ParFairNoPred<&'a G2>, OL, USE_TOT>
 {
     /// Builds a new instance to compute the *ExactSumSweep* algorithm on
     /// directed graphs.
@@ -359,6 +360,7 @@ impl<
         Self::_new(
             graph,
             transpose,
+            false,
             radial_vertices,
             scc,
             scc_graph,
@@ -377,13 +379,13 @@ impl<
     V2: Parallel<EventNoPred> + Sync,
     OL: Level<USE_TOT>,
     const USE_TOT: bool,
-    const SYMMETRIC: bool,
-> ExactSumSweep<'a, G1, G2, V1, V2, OL, USE_TOT, SYMMETRIC>
+> ExactSumSweep<'a, G1, G2, V1, V2, OL, USE_TOT>
 {
     #[allow(clippy::too_many_arguments)]
     fn _new(
         graph: &'a G1,
         transpose: &'a G2,
+        symmetric: bool,
         radial_vertices: Option<AtomicBitVec>,
         scc: Sccs,
         scc_graph: SccGraph<G1, G2>,
@@ -401,7 +403,7 @@ impl<
                 ((num_nodes
                     * std::mem::size_of::<usize>()
                     * (2 + (USE_TOT as usize))
-                    * (1 + (!SYMMETRIC as usize)))
+                    * (1 + (!symmetric as usize)))
                     + (num_nodes / 8) * compute_radial_vertices as usize) as f64
             )
         ));
@@ -428,19 +430,19 @@ impl<
             } else {
                 Box::default()
             },
-            backward_tot: if USE_TOT && !SYMMETRIC {
+            backward_tot: if USE_TOT && !symmetric {
                 vec![0; num_nodes].into()
             } else {
                 Box::default()
             },
             forward_low: vec![0; num_nodes].into(),
             forward_high: vec![num_nodes; num_nodes].into(),
-            backward_low: if SYMMETRIC {
+            backward_low: if symmetric {
                 Box::default()
             } else {
                 vec![0; num_nodes].into()
             },
-            backward_high: if SYMMETRIC {
+            backward_high: if symmetric {
                 Box::default()
             } else {
                 vec![num_nodes; num_nodes].into()
@@ -450,7 +452,7 @@ impl<
             diameter_low: 0,
             diameter_high: num_nodes - 1,
             radius_low: 0,
-            radius_high: if SYMMETRIC {
+            radius_high: if symmetric {
                 num_nodes / 2
             } else {
                 num_nodes - 1
@@ -464,6 +466,7 @@ impl<
             radius_vertex: 0,
             diameter_vertex: 0,
             compute_radial_vertices,
+            symmetric,
             visit,
             transposed_visit,
             _marker: std::marker::PhantomData,
@@ -478,8 +481,7 @@ impl<
     V2: Parallel<EventNoPred> + Sync,
     OL: Level<USE_TOT>,
     const USE_TOT: bool,
-    const SYMMETRIC: bool,
-> ExactSumSweep<'_, G1, G2, V1, V2, OL, USE_TOT, SYMMETRIC>
+> ExactSumSweep<'_, G1, G2, V1, V2, OL, USE_TOT>
 {
     #[inline(always)]
     fn incomplete_forward(&self, index: usize) -> bool {
@@ -488,7 +490,7 @@ impl<
 
     #[inline(always)]
     fn incomplete_backward(&self, index: usize) -> bool {
-        if SYMMETRIC {
+        if self.symmetric {
             self.incomplete_forward(index)
         } else {
             self.backward_low[index] != self.backward_high[index]
@@ -496,10 +498,10 @@ impl<
     }
 
     /// Returns a reference to the backward lower-bound array, redirecting to
-    /// the forward array when `SYMMETRIC`.
+    /// the forward array when `symmetric`.
     #[inline(always)]
     fn bw_low(&self) -> &[usize] {
-        if SYMMETRIC {
+        if self.symmetric {
             &self.forward_low
         } else {
             &self.backward_low
@@ -507,10 +509,10 @@ impl<
     }
 
     /// Returns a reference to the backward upper-bound array, redirecting to
-    /// the forward array when `SYMMETRIC`.
+    /// the forward array when `symmetric`.
     #[inline(always)]
     fn bw_high(&self) -> &[usize] {
-        if SYMMETRIC {
+        if self.symmetric {
             &self.forward_high
         } else {
             &self.backward_high
@@ -518,10 +520,10 @@ impl<
     }
 
     /// Returns a reference to the backward total-distance array, redirecting
-    /// to the forward array when `SYMMETRIC`.
+    /// to the forward array when `symmetric`.
     #[inline(always)]
     fn bw_tot(&self) -> &[usize] {
-        if SYMMETRIC {
+        if self.symmetric {
             &self.forward_tot
         } else {
             &self.backward_tot
@@ -978,7 +980,7 @@ impl<
 
         let ecc_start = max_dist.load(Ordering::Relaxed);
 
-        if SYMMETRIC {
+        if self.symmetric {
             self.forward_low[start] = ecc_start;
             self.forward_high[start] = ecc_start;
         } else {
@@ -1007,17 +1009,17 @@ impl<
 
         let max_dist = CachePadded::new(AtomicUsize::new(0));
 
-        let bw_high = if SYMMETRIC {
+        let bw_high = if self.symmetric {
             &*self.forward_high
         } else {
             &*self.backward_high
         };
-        let backward_low = if SYMMETRIC {
+        let backward_low = if self.symmetric {
             self.forward_low.as_sync_slice()
         } else {
             self.backward_low.as_sync_slice()
         };
-        let backward_tot = if SYMMETRIC {
+        let backward_tot = if self.symmetric {
             self.forward_tot.as_sync_slice()
         } else {
             self.backward_tot.as_sync_slice()
@@ -1159,7 +1161,7 @@ impl<
         let (dist_pivot_f, mut ecc_pivot_f) = self.compute_dist_pivot(&pivot, true, pl);
         let components = self.scc.components();
 
-        if SYMMETRIC {
+        if self.symmetric {
             // In the symmetric case each SCC is a connected component, so
             // the component DAG has no edges and no propagation is needed.
             // A single BFS per pivot suffices since graph == transpose.

@@ -25,6 +25,8 @@
 
 ### Changed
 
+- The number of threads is now specified `-t`/`--num-threads` instead of `j`.
+
 - `webgraph transform` now defaults to the parallel version.
 
 - Removed dependency from `common_traits`, replaced by `num-traits`.

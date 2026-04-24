@@ -252,8 +252,8 @@ fn test_ess_all_star_graph() {
 }
 
 /// Runs all levels on a symmetric graph through both `run_symm`
-/// (SYMMETRIC=true) and `run` with the graph as its own transpose
-/// (SYMMETRIC=false), checking that the results match.
+/// (symmetric path) and `run` with the graph as its own transpose
+/// (directed path), checking that the results match.
 #[test]
 fn test_ess_symmetric_vs_non_symmetric() {
     for graph in [symm_graph(), symm_path(), symm_star()] {
