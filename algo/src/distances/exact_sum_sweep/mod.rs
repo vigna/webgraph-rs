@@ -74,16 +74,19 @@
 //! permanently allocates three arrays of size _n_ (two for forward-eccentricity
 //! bounds and one for the SCC component assignment), plus one array of size _n_
 //! if `USE_TOT` is true. At the time of pivot computation, one more array of
-//! size _n_ and one array of size equal to the number of components are
+//! size _n_ and two arrays of size equal to the number of components are
 //! allocated. Thus, normal usage is three `usize` per node (plus one if
 //! `USE_TOT` is true), while at peak there is one additional `usize` per
-//! node and one per component.
+//! node and two per component.
 //!
-//! For the directed case, the eccentricity-bound and total-distance arrays are
-//! doubled, bringing the permanent allocation to five `usize` per node (plus
-//! two if `USE_TOT` is true). The peak allocation increases, too (two
-//! additional arrays of size _n_ and three of size equal to the number of
-//! components).
+//! For the directed case, there are two additional arrays of size _n_ for the
+//! backward-eccentricity bounds, plus one array of size _n_ if `USE_TOT` is
+//! true, bringing the permanent allocation to five `usize` per node (plus two
+//! if `USE_TOT` is true). Additionally, the DAG of strongly connected
+//! components is stored permanently, using one `usize` per component for
+//! offsets and three `usize` per DAG edge for the connection data. At peak, the
+//! pivot computation allocates two arrays of size _n_ and three of size equal
+//! to the number of components.
 //!
 //! # Usage
 //!
@@ -421,26 +424,26 @@ impl<
             transpose,
             num_nodes,
             forward_tot: if USE_TOT {
-                vec![0; num_nodes].into_boxed_slice()
+                vec![0; num_nodes].into()
             } else {
                 Box::default()
             },
             backward_tot: if USE_TOT && !SYMMETRIC {
-                vec![0; num_nodes].into_boxed_slice()
+                vec![0; num_nodes].into()
             } else {
                 Box::default()
             },
-            forward_low: vec![0; num_nodes].into_boxed_slice(),
-            forward_high: vec![num_nodes; num_nodes].into_boxed_slice(),
+            forward_low: vec![0; num_nodes].into(),
+            forward_high: vec![num_nodes; num_nodes].into(),
             backward_low: if SYMMETRIC {
                 Box::default()
             } else {
-                vec![0; num_nodes].into_boxed_slice()
+                vec![0; num_nodes].into()
             },
             backward_high: if SYMMETRIC {
                 Box::default()
             } else {
-                vec![num_nodes; num_nodes].into_boxed_slice()
+                vec![num_nodes; num_nodes].into()
             },
             scc_graph,
             scc,
@@ -781,10 +784,10 @@ impl<
     ///
     /// # Arguments
     /// * `pl` - A progress logger.
-    fn find_best_pivot(&self, pl: &mut impl ProgressLog) -> Vec<usize> {
+    fn find_best_pivot(&self, pl: &mut impl ProgressLog) -> Box<[usize]> {
         debug_assert!(self.num_nodes < usize::MAX);
 
-        let mut pivot: Vec<Option<NonMaxUsize>> = vec![None; self.scc.num_components()];
+        let mut pivot: Box<[Option<NonMaxUsize>]> = vec![None; self.scc.num_components()].into();
         let components = self.scc.components();
         pl.expected_updates(components.len());
         pl.item_name("node");
