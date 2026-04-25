@@ -572,9 +572,13 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
         for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E>,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
-        let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
+        let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)
+            .with_context(|| {
+                format!("Could not load properties file {}", self.basename.display())
+            })?;
         self.basename.set_extension(GRAPH_EXTENSION);
-        let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
+        let factory = GLM::new_factory(&self.basename, self.graph_load_flags)
+            .with_context(|| format!("Could not load graph file {}", self.basename.display()))?;
 
         Ok(BvGraphSeq::new(
             DynCodesDecoderFactory::new(factory, EmptyDict::default().into(), comp_flags)?,
@@ -620,11 +624,16 @@ impl<
     {
         warn_if_ef_stale(&self.basename);
         self.basename.set_extension(PROPERTIES_EXTENSION);
-        let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
+        let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)
+            .with_context(|| {
+                format!("Could not load properties file {}", self.basename.display())
+            })?;
         self.basename.set_extension(GRAPH_EXTENSION);
-        let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
+        let factory = GLM::new_factory(&self.basename, self.graph_load_flags)
+            .with_context(|| format!("Could not load graph file {}", self.basename.display()))?;
         self.basename.set_extension(EF_EXTENSION);
-        let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)?;
+        let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)
+            .with_context(|| format!("Could not load offsets file {}", self.basename.display()))?;
 
         Ok(BvGraph::new(
             ConstCodesDecoderFactory::new(factory, offsets, comp_flags)?,
@@ -676,9 +685,13 @@ impl<
         for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E>,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
-        let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
+        let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)
+            .with_context(|| {
+                format!("Could not load properties file {}", self.basename.display())
+            })?;
         self.basename.set_extension(GRAPH_EXTENSION);
-        let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
+        let factory = GLM::new_factory(&self.basename, self.graph_load_flags)
+            .with_context(|| format!("Could not load graph file {}", self.basename.display()))?;
 
         Ok(BvGraphSeq::new(
             ConstCodesDecoderFactory::new(factory, EmptyDict::default().into(), comp_flags)?,

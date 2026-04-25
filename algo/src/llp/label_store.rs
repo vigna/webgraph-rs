@@ -8,6 +8,7 @@
 use rayon::prelude::*;
 use std::{
     cell::Cell,
+    iter::repeat_with,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
@@ -22,15 +23,10 @@ pub(crate) struct LabelStore {
 
 impl LabelStore {
     pub(crate) fn new(n: usize) -> Self {
-        let mut labels = Vec::with_capacity(n);
-        labels.extend((0..n).map(|_| Cell::new(0)));
-        let mut volumes = Vec::with_capacity(n);
-        volumes.extend((0..n).map(|_| AtomicUsize::new(0)));
+        let labels = repeat_with(|| Cell::new(0)).take(n).collect();
+        let volumes = repeat_with(|| AtomicUsize::new(0)).take(n).collect();
 
-        Self {
-            labels: labels.into_boxed_slice(),
-            volumes: volumes.into_boxed_slice(),
-        }
+        Self { labels, volumes }
     }
 
     pub(crate) fn init(&mut self) {

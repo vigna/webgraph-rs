@@ -258,7 +258,7 @@ impl<I: for<'a> PartialEq<O> + PartialEq, O: PartialEq<I> + PartialEq> IndexedSe
     for EmptyDict<I, O>
 {
     fn get(&self, _index: usize) -> Self::Output<'_> {
-        panic!();
+        panic!("EmptyDict does not contain any elements");
     }
 
     unsafe fn get_unchecked(&self, _index: usize) -> Self::Output<'_> {
