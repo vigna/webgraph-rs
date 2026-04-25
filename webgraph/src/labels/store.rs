@@ -199,7 +199,7 @@ where
         let file = File::create(labels_path)
             .with_context(|| format!("Could not create {}", labels_path.display()))?;
         let encoder = zstd::Encoder::new(BufWriter::new(file), 0)?;
-        BitStreamStoreLabels::from_writer(self.serializer.clone(), encoder, offsets_path, true)
+        BitStreamStoreLabels::from_writer(self.serializer.clone(), encoder, offsets_path)
     }
 
     fn init_concat(

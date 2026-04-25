@@ -278,9 +278,9 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels> BvCompZ<E, W, SL> {
         // Flush bits are just padding
         self.encoder.flush()?;
         self.offsets_writer.flush()?;
+        self.store_labels.flush()?;
         self.stats.labels_written_bits = self.store_labels.label_written_bits();
         self.stats.label_offsets_written_bits = self.store_labels.offsets_written_bits();
-        self.store_labels.flush()?;
         Ok(self.stats)
     }
 

@@ -606,7 +606,7 @@ impl BvCompConfig {
                 let chunk_offsets_path = tmp_path.with_extension(OFFSETS_EXTENSION);
                 let chunk_labels_path = tmp_path.with_extension(LABELS_EXTENSION);
                 let chunk_label_offsets_path = tmp_path.with_extension(LABELOFFSETS_EXTENSION);
-                let mut store_labels = store_labels_config
+                let store_labels = store_labels_config
                     .new_storage(&chunk_labels_path, &chunk_label_offsets_path)?;
                 let tx = tx.clone();
                 let mut comp_pl = comp_pl.clone();
@@ -620,8 +620,6 @@ impl BvCompConfig {
                     let first_node = node_id;
                     let writer = buf_bit_writer::from_path::<E, usize>(&chunk_graph_path).unwrap();
                     let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags).unwrap();
-
-                    store_labels.init().unwrap();
 
                     let stats;
                     let mut last_node;

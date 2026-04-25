@@ -56,7 +56,7 @@ impl<E: Endianness, S> BitStreamStoreLabels<E, S, File> {
         let offsets_path = offsets_path.as_ref();
         let bitstream = buf_bit_writer::from_path::<E, usize>(labels_path)
             .with_context(|| format!("Could not create label file {}", labels_path.display()))?;
-        let offsets_writer = OffsetsWriter::from_path(offsets_path, true)?;
+        let offsets_writer = OffsetsWriter::from_path(offsets_path, false)?;
         Ok(Self {
             serializer,
             bitstream,
@@ -72,18 +72,14 @@ impl<E: Endianness, S, W: Write> BitStreamStoreLabels<E, S, W> {
     /// Creates a new label compressor from an existing writer.
     ///
     /// The `writer` receives the serialized label bitstream, and
-    /// `offsets_path` receives the γ-coded delta offsets. The
-    /// `write_zero` flag controls whether the initial zero offset is
-    /// written (true for sequential, false for parallel chunks whose
-    /// initial offset is written during concatenation).
+    /// `offsets_path` receives the γ-coded delta offsets.
     pub fn from_writer(
         serializer: S,
         writer: W,
         offsets_path: impl AsRef<Path>,
-        write_zero: bool,
     ) -> Result<Self> {
         let bitstream = BufBitWriter::new(WordAdapter::new(BufWriter::new(writer)));
-        let offsets_writer = OffsetsWriter::from_path(offsets_path, write_zero)?;
+        let offsets_writer = OffsetsWriter::from_path(offsets_path, false)?;
         Ok(Self {
             serializer,
             bitstream,
@@ -103,6 +99,7 @@ where
     type Label = S::SerType;
 
     fn init(&mut self) -> Result<()> {
+        self.offsets_writer.push(0)?;
         Ok(())
     }
 
