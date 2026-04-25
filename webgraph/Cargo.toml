@@ -46,6 +46,7 @@ thiserror.workspace = true
 no-break.workspace = true
 nonmax.workspace = true
 sysinfo.workspace = true
+zstd.workspace = true
 
 libc = "0.2.155"
 impl-tools = "0.11.2"

@@ -15,3 +15,6 @@ pub use zip::*;
 
 pub mod proj;
 pub use proj::*;
+
+mod store;
+pub use store::{BitStreamStoreLabelsConfig, Uncompressed, Zstd};
