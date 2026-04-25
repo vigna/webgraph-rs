@@ -554,7 +554,57 @@ impl BvCompConfig {
     /// all threads finish, the main thread concatenates the chunk files
     /// using [`StoreLabelsConfig::concat_part`].
     ///
+    /// # Examples
+    ///
+    /// Compresses a labeled graph in parallel, then loads and verifies the
+    /// result using [`BitStreamLabelingSeq::load`]:
+    ///
+    /// ```
+    /// # use anyhow::Result;
+    /// # use dsi_bitstream::prelude::*;
+    /// # use webgraph::prelude::*;
+    /// # use webgraph::graphs::bvgraph::*;
+    /// # use webgraph::labels::BitStreamLabelingSeq;
+    /// #
+    /// # fn main() -> Result<()> {
+    /// # let tmp = tempfile::TempDir::new()?;
+    /// # let basename = tmp.path().join("example");
+    /// use webgraph::graphs::vec_graph::LabeledVecGraph;
+    /// use webgraph::labels::BitStreamStoreLabelsConfig;
+    /// use webgraph::traits::FixedWidth;
+    ///
+    /// let graph = LabeledVecGraph::from_arcs([
+    ///     ((0, 1), 10u32),
+    ///     ((0, 2), 20),
+    ///     ((1, 3), 30),
+    ///     ((2, 3), 40),
+    ///     ((3, 0), 50),
+    /// ]);
+    ///
+    /// let label_config =
+    ///     BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+    ///
+    /// BvComp::with_basename(&basename)
+    ///     .par_comp_labeled::<BE, _, _>(&graph, label_config)?;
+    ///
+    /// let labels_basename = labels_basename(&basename);
+    ///
+    /// // Load the compressed graph and labeling, then verify
+    /// let seq = BvGraphSeq::with_basename(&basename)
+    ///     .endianness::<BE>()
+    ///     .load()?;
+    /// let labeling = BitStreamLabelingSeq::<BE, _, _>::load(
+    ///     &labels_basename,
+    ///     FixedWidth::<u32>::new(),
+    /// )?;
+    ///
+    /// graph::eq_labeled(&graph, &Zip(seq, labeling))?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
     /// [`par_comp`]: Self::par_comp
+    /// [`BitStreamLabelingSeq::load`]: crate::labels::BitStreamLabelingSeq::load
     pub fn par_comp_labeled<E: Endianness, G, SLC>(
         &mut self,
         graph: G,

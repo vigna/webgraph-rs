@@ -14,16 +14,24 @@
 //! See the examples for a complete implementation based on memory mapping.
 
 use std::iter::FusedIterator;
+use std::path::Path;
 
+use crate::graphs::bvgraph::{EF, MemBufReader, parse_label_properties};
 use crate::prelude::{BitDeserializer, Offsets, SortedIterator, SortedLender};
 use crate::prelude::{NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
-use dsi_bitstream::prelude::CodesReaderFactory;
+use crate::utils::MmapHelper;
+use anyhow::Context;
+use dsi_bitstream::prelude::{CodesRead, CodesReaderFactory};
 use dsi_bitstream::traits::{BitRead, BitSeek, Endianness};
-use epserde::deser::MemCase;
+use epserde::deser::{Deserialize, Flags, MemCase};
 use lender::*;
+use mmap_rs::MmapFlags;
 use sux::traits::IndexedSeq;
 
 /// A labeling based on a bitstream of labels and an indexed sequence of offsets.
+///
+/// Use [`load`](BitStreamLabeling::load) to memory-map a labeling from a label
+/// basename, or [`new`](BitStreamLabeling::new) for custom setups.
 pub struct BitStreamLabeling<E: Endianness, S: CodesReaderFactory<E>, D, O: Offsets>
 where
     for<'a> S::CodesReader<'a>: BitRead<E> + BitSeek,
@@ -51,6 +59,35 @@ where
             num_arcs,
             _marker: std::marker::PhantomData,
         }
+    }
+}
+
+impl<E: Endianness, D> BitStreamLabeling<E, MmapHelper<u32>, D, EF>
+where
+    for<'a> MemBufReader<'a, E>: CodesRead<E> + BitSeek,
+    for<'a> D: BitDeserializer<E, MemBufReader<'a, E>>,
+{
+    /// Loads a labeling from the given label basename by memory mapping
+    /// the `.labels` bitstream and the `.ef` Elias–Fano pointer list.
+    ///
+    /// The `.properties` file is parsed to obtain the number of arcs and
+    /// to check that the endianness matches `E`.
+    pub fn load(label_basename: impl AsRef<Path>, bit_deser: D) -> anyhow::Result<Self> {
+        let label_basename = label_basename.as_ref();
+        let label_props = parse_label_properties::<E>(label_basename)?;
+        let labels_path = label_basename.with_extension("labels");
+        let ef_path = label_basename.with_extension("ef");
+        Ok(Self::new(
+            MmapHelper::<u32>::mmap(&labels_path, MmapFlags::empty())
+                .with_context(|| format!("Could not mmap {}", labels_path.display()))?,
+            bit_deser,
+            // SAFETY: the file was written by a compatible version of ε-serde.
+            unsafe {
+                EF::mmap(&ef_path, Flags::empty())
+                    .with_context(|| format!("Could not mmap {}", ef_path.display()))
+            }?,
+            label_props.num_arcs,
+        ))
     }
 }
 
@@ -104,10 +141,10 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offs
 }
 
 pub struct SeqLabels<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> {
-    reader: &'a mut BR,
-    bit_deser: &'a D,
-    end_pos: u64,
-    _marker: std::marker::PhantomData<E>,
+    pub(crate) reader: &'a mut BR,
+    pub(crate) bit_deser: &'a D,
+    pub(crate) end_pos: u64,
+    pub(crate) _marker: std::marker::PhantomData<E>,
 }
 
 impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterator

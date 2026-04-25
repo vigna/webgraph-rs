@@ -723,7 +723,6 @@ fn test_bvcomp_with_custom_comp_flags() -> Result<()> {
 
 #[test]
 fn test_bvcomp_labeled_roundtrip() -> Result<()> {
-    use epserde::deser::{Deserialize, Flags};
     use webgraph::graphs::vec_graph::LabeledVecGraph;
     use webgraph::labels::BitStreamLabeling;
     use webgraph::traits::FixedWidth;
@@ -752,26 +751,19 @@ fn test_bvcomp_labeled_roundtrip() -> Result<()> {
     assert_eq!(label_props.num_arcs, 5);
     assert_eq!(label_props.serializer, "FixedWidth<u32>");
 
-    let labels_path = labels_basename.with_extension("labels");
-    let label_offsets_path = labels_basename.with_extension("offsets");
-    let label_ef_path = labels_basename.with_extension("ef");
     common::build_ef_from_offsets(
         graph.num_nodes(),
-        &labels_path,
-        &label_offsets_path,
-        &label_ef_path,
+        &labels_basename.with_extension("labels"),
+        &labels_basename.with_extension("offsets"),
+        &labels_basename.with_extension("ef"),
     )?;
 
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .load()?;
 
-    let labeling = BitStreamLabeling::<BE, _, _, _>::new(
-        webgraph::utils::MmapHelper::<u32>::mmap(&labels_path, mmap_rs::MmapFlags::empty())?,
-        FixedWidth::<u32>::new(),
-        unsafe { EF::mmap(&label_ef_path, Flags::empty())? },
-        label_props.num_arcs,
-    );
+    let labeling =
+        BitStreamLabeling::<BE, _, _, _>::load(&labels_basename, FixedWidth::<u32>::new())?;
 
     graph::eq_labeled(&graph, &Zip(seq, labeling))?;
 
@@ -780,7 +772,6 @@ fn test_bvcomp_labeled_roundtrip() -> Result<()> {
 
 #[test]
 fn test_par_comp_labeled_roundtrip() -> Result<()> {
-    use epserde::deser::{Deserialize, Flags};
     use webgraph::graphs::vec_graph::LabeledVecGraph;
     use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig};
     use webgraph::traits::FixedWidth;
@@ -801,27 +792,55 @@ fn test_par_comp_labeled_roundtrip() -> Result<()> {
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 
     let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
-    let label_props = webgraph::graphs::bvgraph::parse_label_properties::<BE>(&labels_basename)?;
-    let labels_path = labels_basename.with_extension("labels");
-    let label_offsets_path = labels_basename.with_extension("offsets");
-    let label_ef_path = labels_basename.with_extension("ef");
     common::build_ef_from_offsets(
         graph.num_nodes(),
-        &labels_path,
-        &label_offsets_path,
-        &label_ef_path,
+        &labels_basename.with_extension("labels"),
+        &labels_basename.with_extension("offsets"),
+        &labels_basename.with_extension("ef"),
     )?;
 
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .load()?;
 
-    let labeling = BitStreamLabeling::<BE, _, _, _>::new(
-        webgraph::utils::MmapHelper::<u32>::mmap(&labels_path, mmap_rs::MmapFlags::empty())?,
-        FixedWidth::<u32>::new(),
-        unsafe { EF::mmap(&label_ef_path, Flags::empty())? },
-        label_props.num_arcs,
-    );
+    let labeling =
+        BitStreamLabeling::<BE, _, _, _>::load(&labels_basename, FixedWidth::<u32>::new())?;
+
+    graph::eq_labeled(&graph, &Zip(seq, labeling))?;
+
+    Ok(())
+}
+
+#[test]
+fn test_par_comp_labeled_seq_roundtrip() -> Result<()> {
+    use webgraph::graphs::vec_graph::LabeledVecGraph;
+    use webgraph::labels::{BitStreamLabelingSeq, BitStreamStoreLabelsConfig};
+    use webgraph::traits::FixedWidth;
+
+    let graph = LabeledVecGraph::from_arcs([
+        ((0, 1), 10u32),
+        ((0, 2), 20),
+        ((1, 3), 30),
+        ((2, 3), 40),
+        ((3, 0), 50),
+    ]);
+
+    let tmp = tempfile::TempDir::new()?;
+    let basename = tmp.path().join("parlabeled_seq");
+
+    let label_config = BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+
+    BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
+
+    let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
+
+    // No EF needed — BitStreamLabelingSeq reads offsets from the .offsets file
+    let seq = BvGraphSeq::with_basename(&basename)
+        .endianness::<BE>()
+        .load()?;
+
+    let labeling =
+        BitStreamLabelingSeq::<BE, _, _>::load(&labels_basename, FixedWidth::<u32>::new())?;
 
     graph::eq_labeled(&graph, &Zip(seq, labeling))?;
 
@@ -830,7 +849,6 @@ fn test_par_comp_labeled_roundtrip() -> Result<()> {
 
 #[test]
 fn test_par_comp_labeled_roundtrip_zstd() -> Result<()> {
-    use epserde::deser::{Deserialize, Flags};
     use webgraph::graphs::vec_graph::LabeledVecGraph;
     use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig};
     use webgraph::traits::FixedWidth;
@@ -852,27 +870,19 @@ fn test_par_comp_labeled_roundtrip_zstd() -> Result<()> {
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 
     let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
-    let label_props = webgraph::graphs::bvgraph::parse_label_properties::<BE>(&labels_basename)?;
-    let labels_path = labels_basename.with_extension("labels");
-    let label_offsets_path = labels_basename.with_extension("offsets");
-    let label_ef_path = labels_basename.with_extension("ef");
     common::build_ef_from_offsets(
         graph.num_nodes(),
-        &labels_path,
-        &label_offsets_path,
-        &label_ef_path,
+        &labels_basename.with_extension("labels"),
+        &labels_basename.with_extension("offsets"),
+        &labels_basename.with_extension("ef"),
     )?;
 
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .load()?;
 
-    let labeling = BitStreamLabeling::<BE, _, _, _>::new(
-        webgraph::utils::MmapHelper::<u32>::mmap(&labels_path, mmap_rs::MmapFlags::empty())?,
-        FixedWidth::<u32>::new(),
-        unsafe { EF::mmap(&label_ef_path, Flags::empty())? },
-        label_props.num_arcs,
-    );
+    let labeling =
+        BitStreamLabeling::<BE, _, _, _>::load(&labels_basename, FixedWidth::<u32>::new())?;
 
     graph::eq_labeled(&graph, &Zip(seq, labeling))?;
 
@@ -900,7 +910,6 @@ fn build_labeled_cnr2000() -> Result<webgraph::graphs::vec_graph::LabeledVecGrap
 #[cfg_attr(feature = "slow_tests", test)]
 #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
 fn test_comp_labeled_cnr2000() -> Result<()> {
-    use epserde::deser::{Deserialize, Flags};
     use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig};
     use webgraph::traits::FixedWidth;
 
@@ -920,27 +929,19 @@ fn test_comp_labeled_cnr2000() -> Result<()> {
     BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, label_config)?;
 
     let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
-    let label_props = webgraph::graphs::bvgraph::parse_label_properties::<BE>(&labels_basename)?;
-    let labels_path = labels_basename.with_extension("labels");
-    let label_offsets_path = labels_basename.with_extension("offsets");
-    let label_ef_path = labels_basename.with_extension("ef");
     common::build_ef_from_offsets(
         graph.num_nodes(),
-        &labels_path,
-        &label_offsets_path,
-        &label_ef_path,
+        &labels_basename.with_extension("labels"),
+        &labels_basename.with_extension("offsets"),
+        &labels_basename.with_extension("ef"),
     )?;
 
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .load()?;
 
-    let labeling = BitStreamLabeling::<BE, _, _, _>::new(
-        webgraph::utils::MmapHelper::<u32>::mmap(&labels_path, mmap_rs::MmapFlags::empty())?,
-        FixedWidth::<u32>::new(),
-        unsafe { EF::mmap(&label_ef_path, Flags::empty())? },
-        label_props.num_arcs,
-    );
+    let labeling =
+        BitStreamLabeling::<BE, _, _, _>::load(&labels_basename, FixedWidth::<u32>::new())?;
 
     graph::eq_labeled(&graph, &Zip(seq, labeling))?;
 
@@ -950,7 +951,6 @@ fn test_comp_labeled_cnr2000() -> Result<()> {
 #[cfg_attr(feature = "slow_tests", test)]
 #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
 fn test_par_comp_labeled_cnr2000() -> Result<()> {
-    use epserde::deser::{Deserialize, Flags};
     use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig};
     use webgraph::traits::FixedWidth;
 
@@ -970,27 +970,19 @@ fn test_par_comp_labeled_cnr2000() -> Result<()> {
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 
     let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
-    let label_props = webgraph::graphs::bvgraph::parse_label_properties::<BE>(&labels_basename)?;
-    let labels_path = labels_basename.with_extension("labels");
-    let label_offsets_path = labels_basename.with_extension("offsets");
-    let label_ef_path = labels_basename.with_extension("ef");
     common::build_ef_from_offsets(
         graph.num_nodes(),
-        &labels_path,
-        &label_offsets_path,
-        &label_ef_path,
+        &labels_basename.with_extension("labels"),
+        &labels_basename.with_extension("offsets"),
+        &labels_basename.with_extension("ef"),
     )?;
 
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .load()?;
 
-    let labeling = BitStreamLabeling::<BE, _, _, _>::new(
-        webgraph::utils::MmapHelper::<u32>::mmap(&labels_path, mmap_rs::MmapFlags::empty())?,
-        FixedWidth::<u32>::new(),
-        unsafe { EF::mmap(&label_ef_path, Flags::empty())? },
-        label_props.num_arcs,
-    );
+    let labeling =
+        BitStreamLabeling::<BE, _, _, _>::load(&labels_basename, FixedWidth::<u32>::new())?;
 
     graph::eq_labeled(&graph, &Zip(seq, labeling))?;
 
