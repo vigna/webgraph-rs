@@ -39,6 +39,7 @@ pub struct BitStreamStoreLabels<E: Endianness, S, W: Write> {
     offsets_writer: OffsetsWriter<File>,
     bits_for_curr_node: u64,
     total_label_bits: u64,
+    total_offsets_bits: u64,
     started: bool,
 }
 
@@ -63,6 +64,7 @@ impl<E: Endianness, S> BitStreamStoreLabels<E, S, File> {
             offsets_writer,
             bits_for_curr_node: 0,
             total_label_bits: 0,
+            total_offsets_bits: 0,
             started: false,
         })
     }
@@ -86,6 +88,7 @@ impl<E: Endianness, S, W: Write> BitStreamStoreLabels<E, S, W> {
             offsets_writer,
             bits_for_curr_node: 0,
             total_label_bits: 0,
+            total_offsets_bits: 0,
             started: false,
         })
     }
@@ -99,13 +102,13 @@ where
     type Label = S::SerType;
 
     fn init(&mut self) -> Result<()> {
-        self.offsets_writer.push(0)?;
+        self.total_offsets_bits += self.offsets_writer.push(0)? as u64;
         Ok(())
     }
 
     fn push_node(&mut self) -> Result<()> {
         if self.started {
-            self.offsets_writer.push(self.bits_for_curr_node)?;
+            self.total_offsets_bits += self.offsets_writer.push(self.bits_for_curr_node)? as u64;
         }
         self.started = true;
         self.bits_for_curr_node = 0;
@@ -121,7 +124,7 @@ where
 
     fn flush(&mut self) -> Result<()> {
         if self.started {
-            self.offsets_writer.push(self.bits_for_curr_node)?;
+            self.total_offsets_bits += self.offsets_writer.push(self.bits_for_curr_node)? as u64;
         }
         self.bitstream.flush()?;
         self.offsets_writer.flush()?;
@@ -133,6 +136,6 @@ where
     }
 
     fn offsets_written_bits(&self) -> u64 {
-        self.offsets_writer.written_bits()
+        self.total_offsets_bits
     }
 }

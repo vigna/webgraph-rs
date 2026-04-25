@@ -125,9 +125,9 @@ impl JobId for Job {
 ///
 /// TODO: This currently uses Write which requires std. To support no_std we will want to make W a WordWriter
 #[derive(Debug)]
+#[repr(transparent)]
 pub struct OffsetsWriter<W: Write> {
     buffer: BufBitWriter<BigEndian, WordAdapter<usize, BufWriter<W>>>,
-    written_bits: u64,
 }
 
 impl OffsetsWriter<File> {
@@ -146,33 +146,21 @@ impl<W: Write> OffsetsWriter<W> {
     /// Creates a new writer and writes the first offset value (0) if requested.
     pub fn from_write(writer: W, write_zero: bool) -> Result<Self> {
         let mut buffer = BufBitWriter::new(WordAdapter::new(BufWriter::new(writer)));
-        let mut written_bits = 0u64;
         if write_zero {
-            // the first offset (of the first parallel offsets file) is always zero
-            written_bits += buffer.write_gamma(0)? as u64;
+            buffer.write_gamma(0)?;
         }
-        Ok(Self {
-            buffer,
-            written_bits,
-        })
+        Ok(Self { buffer })
     }
 
     /// Pushes a new delta offset.
     pub fn push(&mut self, delta: u64) -> Result<usize> {
-        let bits = self.buffer.write_gamma(delta)?;
-        self.written_bits += bits as u64;
-        Ok(bits)
+        Ok(self.buffer.write_gamma(delta)?)
     }
 
     /// Flushes the buffer.
     pub fn flush(&mut self) -> Result<()> {
         BitWrite::flush(&mut self.buffer)?;
         Ok(())
-    }
-
-    /// Returns the number of bits written so far.
-    pub fn written_bits(&self) -> u64 {
-        self.written_bits
     }
 
     /// Copies bits from a reader into this writer.
@@ -185,7 +173,6 @@ impl<W: Write> OffsetsWriter<W> {
         BufBitWriter<BigEndian, WordAdapter<usize, BufWriter<W>>>: BitWrite<BigEndian>,
     {
         self.buffer.copy_from(reader, n)?;
-        self.written_bits += n;
         Ok(())
     }
 }
@@ -382,11 +369,7 @@ impl BvCompConfig {
         L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
-        self.comp_labeled_lender::<E, _, _>(
-            UnitLender(iter.into_lender()),
-            (),
-            expected_num_nodes,
-        )
+        self.comp_labeled_lender::<E, _, _>(UnitLender(iter.into_lender()), (), expected_num_nodes)
     }
 
     /// Compresses sequentially a [`LabeledSequentialGraph`] and returns
@@ -428,9 +411,9 @@ impl BvCompConfig {
         SLC: StoreLabelsConfig,
         SLC::StoreLabels: StoreLabels,
         L::Lender: for<'next> NodeLabelsLender<
-            'next,
-            Label = (usize, <SLC::StoreLabels as StoreLabels>::Label),
-        >,
+                'next,
+                Label = (usize, <SLC::StoreLabels as StoreLabels>::Label),
+            >,
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
@@ -447,8 +430,8 @@ impl BvCompConfig {
         let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
         let offset_writer = OffsetsWriter::from_path(offsets_path, true)?;
 
-        let mut store_labels = store_labels_config
-            .new_storage(&labels_path, &label_offsets_path)?;
+        let mut store_labels =
+            store_labels_config.new_storage(&labels_path, &label_offsets_path)?;
         store_labels.init()?;
 
         let mut pl = progress_logger![
