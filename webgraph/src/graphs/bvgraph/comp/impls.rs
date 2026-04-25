@@ -121,14 +121,12 @@ impl JobId for Job {
     }
 }
 
-/// A writer for offsets.
+/// Writes γ-coded delta offsets to a bitstream.
 ///
 /// TODO: This currently uses Write which requires std. To support no_std we will want to make W a WordWriter
 #[derive(Debug)]
 #[repr(transparent)]
-pub struct OffsetsWriter<W: Write> {
-    buffer: BufBitWriter<BigEndian, WordAdapter<usize, BufWriter<W>>>,
-}
+pub struct OffsetsWriter<W: Write>(BufBitWriter<BigEndian, WordAdapter<usize, BufWriter<W>>>);
 
 impl OffsetsWriter<File> {
     /// Creates a new writer and writes the first offset value (0) if requested.
@@ -149,30 +147,17 @@ impl<W: Write> OffsetsWriter<W> {
         if write_zero {
             buffer.write_gamma(0)?;
         }
-        Ok(Self { buffer })
+        Ok(Self(buffer))
     }
 
     /// Pushes a new delta offset.
     pub fn push(&mut self, delta: u64) -> Result<usize> {
-        Ok(self.buffer.write_gamma(delta)?)
+        Ok(self.0.write_gamma(delta)?)
     }
 
     /// Flushes the buffer.
     pub fn flush(&mut self) -> Result<()> {
-        BitWrite::flush(&mut self.buffer)?;
-        Ok(())
-    }
-
-    /// Copies bits from a reader into this writer.
-    pub fn copy_from<F: Endianness, RR: BitRead<F>>(
-        &mut self,
-        reader: &mut RR,
-        n: u64,
-    ) -> Result<()>
-    where
-        BufBitWriter<BigEndian, WordAdapter<usize, BufWriter<W>>>: BitWrite<BigEndian>,
-    {
-        self.buffer.copy_from(reader, n)?;
+        BitWrite::flush(&mut self.0)?;
         Ok(())
     }
 }

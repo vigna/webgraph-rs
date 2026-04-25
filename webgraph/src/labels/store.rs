@@ -43,7 +43,7 @@ pub struct Zstd;
 pub struct BitStreamStoreLabelsConfig<E: Endianness, S, C = Uncompressed> {
     serializer: S,
     labels_writer: Option<BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>>,
-    offsets_writer: Option<OffsetsWriter<File>>,
+    offsets_writer: Option<BufBitWriter<BigEndian, WordAdapter<usize, BufWriter<File>>>>,
     _marker: PhantomData<C>,
 }
 
@@ -92,7 +92,9 @@ where
     ) -> Result<()> {
         let labels_writer = buf_bit_writer::from_path::<E, usize>(labels_path)
             .with_context(|| format!("Could not create {}", labels_path.display()))?;
-        let offsets_writer = OffsetsWriter::from_path(offsets_path, true)?;
+        let mut offsets_writer = buf_bit_writer::from_path::<BE, usize>(offsets_path)
+            .with_context(|| format!("Could not create {}", offsets_path.display()))?;
+        offsets_writer.write_gamma(0)?;
         self.labels_writer = Some(labels_writer);
         self.offsets_writer = Some(offsets_writer);
         Ok(())
