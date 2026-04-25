@@ -928,3 +928,153 @@ fn test_par_comp_labeled_roundtrip_zstd() -> Result<()> {
 
     Ok(())
 }
+
+fn build_labeled_cnr2000() -> Result<webgraph::graphs::vec_graph::LabeledVecGraph<u32>> {
+    use lender::prelude::*;
+
+    let cnr = BvGraphSeq::with_basename(common::cnr_2000_basename())
+        .endianness::<BE>()
+        .load()?;
+
+    let mut arcs = Vec::new();
+    for_!((node, succ) in &cnr {
+        for s in succ {
+            arcs.push(((node, s), s as u32));
+        }
+    });
+    Ok(webgraph::graphs::vec_graph::LabeledVecGraph::from_arcs(arcs))
+}
+
+#[cfg_attr(feature = "slow_tests", test)]
+#[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
+fn test_comp_labeled_cnr2000() -> Result<()> {
+    use epserde::deser::{Deserialize, Flags};
+    use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig, Supply};
+    use webgraph::traits::FixedWidth;
+
+    env_logger::builder()
+        .is_test(true)
+        .filter_level(log::LevelFilter::Info)
+        .try_init()
+        .ok();
+
+    let graph = build_labeled_cnr2000()?;
+
+    let tmp = tempfile::TempDir::new()?;
+    let basename = tmp.path().join("cnr_labeled_seq");
+
+    let label_config = BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+
+    BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, label_config)?;
+
+    let labels_path = basename.with_extension("labels");
+    let label_offsets_path = basename.with_extension("labeloffsets");
+    let label_ef_path = basename.with_extension("labelef");
+    common::build_ef_from_offsets(
+        graph.num_nodes(),
+        &labels_path,
+        &label_offsets_path,
+        &label_ef_path,
+    )?;
+
+    struct MmapSupplier {
+        backend: webgraph::utils::MmapHelper<u32>,
+    }
+
+    impl Supply for MmapSupplier {
+        type Item<'a>
+            = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>
+        where
+            Self: 'a;
+
+        fn request(&self) -> Self::Item<'_> {
+            BufBitReader::<BE, _>::new(MemWordReader::new(self.backend.as_ref()))
+        }
+    }
+
+    let seq = BvGraphSeq::with_basename(&basename)
+        .endianness::<BE>()
+        .load()?;
+
+    let labeling = BitStreamLabeling::new(
+        MmapSupplier {
+            backend: webgraph::utils::MmapHelper::<u32>::mmap(
+                &labels_path,
+                mmap_rs::MmapFlags::empty(),
+            )?,
+        },
+        FixedWidth::<u32>::new(),
+        unsafe { EF::mmap(&label_ef_path, Flags::empty())? },
+    );
+
+    graph::eq_labeled(&graph, &Zip(seq, labeling))?;
+
+    Ok(())
+}
+
+#[cfg_attr(feature = "slow_tests", test)]
+#[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
+fn test_par_comp_labeled_cnr2000() -> Result<()> {
+    use epserde::deser::{Deserialize, Flags};
+    use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig, Supply};
+    use webgraph::traits::FixedWidth;
+
+    env_logger::builder()
+        .is_test(true)
+        .filter_level(log::LevelFilter::Info)
+        .try_init()
+        .ok();
+
+    let graph = build_labeled_cnr2000()?;
+
+    let tmp = tempfile::TempDir::new()?;
+    let basename = tmp.path().join("cnr_labeled_par");
+
+    let label_config = BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+
+    BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
+
+    let labels_path = basename.with_extension("labels");
+    let label_offsets_path = basename.with_extension("labeloffsets");
+    let label_ef_path = basename.with_extension("labelef");
+    common::build_ef_from_offsets(
+        graph.num_nodes(),
+        &labels_path,
+        &label_offsets_path,
+        &label_ef_path,
+    )?;
+
+    struct MmapSupplier {
+        backend: webgraph::utils::MmapHelper<u32>,
+    }
+
+    impl Supply for MmapSupplier {
+        type Item<'a>
+            = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>
+        where
+            Self: 'a;
+
+        fn request(&self) -> Self::Item<'_> {
+            BufBitReader::<BE, _>::new(MemWordReader::new(self.backend.as_ref()))
+        }
+    }
+
+    let seq = BvGraphSeq::with_basename(&basename)
+        .endianness::<BE>()
+        .load()?;
+
+    let labeling = BitStreamLabeling::new(
+        MmapSupplier {
+            backend: webgraph::utils::MmapHelper::<u32>::mmap(
+                &labels_path,
+                mmap_rs::MmapFlags::empty(),
+            )?,
+        },
+        FixedWidth::<u32>::new(),
+        unsafe { EF::mmap(&label_ef_path, Flags::empty())? },
+    );
+
+    graph::eq_labeled(&graph, &Zip(seq, labeling))?;
+
+    Ok(())
+}
