@@ -141,10 +141,7 @@ impl CompFlags {
             || !OLD_CODES.contains(&self.residuals)
     }
 
-    pub fn to_properties<E: Endianness>(
-        &self,
-        stats: &super::CompStats,
-    ) -> Result<String> {
+    pub fn to_properties<E: Endianness>(&self, stats: &super::CompStats) -> Result<String> {
         let num_nodes = stats.num_nodes;
         let num_arcs = stats.num_arcs;
         let bitstream_len = stats.written_bits;

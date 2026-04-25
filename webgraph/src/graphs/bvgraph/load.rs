@@ -759,8 +759,8 @@ pub fn parse_label_properties<E: Endianness>(
 ) -> Result<LabelProperties> {
     let path = label_basename.as_ref().with_extension(PROPERTIES_EXTENSION);
     let name = path.display();
-    let f =
-        std::fs::File::open(&path).with_context(|| format!("Cannot open label properties {name}"))?;
+    let f = std::fs::File::open(&path)
+        .with_context(|| format!("Cannot open label properties {name}"))?;
     let map = java_properties::read(BufReader::new(f))
         .with_context(|| format!("Cannot parse {name} as a properties file"))?;
 
