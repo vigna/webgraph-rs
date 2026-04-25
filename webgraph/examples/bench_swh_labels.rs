@@ -6,11 +6,9 @@
  */
 
 use anyhow::{Context, Result};
-use bitstream::Supply;
 use clap::Parser;
 use dsi_bitstream::codes::GammaRead;
-use dsi_bitstream::impls::{BufBitReader, MemWordReader};
-use dsi_bitstream::traits::{BE, BitRead, BitSeek, Endianness};
+use dsi_bitstream::traits::{BE, BitRead, BitSeek};
 use dsi_progress_logger::prelude::*;
 use epserde::deser::{Deserialize, Flags};
 use lender::*;
@@ -62,38 +60,19 @@ impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> BitDeserializer<BE, BR> for SwhD
     }
 }
 
-pub struct MmapReaderSupplier<E: Endianness> {
-    backend: MmapHelper<u32>,
-    _marker: std::marker::PhantomData<E>,
-}
-
-impl Supply for MmapReaderSupplier<BE> {
-    type Item<'a>
-        = MemBufReader<'a, BE>
-    where
-        Self: 'a;
-
-    fn request(&self) -> Self::Item<'_> {
-        BufBitReader::<BE, _>::new(MemWordReader::new(self.backend.as_ref()))
-    }
-}
-
 pub fn mmap<D>(
     path: impl AsRef<Path>,
     bit_deser: D,
-) -> Result<BitStreamLabeling<BE, MmapReaderSupplier<BE>, D, EF>>
+) -> Result<BitStreamLabeling<BE, MmapHelper<u32>, D, EF>>
 where
-    for<'a> D: BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>>,
+    for<'a> D: BitDeserializer<BE, MemBufReader<'a, BE>>,
 {
     let path = path.as_ref();
     let labels_path = path.with_extension("labels");
     let ef_path = path.with_extension("ef");
     Ok(BitStreamLabeling::new(
-        MmapReaderSupplier {
-            backend: MmapHelper::<u32>::mmap(&labels_path, MmapFlags::empty())
-                .with_context(|| format!("Could not mmap {}", labels_path.display()))?,
-            _marker: std::marker::PhantomData,
-        },
+        MmapHelper::<u32>::mmap(&labels_path, MmapFlags::empty())
+            .with_context(|| format!("Could not mmap {}", labels_path.display()))?,
         bit_deser,
         unsafe {
             EF::mmap(&ef_path, Flags::empty())

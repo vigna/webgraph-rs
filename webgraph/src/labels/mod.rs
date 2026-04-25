@@ -8,7 +8,7 @@
 //! Utility structures for labelings.
 
 pub mod bitstream;
-pub use bitstream::{BitStreamLabeling, BitStreamStoreLabels, Supply};
+pub use bitstream::{BitStreamLabeling, BitStreamStoreLabels};
 
 pub mod zip;
 pub use zip::*;

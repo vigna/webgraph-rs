@@ -725,7 +725,7 @@ fn test_bvcomp_with_custom_comp_flags() -> Result<()> {
 fn test_bvcomp_labeled_roundtrip() -> Result<()> {
     use epserde::deser::{Deserialize, Flags};
     use webgraph::graphs::vec_graph::LabeledVecGraph;
-    use webgraph::labels::{BitStreamLabeling, Supply};
+    use webgraph::labels::BitStreamLabeling;
     use webgraph::traits::FixedWidth;
 
     let graph = LabeledVecGraph::from_arcs([
@@ -747,7 +747,6 @@ fn test_bvcomp_labeled_roundtrip() -> Result<()> {
     let labels_path = tmp.path().join("labeled.labels");
     let label_offsets_path = tmp.path().join("labeled.labeloffsets");
 
-    // Build Elias-Fano offsets for the labels
     let label_ef_path = tmp.path().join("labeled.labelef");
     common::build_ef_from_offsets(
         graph.num_nodes(),
@@ -756,33 +755,12 @@ fn test_bvcomp_labeled_roundtrip() -> Result<()> {
         &label_ef_path,
     )?;
 
-    // Load the graph and labeling, zip them, and compare
-    struct MmapSupplier {
-        backend: webgraph::utils::MmapHelper<u32>,
-    }
-
-    impl Supply for MmapSupplier {
-        type Item<'a>
-            = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>
-        where
-            Self: 'a;
-
-        fn request(&self) -> Self::Item<'_> {
-            BufBitReader::<BE, _>::new(MemWordReader::new(self.backend.as_ref()))
-        }
-    }
-
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .load()?;
 
-    let labeling = BitStreamLabeling::new(
-        MmapSupplier {
-            backend: webgraph::utils::MmapHelper::<u32>::mmap(
-                &labels_path,
-                mmap_rs::MmapFlags::empty(),
-            )?,
-        },
+    let labeling = BitStreamLabeling::<BE, _, _, _>::new(
+        webgraph::utils::MmapHelper::<u32>::mmap(&labels_path, mmap_rs::MmapFlags::empty())?,
         FixedWidth::<u32>::new(),
         unsafe { EF::mmap(&label_ef_path, Flags::empty())? },
     );
@@ -796,7 +774,7 @@ fn test_bvcomp_labeled_roundtrip() -> Result<()> {
 fn test_par_comp_labeled_roundtrip() -> Result<()> {
     use epserde::deser::{Deserialize, Flags};
     use webgraph::graphs::vec_graph::LabeledVecGraph;
-    use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig, Supply};
+    use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig};
     use webgraph::traits::FixedWidth;
 
     let graph = LabeledVecGraph::from_arcs([
@@ -824,32 +802,12 @@ fn test_par_comp_labeled_roundtrip() -> Result<()> {
         &label_ef_path,
     )?;
 
-    struct MmapSupplier {
-        backend: webgraph::utils::MmapHelper<u32>,
-    }
-
-    impl Supply for MmapSupplier {
-        type Item<'a>
-            = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>
-        where
-            Self: 'a;
-
-        fn request(&self) -> Self::Item<'_> {
-            BufBitReader::<BE, _>::new(MemWordReader::new(self.backend.as_ref()))
-        }
-    }
-
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .load()?;
 
-    let labeling = BitStreamLabeling::new(
-        MmapSupplier {
-            backend: webgraph::utils::MmapHelper::<u32>::mmap(
-                &labels_path,
-                mmap_rs::MmapFlags::empty(),
-            )?,
-        },
+    let labeling = BitStreamLabeling::<BE, _, _, _>::new(
+        webgraph::utils::MmapHelper::<u32>::mmap(&labels_path, mmap_rs::MmapFlags::empty())?,
         FixedWidth::<u32>::new(),
         unsafe { EF::mmap(&label_ef_path, Flags::empty())? },
     );
@@ -863,7 +821,7 @@ fn test_par_comp_labeled_roundtrip() -> Result<()> {
 fn test_par_comp_labeled_roundtrip_zstd() -> Result<()> {
     use epserde::deser::{Deserialize, Flags};
     use webgraph::graphs::vec_graph::LabeledVecGraph;
-    use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig, Supply};
+    use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig};
     use webgraph::traits::FixedWidth;
 
     let graph = LabeledVecGraph::from_arcs([
@@ -892,32 +850,12 @@ fn test_par_comp_labeled_roundtrip_zstd() -> Result<()> {
         &label_ef_path,
     )?;
 
-    struct MmapSupplier {
-        backend: webgraph::utils::MmapHelper<u32>,
-    }
-
-    impl Supply for MmapSupplier {
-        type Item<'a>
-            = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>
-        where
-            Self: 'a;
-
-        fn request(&self) -> Self::Item<'_> {
-            BufBitReader::<BE, _>::new(MemWordReader::new(self.backend.as_ref()))
-        }
-    }
-
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .load()?;
 
-    let labeling = BitStreamLabeling::new(
-        MmapSupplier {
-            backend: webgraph::utils::MmapHelper::<u32>::mmap(
-                &labels_path,
-                mmap_rs::MmapFlags::empty(),
-            )?,
-        },
+    let labeling = BitStreamLabeling::<BE, _, _, _>::new(
+        webgraph::utils::MmapHelper::<u32>::mmap(&labels_path, mmap_rs::MmapFlags::empty())?,
         FixedWidth::<u32>::new(),
         unsafe { EF::mmap(&label_ef_path, Flags::empty())? },
     );
@@ -949,7 +887,7 @@ fn build_labeled_cnr2000() -> Result<webgraph::graphs::vec_graph::LabeledVecGrap
 #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
 fn test_comp_labeled_cnr2000() -> Result<()> {
     use epserde::deser::{Deserialize, Flags};
-    use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig, Supply};
+    use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig};
     use webgraph::traits::FixedWidth;
 
     env_logger::builder()
@@ -977,32 +915,12 @@ fn test_comp_labeled_cnr2000() -> Result<()> {
         &label_ef_path,
     )?;
 
-    struct MmapSupplier {
-        backend: webgraph::utils::MmapHelper<u32>,
-    }
-
-    impl Supply for MmapSupplier {
-        type Item<'a>
-            = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>
-        where
-            Self: 'a;
-
-        fn request(&self) -> Self::Item<'_> {
-            BufBitReader::<BE, _>::new(MemWordReader::new(self.backend.as_ref()))
-        }
-    }
-
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .load()?;
 
-    let labeling = BitStreamLabeling::new(
-        MmapSupplier {
-            backend: webgraph::utils::MmapHelper::<u32>::mmap(
-                &labels_path,
-                mmap_rs::MmapFlags::empty(),
-            )?,
-        },
+    let labeling = BitStreamLabeling::<BE, _, _, _>::new(
+        webgraph::utils::MmapHelper::<u32>::mmap(&labels_path, mmap_rs::MmapFlags::empty())?,
         FixedWidth::<u32>::new(),
         unsafe { EF::mmap(&label_ef_path, Flags::empty())? },
     );
@@ -1016,7 +934,7 @@ fn test_comp_labeled_cnr2000() -> Result<()> {
 #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
 fn test_par_comp_labeled_cnr2000() -> Result<()> {
     use epserde::deser::{Deserialize, Flags};
-    use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig, Supply};
+    use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig};
     use webgraph::traits::FixedWidth;
 
     env_logger::builder()
@@ -1044,32 +962,12 @@ fn test_par_comp_labeled_cnr2000() -> Result<()> {
         &label_ef_path,
     )?;
 
-    struct MmapSupplier {
-        backend: webgraph::utils::MmapHelper<u32>,
-    }
-
-    impl Supply for MmapSupplier {
-        type Item<'a>
-            = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>
-        where
-            Self: 'a;
-
-        fn request(&self) -> Self::Item<'_> {
-            BufBitReader::<BE, _>::new(MemWordReader::new(self.backend.as_ref()))
-        }
-    }
-
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .load()?;
 
-    let labeling = BitStreamLabeling::new(
-        MmapSupplier {
-            backend: webgraph::utils::MmapHelper::<u32>::mmap(
-                &labels_path,
-                mmap_rs::MmapFlags::empty(),
-            )?,
-        },
+    let labeling = BitStreamLabeling::<BE, _, _, _>::new(
+        webgraph::utils::MmapHelper::<u32>::mmap(&labels_path, mmap_rs::MmapFlags::empty())?,
         FixedWidth::<u32>::new(),
         unsafe { EF::mmap(&label_ef_path, Flags::empty())? },
     );
