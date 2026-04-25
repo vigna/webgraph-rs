@@ -48,7 +48,7 @@ pub fn harness(data: FuzzCase) {
             0,
             (),
         );
-        bvcomp.extend(UnitLender(graph.iter())).unwrap();
+        bvcomp.extend(UnitLabelLender(graph.iter())).unwrap();
         bvcomp.flush().unwrap();
     }
     // Compress in little endian
@@ -67,7 +67,7 @@ pub fn harness(data: FuzzCase) {
             0,
             (),
         );
-        bvcomp.extend(UnitLender(graph.iter())).unwrap();
+        bvcomp.extend(UnitLabelLender(graph.iter())).unwrap();
         bvcomp.flush().unwrap();
     }
     assert_eq!(codes_data_be.len(), codes_data_le.len());

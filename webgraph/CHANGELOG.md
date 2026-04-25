@@ -71,6 +71,9 @@
   transpose a graph that cannot be split sequentially but the compress it in
   parallel.
 
+- `UnitLender` has been renamed `UnitLabelLender`, and `UnitSucc` has
+  been renamed `UnitLabelSucc` for consistency.
+
 ### Improved
 
 - `SortPairs`, `ParSortPairs`, `ParSortIters`, and `KMergeIters` now have a

@@ -287,7 +287,7 @@ impl BTreeGraph {
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
     {
-        self.0.add_lender(UnitLender(iter_nodes.into_lender()));
+        self.0.add_lender(UnitLabelLender(iter_nodes.into_lender()));
         self
     }
 

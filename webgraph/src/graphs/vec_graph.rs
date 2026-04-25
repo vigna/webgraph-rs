@@ -433,7 +433,7 @@ impl VecGraph {
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
     {
-        self.0.add_lender(UnitLender(iter_nodes.into_lender()));
+        self.0.add_lender(UnitLabelLender(iter_nodes.into_lender()));
         self
     }
 
@@ -467,7 +467,7 @@ impl VecGraph {
         for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator,
     {
         self.0
-            .add_sorted_lender(UnitLender(iter_nodes.into_lender()));
+            .add_sorted_lender(UnitLabelLender(iter_nodes.into_lender()));
         self
     }
 

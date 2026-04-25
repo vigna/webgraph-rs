@@ -353,7 +353,11 @@ impl BvCompConfig {
         L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
-        self.comp_labeled_lender::<E, _, _>(UnitLender(iter.into_lender()), (), expected_num_nodes)
+        self.comp_labeled_lender::<E, _, _>(
+            UnitLabelLender(iter.into_lender()),
+            (),
+            expected_num_nodes,
+        )
     }
 
     /// Compresses sequentially a [`LabeledSequentialGraph`] and returns
@@ -601,7 +605,7 @@ impl BvCompConfig {
                             node_id,
                             store_labels,
                         );
-                        bvcomp.push(successors.into_iter()).unwrap();
+                        bvcomp.push(successors).unwrap();
                         last_node = first_node;
                         let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
                         for_! ( (_, succ) in iter_nodes {
@@ -620,7 +624,7 @@ impl BvCompConfig {
                             node_id,
                             store_labels,
                         );
-                        bvcomp.push(successors.into_iter()).unwrap();
+                        bvcomp.push(successors).unwrap();
                         last_node = first_node;
                         let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
                         for_! ( (_, succ) in iter_nodes {

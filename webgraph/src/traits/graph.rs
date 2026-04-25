@@ -233,24 +233,24 @@ pub struct UnitLabelGraph<G: SequentialGraph>(pub G);
 
 #[doc(hidden)]
 #[repr(transparent)]
-pub struct UnitLender<L>(pub L);
+pub struct UnitLabelLender<L>(pub L);
 
-impl<'succ, L> NodeLabelsLender<'succ> for UnitLender<L>
+impl<'succ, L> NodeLabelsLender<'succ> for UnitLabelLender<L>
 where
     L: for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     type Label = (usize, ());
-    type IntoIterator = UnitSucc<LenderIntoIter<'succ, L>>;
+    type IntoIterator = UnitLabelSucc<LenderIntoIter<'succ, L>>;
 }
 
-impl<'succ, L> Lending<'succ> for UnitLender<L>
+impl<'succ, L> Lending<'succ> for UnitLabelLender<L>
 where
     L: for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<L> Lender for UnitLender<L>
+impl<L> Lender for UnitLabelLender<L>
 where
     L: for<'next> NodeLabelsLender<'next, Label = usize>,
 {
@@ -262,12 +262,12 @@ where
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.0.next().map(|x| {
             let t = x.into_pair();
-            (t.0, UnitSucc(t.1.into_iter()))
+            (t.0, UnitLabelSucc(t.1.into_iter()))
         })
     }
 }
 
-impl<L: ExactSizeLender> ExactSizeLender for UnitLender<L>
+impl<L: ExactSizeLender> ExactSizeLender for UnitLabelLender<L>
 where
     L: for<'next> NodeLabelsLender<'next, Label = usize>,
 {
@@ -278,21 +278,21 @@ where
 }
 
 // SAFETY: the underlying lender is sorted.
-unsafe impl<L: SortedLender> SortedLender for UnitLender<L> where
+unsafe impl<L: SortedLender> SortedLender for UnitLabelLender<L> where
     L: for<'next> NodeLabelsLender<'next, Label = usize>
 {
 }
 
-impl<L: lender::FusedLender> lender::FusedLender for UnitLender<L> where
+impl<L: lender::FusedLender> lender::FusedLender for UnitLabelLender<L> where
     L: for<'next> NodeLabelsLender<'next, Label = usize>
 {
 }
 
 #[doc(hidden)]
 #[repr(transparent)]
-pub struct UnitSucc<I>(pub I);
+pub struct UnitLabelSucc<I>(pub I);
 
-impl<I: Iterator<Item = usize>> Iterator for UnitSucc<I> {
+impl<I: Iterator<Item = usize>> Iterator for UnitLabelSucc<I> {
     type Item = (usize, ());
 
     #[inline(always)]
@@ -302,13 +302,13 @@ impl<I: Iterator<Item = usize>> Iterator for UnitSucc<I> {
 }
 
 // SAFETY: the underlying iterator is sorted.
-unsafe impl<I: Iterator<Item = usize> + SortedIterator> SortedIterator for UnitSucc<I> {}
+unsafe impl<I: Iterator<Item = usize> + SortedIterator> SortedIterator for UnitLabelSucc<I> {}
 
 impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
     type Label = (usize, ());
 
     type Lender<'node>
-        = UnitLender<G::Lender<'node>>
+        = UnitLabelLender<G::Lender<'node>>
     where
         Self: 'node;
 
@@ -319,7 +319,7 @@ impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        UnitLender(self.0.iter_from(from))
+        UnitLabelLender(self.0.iter_from(from))
     }
 }
 
@@ -330,7 +330,7 @@ where
     for<'a> <G::IntoIterator<'a> as IntoIterator>::IntoIter: Send + Sync,
 {
     type SplitLender<'a>
-        = UnitLender<G::SplitLender<'a>>
+        = UnitLabelLender<G::SplitLender<'a>>
     where
         Self: 'a;
 
@@ -343,7 +343,10 @@ where
         Self: 'a;
 
     fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
-        self.0.split_iter_at(cutpoints).into_iter().map(UnitLender)
+        self.0
+            .split_iter_at(cutpoints)
+            .into_iter()
+            .map(UnitLabelLender)
     }
 }
 
@@ -365,11 +368,14 @@ impl<G> IntoParLenders for UnitLabelParLenders<G>
 where
     G: for<'a> IntoParLenders<ParLender: NodeLabelsLender<'a, Label = usize>>,
 {
-    type ParLender = UnitLender<G::ParLender>;
+    type ParLender = UnitLabelLender<G::ParLender>;
 
     fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
         let (lenders, boundaries) = self.0.into_par_lenders();
-        let wrapped: Vec<_> = Vec::from(lenders).into_iter().map(UnitLender).collect();
+        let wrapped: Vec<_> = Vec::from(lenders)
+            .into_iter()
+            .map(UnitLabelLender)
+            .collect();
         (wrapped.into_boxed_slice(), boundaries)
     }
 }
@@ -429,7 +435,7 @@ pub trait LabeledRandomAccessGraph<L>: RandomAccessLabeling<Label = (usize, L)> 
 
 impl<G: RandomAccessGraph> RandomAccessLabeling for UnitLabelGraph<G> {
     type Labels<'succ>
-        = UnitSucc<<<G as RandomAccessLabeling>::Labels<'succ> as IntoIterator>::IntoIter>
+        = UnitLabelSucc<<<G as RandomAccessLabeling>::Labels<'succ> as IntoIterator>::IntoIter>
     where
         Self: 'succ;
 
@@ -440,7 +446,7 @@ impl<G: RandomAccessGraph> RandomAccessLabeling for UnitLabelGraph<G> {
 
     #[inline(always)]
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        UnitSucc(self.0.successors(node_id).into_iter())
+        UnitLabelSucc(self.0.successors(node_id).into_iter())
     }
 
     #[inline(always)]
