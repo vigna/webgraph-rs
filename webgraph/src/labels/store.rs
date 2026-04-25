@@ -10,6 +10,7 @@
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
+use sealed::sealed;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::marker::PhantomData;
@@ -17,11 +18,20 @@ use std::path::Path;
 
 use super::BitStreamStoreLabels;
 
-/// Typestate marker: label part files are written uncompressed.
-pub struct Uncompressed;
+/// Compression mode for per-thread label part files.
+#[doc(hidden)]
+#[sealed]
+pub trait PartCompression: 'static {}
 
-/// Typestate marker: label part files are zstd-compressed.
+/// Label part files are written uncompressed.
+pub struct Uncompressed;
+#[sealed]
+impl PartCompression for Uncompressed {}
+
+/// Label part files are zstd-compressed.
 pub struct Zstd;
+#[sealed]
+impl PartCompression for Zstd {}
 
 /// Configures and spawns [`BitStreamStoreLabels`] instances.
 ///
@@ -40,7 +50,7 @@ pub struct Zstd;
 /// let config = BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new())
 ///     .with_compressed();
 /// ```
-pub struct BitStreamStoreLabelsConfig<E: Endianness, S, C = Uncompressed> {
+pub struct BitStreamStoreLabelsConfig<E: Endianness, S, C: PartCompression = Uncompressed> {
     serializer: S,
     labels_writer: Option<BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>>,
     offsets_writer: Option<BufBitWriter<BigEndian, WordAdapter<usize, BufWriter<File>>>>,
@@ -79,7 +89,7 @@ impl<E: Endianness, S: Clone> BitStreamStoreLabelsConfig<E, S, Zstd> {
 
 // --- Shared helpers ---
 
-impl<E, S, C> BitStreamStoreLabelsConfig<E, S, C>
+impl<E, S, C: PartCompression> BitStreamStoreLabelsConfig<E, S, C>
 where
     E: Endianness,
     S: Clone,
