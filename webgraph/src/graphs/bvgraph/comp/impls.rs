@@ -565,14 +565,12 @@ impl BvCompConfig {
     /// # use webgraph::prelude::*;
     /// # use webgraph::graphs::bvgraph::*;
     /// # use webgraph::labels::BitStreamLabelingSeq;
-    /// #
+    /// # use webgraph::graphs::vec_graph::LabeledVecGraph;
+    /// # use webgraph::labels::BitStreamStoreLabelsConfig;
+    /// # use webgraph::traits::FixedWidth;
     /// # fn main() -> Result<()> {
     /// # let tmp = tempfile::TempDir::new()?;
     /// # let basename = tmp.path().join("example");
-    /// use webgraph::graphs::vec_graph::LabeledVecGraph;
-    /// use webgraph::labels::BitStreamStoreLabelsConfig;
-    /// use webgraph::traits::FixedWidth;
-    ///
     /// let graph = LabeledVecGraph::from_arcs([
     ///     ((0, 1), 10u32),
     ///     ((0, 2), 20),

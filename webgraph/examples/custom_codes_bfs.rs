@@ -14,10 +14,8 @@ use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use dsi_progress_logger::prelude::*;
 use epserde::deser::{Deserialize, Flags, MemCase};
 use mmap_rs::MmapFlags;
-use sux::{
-    bits::BitVec,
-    traits::{BitVecOpsMut, IndexedSeq},
-};
+use sux::{bits::BitVec, traits::BitVecOpsMut};
+use value_traits::slices::SliceByValue;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -67,7 +65,7 @@ where
         Self: 'a;
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
-        code_reader.set_bit_pos(self.offsets.uncase().get(node))?;
+        code_reader.set_bit_pos(self.offsets.uncase().index_value(node))?;
         Ok(CustomDecoder::new(code_reader))
     }
 }

@@ -187,9 +187,11 @@ mod load;
 pub use load::*;
 use sux::{
     bits::{BitFieldVec, BitVec},
+    dict::EliasFanoBuilder,
     prelude::{SelectAdaptConst, SelectZeroAdaptConst},
-    traits::{IndexedSeq, Unaligned},
+    traits::{TryIntoUnaligned, Unaligned},
 };
+use value_traits::slices::SliceByValue;
 
 /// First parameter of [`SelectAdaptConst`] for [`EliasFano`] structures.
 ///
@@ -215,6 +217,47 @@ pub type EF = Unaligned<
     >,
 >;
 
+/// Builds an [`EF`] representation by reading γ-coded offset gaps from a file.
+///
+/// The offsets file must contain `num_nodes + 1` γ-coded gaps whose prefix sums
+/// are the bit offsets of each node's data in the associated bitstream. The
+/// `upper_bound` parameter is the universe of the Elias–Fano representation
+/// (typically the bit-length of the bitstream).
+pub fn build_ef(
+    num_nodes: usize,
+    upper_bound: u64,
+    offsets_path: impl AsRef<Path>,
+) -> anyhow::Result<EF> {
+    let mut reader = buf_bit_reader::from_path::<BE, u32>(offsets_path.as_ref())?;
+    let mut efb = EliasFanoBuilder::new(num_nodes + 1, upper_bound);
+    let mut offset = 0u64;
+    for _ in 0..num_nodes + 1 {
+        offset += reader.read_gamma()?;
+        efb.push(offset);
+    }
+    let ef = efb.build();
+    Ok(unsafe {
+        ef.map_high_bits(
+            SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
+        )
+        .try_into_unaligned()?
+    })
+}
+
+/// Builds an [`EF`] representation by reading γ-coded offset gaps from a file,
+/// computing the upper bound from the bit-length of a data file.
+///
+/// This is a convenience wrapper around [`build_ef`] that sets the upper bound
+/// to `8 * file_size(data_path)`.
+pub fn build_ef_with_data(
+    num_nodes: usize,
+    data_path: impl AsRef<Path>,
+    offsets_path: impl AsRef<Path>,
+) -> anyhow::Result<EF> {
+    let file_len = 8 * std::fs::metadata(data_path.as_ref())?.len();
+    build_ef(num_nodes, file_len, offsets_path)
+}
+
 /// Compound trait expressing the trait bounds for offsets.
 ///
 /// See the [`MemCase`] documentation for an explanation as to why we bound
@@ -223,13 +266,10 @@ pub type EF = Unaligned<
 ///
 /// [`MemCase`]: epserde::deser::MemCase
 pub trait Offsets:
-    for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = u64, Output<'a> = u64>>
+    for<'a> DeserInner<DeserType<'a>: SliceByValue<Value = u64>>
 {
 }
-impl<T: for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = u64, Output<'a> = u64>>> Offsets
-    for T
-{
-}
+impl<T: for<'a> DeserInner<DeserType<'a>: SliceByValue<Value = u64>>> Offsets for T {}
 
 /// The default type we use for the cumulative function of degrees.
 ///

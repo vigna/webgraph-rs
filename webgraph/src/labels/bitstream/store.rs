@@ -1,11 +1,22 @@
 /*
- * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
+ * SPDX-FileCopyrightText: 2026 Sebastiano Vigna
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Concrete [`StoreLabelsConfig`] implementations for bitstream-based
-//! label compression.
+//! [`StoreLabelsConfig`] implementations for bitstream-based label
+//! compression.
+//!
+//! Compression of labeled graphs or pairs via [`par_comp_labeled`] requires
+//! providing a [`StoreLabelsConfig`] that can create [`StoreLabels`] instances.
+//! This module provides a concrete implementation
+//! [`BitStreamStoreLabelsConfig`] of [`StoreLabelsConfig`] that stores
+//! labels in a bitstream format, with support for both uncompressed and
+//! [`Zstd`]-compressed per-thread part files. The format can be loaded using
+//! [`BitStreamLabelingSeq`]/[`BitStreamLabeling`].
+//!
+//! [`par_comp_labeled`]: crate::graphs::bvgraph::BvCompConfig::par_comp_labeled
+//! [`Zstd`]: zstd
 
 use crate::prelude::*;
 use anyhow::{Context, Result};
@@ -16,33 +27,29 @@ use std::io::{BufReader, BufWriter};
 use std::marker::PhantomData;
 use std::path::Path;
 
-use super::BitStreamStoreLabels;
-
 /// Compression mode for per-thread label part files.
 #[doc(hidden)]
 #[sealed]
-pub trait PartCompression: 'static {}
+pub trait PartComp: 'static {}
 
 /// Label part files are written uncompressed.
 pub struct Uncompressed;
 #[sealed]
-impl PartCompression for Uncompressed {}
+impl PartComp for Uncompressed {}
 
 /// Label part files are zstd-compressed.
 pub struct Zstd;
 #[sealed]
-impl PartCompression for Zstd {}
+impl PartComp for Zstd {}
 
 /// Configures and spawns [`BitStreamStoreLabels`] instances.
 ///
-/// The typestate parameter `C` controls whether per-thread part files
-/// are written with zstd compression ([`Zstd`]) or uncompressed
-/// ([`Uncompressed`]). The final concatenated output is always
-/// uncompressed.
-///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust
+/// # use webgraph::labels::bitstream::store::BitStreamStoreLabelsConfig;
+/// # use webgraph::traits::bit_serde::FixedWidth;
+/// # use dsi_bitstream::prelude::BE;
 /// // Uncompressed (default)
 /// let config = BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
 ///
@@ -50,7 +57,7 @@ impl PartCompression for Zstd {}
 /// let config = BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new())
 ///     .with_compressed();
 /// ```
-pub struct BitStreamStoreLabelsConfig<E: Endianness, S, C: PartCompression = Uncompressed> {
+pub struct BitStreamStoreLabelsConfig<E: Endianness, S, C: PartComp = Uncompressed> {
     serializer: S,
     labels_writer: Option<BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>>,
     offsets_writer: Option<BufBitWriter<BigEndian, WordAdapter<usize, BufWriter<File>>>>,
@@ -59,6 +66,10 @@ pub struct BitStreamStoreLabelsConfig<E: Endianness, S, C: PartCompression = Unc
 
 impl<E: Endianness, S: Clone> BitStreamStoreLabelsConfig<E, S, Uncompressed> {
     /// Creates a new configuration with the given serializer.
+    ///
+    /// If your labels are highly compressible, consider using [`with_zstd`].
+    ///
+    /// [`with_zstd`]: Self::with_zstd
     pub fn new(serializer: S) -> Self {
         Self {
             serializer,
@@ -68,9 +79,10 @@ impl<E: Endianness, S: Clone> BitStreamStoreLabelsConfig<E, S, Uncompressed> {
         }
     }
 
-    /// Transitions to the [`Zstd`] typestate, enabling zstd compression
-    /// for per-thread part files.
-    pub fn with_compressed(self) -> BitStreamStoreLabelsConfig<E, S, Zstd> {
+    /// Enables [`Zstd`] compression for per-thread label part files.
+    ///
+    /// [`Zstd`]: zstd
+    pub fn with_zstd(self) -> BitStreamStoreLabelsConfig<E, S, Zstd> {
         BitStreamStoreLabelsConfig {
             serializer: self.serializer,
             labels_writer: None,
@@ -80,16 +92,9 @@ impl<E: Endianness, S: Clone> BitStreamStoreLabelsConfig<E, S, Uncompressed> {
     }
 }
 
-impl<E: Endianness, S: Clone> BitStreamStoreLabelsConfig<E, S, Zstd> {
-    /// Creates a new zstd-compressed configuration with the given serializer.
-    pub fn new(serializer: S) -> Self {
-        BitStreamStoreLabelsConfig::<E, S, Uncompressed>::new(serializer).with_compressed()
-    }
-}
-
 // --- Shared helpers ---
 
-impl<E, S, C: PartCompression> BitStreamStoreLabelsConfig<E, S, C>
+impl<E, S, C: PartComp> BitStreamStoreLabelsConfig<E, S, C>
 where
     E: Endianness,
     S: Clone,
@@ -234,5 +239,123 @@ where
 
     fn label_serializer_name(&self) -> String {
         self.serializer.name()
+    }
+}
+
+/// Compresses arc labels into a bitstream with a companion
+/// delta-encoded offsets file.
+///
+/// The label file contains only serialized label values. The number of labels
+/// per node equals the graph's outdegree.
+///
+/// The offsets file stores γ-coded deltas of bit positions, one per
+/// node, using the same [`OffsetsWriter`] as graph offsets. Together
+/// with the initial zero written by [`init`], this gives _n_ + 1
+/// cumulative offsets for _n_ nodes — exactly the format that
+/// [`BitStreamLabeling`] expects.
+///
+/// The type parameter `W` controls the underlying writer for the label
+/// bitstream (e.g., [`File`] for uncompressed, or
+/// [`zstd::Encoder`] for compressed temp files). The offsets
+/// writer is always file-backed.
+///
+/// [`init`]: StoreLabels::init
+pub struct BitStreamStoreLabels<E: Endianness, S, W: std::io::Write> {
+    serializer: S,
+    bitstream: BufBitWriter<E, WordAdapter<usize, BufWriter<W>>>,
+    offsets_writer: OffsetsWriter<File>,
+    bits_for_curr_node: u64,
+    total_label_bits: u64,
+    total_offsets_bits: u64,
+    started: bool,
+}
+
+impl<E: Endianness, S> BitStreamStoreLabels<E, S, File> {
+    /// Creates a new label compressor writing to the given paths.
+    ///
+    /// The `labels_path` receives the serialized label bitstream,
+    /// and `offsets_path` receives the γ-coded delta offsets.
+    pub fn new(
+        serializer: S,
+        labels_path: impl AsRef<Path>,
+        offsets_path: impl AsRef<Path>,
+    ) -> Result<Self> {
+        let labels_path = labels_path.as_ref();
+        let offsets_path = offsets_path.as_ref();
+        let bitstream = buf_bit_writer::from_path::<E, usize>(labels_path)
+            .with_context(|| format!("Could not create label file {}", labels_path.display()))?;
+        let offsets_writer = OffsetsWriter::from_path(offsets_path, false)?;
+        Ok(Self {
+            serializer,
+            bitstream,
+            offsets_writer,
+            bits_for_curr_node: 0,
+            total_label_bits: 0,
+            total_offsets_bits: 0,
+            started: false,
+        })
+    }
+}
+
+impl<E: Endianness, S, W: std::io::Write> BitStreamStoreLabels<E, S, W> {
+    /// Creates a new label compressor from an existing writer and
+    /// offsets writer.
+    pub fn from_writer(serializer: S, writer: W, offsets_writer: OffsetsWriter<File>) -> Self {
+        let bitstream = BufBitWriter::new(WordAdapter::new(BufWriter::new(writer)));
+        Self {
+            serializer,
+            bitstream,
+            offsets_writer,
+            bits_for_curr_node: 0,
+            total_label_bits: 0,
+            total_offsets_bits: 0,
+            started: false,
+        }
+    }
+}
+
+impl<E: Endianness, S, W: std::io::Write> StoreLabels for BitStreamStoreLabels<E, S, W>
+where
+    BufBitWriter<E, WordAdapter<usize, BufWriter<W>>>: BitWrite<E>,
+    S: BitSerializer<E, BufBitWriter<E, WordAdapter<usize, BufWriter<W>>>>,
+{
+    type Label = S::SerType;
+
+    fn init(&mut self) -> Result<()> {
+        self.total_offsets_bits += self.offsets_writer.push(0)? as u64;
+        Ok(())
+    }
+
+    fn push_node(&mut self) -> Result<()> {
+        if self.started {
+            self.total_offsets_bits += self.offsets_writer.push(self.bits_for_curr_node)? as u64;
+        }
+        self.started = true;
+        self.bits_for_curr_node = 0;
+        Ok(())
+    }
+
+    fn push_label(&mut self, label: &Self::Label) -> Result<()> {
+        let bits = self.serializer.serialize(label, &mut self.bitstream)?;
+        self.bits_for_curr_node += bits as u64;
+        self.total_label_bits += bits as u64;
+        Ok(())
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        if self.started {
+            self.total_offsets_bits += self.offsets_writer.push(self.bits_for_curr_node)? as u64;
+        }
+        self.bitstream.flush()?;
+        self.offsets_writer.flush()?;
+        Ok(())
+    }
+
+    fn label_written_bits(&self) -> u64 {
+        self.total_label_bits
+    }
+
+    fn offsets_written_bits(&self) -> u64 {
+        self.total_offsets_bits
     }
 }

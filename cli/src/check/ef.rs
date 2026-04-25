@@ -17,7 +17,7 @@ use log::info;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
-use sux::traits::IndexedSeq;
+use value_traits::slices::SliceByValue;
 use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::graphs::bvgraph::{EF, EF_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_EXTENSION};
 use webgraph::prelude::*;
@@ -84,7 +84,7 @@ where
             // write where
             offset += reader.read_gamma()?;
             // read ef
-            let ef_res = ef.get(node_id as _);
+            let ef_res = ef.index_value(node_id as _);
             assert_eq!(offset, ef_res, "node_id: {}", node_id);
             // decode the next nodes so we know where the next node_id starts
             pl.light_update();
@@ -113,7 +113,7 @@ where
     for (node, (new_offset, _degree)) in seq_graph.offset_deg_iter().enumerate() {
         // decode the next nodes so we know where the next node_id starts
         // read ef
-        let ef_res = ef.get(node as _);
+        let ef_res = ef.index_value(node as _);
         assert_eq!(new_offset, ef_res, "node_id: {}", node);
         pl.light_update();
     }

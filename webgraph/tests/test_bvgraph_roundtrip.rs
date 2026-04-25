@@ -8,8 +8,13 @@ mod common;
 
 use anyhow::Result;
 use common::build_ef;
+use dsi_bitstream::dispatch::Codes;
 use dsi_bitstream::prelude::*;
+use webgraph::graphs::vec_graph::LabeledVecGraph;
+use webgraph::labels::BitStreamLabeling;
+use webgraph::labels::bitstream::BitStreamStoreLabelsConfig;
 use webgraph::prelude::*;
+use webgraph::traits::FixedWidth;
 
 #[test]
 fn test_bvcomp_default_codes_be() -> Result<()> {
@@ -235,7 +240,6 @@ fn test_bvcomp_config_with_tmp_dir() -> Result<()> {
 
 #[test]
 fn test_bvcomp_recompress_with_different_flags() -> Result<()> {
-    use dsi_bitstream::dispatch::Codes;
     let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3)]);
     let tmp = tempfile::tempdir()?;
     let basename1 = tmp.path().join("test_orig");
@@ -738,8 +742,7 @@ fn test_bvcomp_labeled_roundtrip() -> Result<()> {
     let tmp = tempfile::TempDir::new()?;
     let basename = tmp.path().join("labeled");
 
-    let label_config =
-        webgraph::labels::BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+    let label_config = BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
 
     BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, label_config)?;
 
@@ -772,10 +775,6 @@ fn test_bvcomp_labeled_roundtrip() -> Result<()> {
 
 #[test]
 fn test_par_comp_labeled_roundtrip() -> Result<()> {
-    use webgraph::graphs::vec_graph::LabeledVecGraph;
-    use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig};
-    use webgraph::traits::FixedWidth;
-
     let graph = LabeledVecGraph::from_arcs([
         ((0, 1), 10u32),
         ((0, 2), 20),
@@ -813,10 +812,6 @@ fn test_par_comp_labeled_roundtrip() -> Result<()> {
 
 #[test]
 fn test_par_comp_labeled_seq_roundtrip() -> Result<()> {
-    use webgraph::graphs::vec_graph::LabeledVecGraph;
-    use webgraph::labels::{BitStreamLabelingSeq, BitStreamStoreLabelsConfig};
-    use webgraph::traits::FixedWidth;
-
     let graph = LabeledVecGraph::from_arcs([
         ((0, 1), 10u32),
         ((0, 2), 20),
@@ -849,10 +844,6 @@ fn test_par_comp_labeled_seq_roundtrip() -> Result<()> {
 
 #[test]
 fn test_par_comp_labeled_roundtrip_zstd() -> Result<()> {
-    use webgraph::graphs::vec_graph::LabeledVecGraph;
-    use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig};
-    use webgraph::traits::FixedWidth;
-
     let graph = LabeledVecGraph::from_arcs([
         ((0, 1), 10u32),
         ((0, 2), 20),
@@ -865,7 +856,7 @@ fn test_par_comp_labeled_roundtrip_zstd() -> Result<()> {
     let basename = tmp.path().join("parlabeled_zstd");
 
     let label_config =
-        BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new()).with_compressed();
+        BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new()).with_zstd();
 
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 
@@ -910,9 +901,6 @@ fn build_labeled_cnr2000() -> Result<webgraph::graphs::vec_graph::LabeledVecGrap
 #[cfg_attr(feature = "slow_tests", test)]
 #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
 fn test_comp_labeled_cnr2000() -> Result<()> {
-    use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig};
-    use webgraph::traits::FixedWidth;
-
     env_logger::builder()
         .is_test(true)
         .filter_level(log::LevelFilter::Info)
@@ -951,9 +939,6 @@ fn test_comp_labeled_cnr2000() -> Result<()> {
 #[cfg_attr(feature = "slow_tests", test)]
 #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
 fn test_par_comp_labeled_cnr2000() -> Result<()> {
-    use webgraph::labels::{BitStreamLabeling, BitStreamStoreLabelsConfig};
-    use webgraph::traits::FixedWidth;
-
     env_logger::builder()
         .is_test(true)
         .filter_level(log::LevelFilter::Info)

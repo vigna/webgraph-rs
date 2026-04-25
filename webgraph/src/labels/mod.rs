@@ -5,16 +5,13 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Utility structures for labelings.
+//! Combination and storage of labelings.
 
 pub mod bitstream;
-pub use bitstream::{BitStreamLabeling, BitStreamLabelingSeq, BitStreamStoreLabels};
+pub use bitstream::{BitStreamLabeling, BitStreamLabelingSeq, BitStreamStoreLabelsConfig};
 
 pub mod zip;
 pub use zip::*;
 
 pub mod proj;
 pub use proj::*;
-
-mod store;
-pub use store::{BitStreamStoreLabelsConfig, Uncompressed, Zstd};

@@ -13,7 +13,7 @@ use anyhow::Result;
 use common::test_graph;
 use dsi_bitstream::prelude::*;
 use lender::*;
-use sux::traits::IndexedSeq;
+use value_traits::slices::SliceByValue;
 use webgraph::graphs::bvgraph::DCF;
 use webgraph::prelude::*;
 
@@ -27,10 +27,10 @@ fn verify_dcf(dcf: &DCF, expected: &[u64]) {
     assert_eq!(dcf.len(), expected.len());
     for (i, &expected_val) in expected.iter().enumerate() {
         assert_eq!(
-            dcf.get(i),
+            dcf.index_value(i),
             expected_val,
             "DCF mismatch at index {i}: expected {expected_val}, got {}",
-            dcf.get(i),
+            dcf.index_value(i),
         );
     }
 }
@@ -98,14 +98,14 @@ fn test_build_dcf_cross_check() -> Result<()> {
     let dcf_bv_seq = bv_seq.build_dcf();
 
     for i in 0..EXPECTED_DCF.len() {
-        let v = dcf_vec.get(i);
-        assert_eq!(v, dcf_csr.get(i), "VecGraph vs CsrGraph at index {i}");
+        let v = dcf_vec.index_value(i);
+        assert_eq!(v, dcf_csr.index_value(i), "VecGraph vs CsrGraph at index {i}");
         assert_eq!(
             v,
-            dcf_csr_sorted.get(i),
+            dcf_csr_sorted.index_value(i),
             "VecGraph vs CsrSortedGraph at index {i}"
         );
-        assert_eq!(v, dcf_bv_seq.get(i), "VecGraph vs BvGraphSeq at index {i}");
+        assert_eq!(v, dcf_bv_seq.index_value(i), "VecGraph vs BvGraphSeq at index {i}");
     }
     Ok(())
 }
@@ -121,7 +121,7 @@ fn test_build_dcf_cnr_2000() -> Result<()> {
     let dcf = seq.build_dcf();
 
     assert_eq!(dcf.len(), n + 1);
-    assert_eq!(dcf.get(0), 0);
+    assert_eq!(dcf.index_value(0), 0);
 
     // Verify against sequential iteration
     let mut cumul = 0u64;
@@ -130,7 +130,7 @@ fn test_build_dcf_cnr_2000() -> Result<()> {
     while let Some((_node, succs)) = lender.next() {
         cumul += succs.into_iter().count() as u64;
         node_idx += 1;
-        assert_eq!(dcf.get(node_idx), cumul, "DCF mismatch at node {node_idx}");
+        assert_eq!(dcf.index_value(node_idx), cumul, "DCF mismatch at node {node_idx}");
     }
     assert_eq!(node_idx, n);
     assert_eq!(cumul, seq.num_arcs_hint().unwrap());

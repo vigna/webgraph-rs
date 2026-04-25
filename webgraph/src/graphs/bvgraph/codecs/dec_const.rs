@@ -16,7 +16,7 @@ use dsi_bitstream::prelude::*;
 
 use epserde::deser::MemCase;
 use epserde::deser::Owned;
-use sux::traits::IndexedSeq;
+use value_traits::slices::SliceByValue;
 
 /// An implementation of [`Decode`] with compile-time defined codes.
 #[derive(Debug, Clone)]
@@ -201,7 +201,7 @@ impl<
         ConstCodesDecoderFactory {
             factory: self.factory,
             offsets: (0..offsets.len())
-                .map(|i| unsafe { offsets.get_unchecked(i) })
+                .map(|i| unsafe { offsets.get_value_unchecked(i) })
                 .collect::<Vec<_>>()
                 .into_boxed_slice()
                 .into(),
@@ -267,7 +267,7 @@ where
 
     fn new_decoder(&self, offset: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
-        code_reader.set_bit_pos(unsafe { self.offsets.uncase().get_unchecked(offset) })?;
+        code_reader.set_bit_pos(unsafe { self.offsets.uncase().get_value_unchecked(offset) })?;
 
         Ok(ConstCodesDecoder {
             code_reader,

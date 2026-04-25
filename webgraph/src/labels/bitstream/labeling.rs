@@ -5,13 +5,99 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Basic skeleton for a simple bitstream-based implementation of a labeling.
+//! Labels represented as a bitstream.
 //!
-//! Labels are stored as a bitstream, and are deserialized using a [custom
-//! deserializer](BitDeserializer). An [`IndexedSeq`] provides pointers into the
-//! bitstream. Both sequential and random access are provided.
+//! A bitstream-compressed labeling with basename `BASENAME` is described by:
 //!
-//! See the examples for a complete implementation based on memory mapping.
+//! - a _labels file_ (`BASENAME.labels`): a bitstream containing the
+//!   labels, stored using a [custom serializer];
+//! - a _properties file_ (`BASENAME.properties`): metadata about the labeling
+//!   and the serializer;
+//! - an _offsets file_ (`BASENAME.offsets`): a bitstream of γ-coded gaps between
+//!   the bit offsets of the list of labels associated with each node; it is analogous
+//!   of the offsets file of a [`BvGraph`].
+//!
+//! Additionally, an [Elias–Fano] representation of the offsets
+//! (`BASENAME.ef`), necessary for random access, can be built using the
+//! `webgraph build ef` command.
+//!
+//! The main access points to the implementation are [`BitStreamLabeling::load`]
+//! and [`BitStreamLabelingSeq::load`], which memory-map the files given a label
+//! basename. For more customized setups, use [`BitStreamLabeling::new`] and
+//! [`BitStreamLabelingSeq::new`], which take the components of the labeling as
+//! arguments.
+//!
+//! # Examples
+//!
+//! Compresses a labeled graph, then loads the result both sequentially and with
+//! random access:
+//!
+//! ```
+//! # use anyhow::Result;
+//! # use epserde::prelude::*;
+//! # use webgraph::prelude::*;
+//! # use webgraph::graphs::bvgraph::*;
+//! # use webgraph::labels::{BitStreamLabeling, BitStreamLabelingSeq, BitStreamStoreLabelsConfig};
+//! # use webgraph::graphs::vec_graph::LabeledVecGraph;
+//! # use webgraph::traits::FixedWidth;
+//! # use dsi_bitstream::traits::BE;
+//! # use std::io::BufWriter;
+//! #
+//! # fn main() -> Result<()> {
+//! # let tmp = tempfile::TempDir::new()?;
+//! # let basename = tmp.path().join("example");
+//! // Build a labeled graph and compress it
+//! let graph = LabeledVecGraph::from_arcs([
+//!     ((0, 1), 10u32),
+//!     ((0, 2), 20),
+//!     ((1, 3), 30),
+//!     ((2, 3), 40),
+//!     ((3, 0), 50),
+//! ]);
+//!
+//! let label_config =
+//!     BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+//!
+//! BvComp::with_basename(&basename)
+//!     .par_comp_labeled::<BE, _, _>(&graph, label_config)?;
+//!
+//! let labels_basename = labels_basename(&basename);
+//!
+//! // --- Sequential access (no .ef needed) ---
+//! let seq = BvGraphSeq::with_basename(&basename)
+//!     .endianness::<BE>()
+//!     .load()?;
+//! let seq_labeling = BitStreamLabelingSeq::<BE, _, _>::load(
+//!     &labels_basename,
+//!     FixedWidth::<u32>::new(),
+//! )?;
+//! graph::eq_labeled(&graph, &Zip(seq, seq_labeling))?;
+//!
+//! // Build the Elias–Fano index for random access (or use webgraph build ef)
+//! let n = graph.num_nodes();
+//! let ef = build_ef_with_data(n,
+//!     &basename.with_extension("graph"), &basename.with_extension("offsets"))?;
+//! # unsafe { ef.serialize(&mut BufWriter::new(std::fs::File::create(basename.with_extension("ef"))?))?; }
+//! let ef = build_ef_with_data(n,
+//!     &labels_basename.with_extension("labels"), &labels_basename.with_extension("offsets"))?;
+//! # unsafe { ef.serialize(&mut BufWriter::new(std::fs::File::create(labels_basename.with_extension("ef"))?))?; }
+//!
+//! // --- Random access ---
+//! let ra = BvGraph::with_basename(&basename)
+//!     .endianness::<BE>()
+//!     .load()?;
+//! let ra_labeling = BitStreamLabeling::<BE, _, _, _>::load(
+//!     &labels_basename,
+//!     FixedWidth::<u32>::new(),
+//! )?;
+//! graph::eq_labeled(&graph, &Zip(ra, ra_labeling))?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! [custom serializer]: crate::traits::bit_serde::BitSerializer
+//! [Elias–Fano]: crate::graphs::bvgraph::EF
+//! [`BvGraph`]: crate::graphs::bvgraph
 
 use std::iter::FusedIterator;
 use std::path::Path;
@@ -27,14 +113,13 @@ use dsi_bitstream::traits::{BE, BitRead, BitSeek, Endianness};
 use epserde::deser::{Deserialize, Flags, MemCase};
 use lender::*;
 use mmap_rs::MmapFlags;
-use sux::traits::IndexedSeq;
+use value_traits::slices::SliceByValue;
 
-/// A sequential-only labeling based on a bitstream of labels and γ-coded
-/// offsets.
+/// A sequential-only labeling based on a bitstream of labels.
 ///
 /// This is the sequential counterpart of [`BitStreamLabeling`]: it reads
-/// offsets from the `.offsets` file on the fly, so it does not require the
-/// `.ef` Elias–Fano pointer list. Only [`SequentialLabeling`] is implemented.
+/// offsets on the fly, so it does not require the Elias–Fano pointer list. Only
+/// [`SequentialLabeling`] is implemented.
 ///
 /// Use [`load`](BitStreamLabelingSeq::load) to memory-map a labeling from a
 /// label basename, or [`new`](BitStreamLabelingSeq::new) for custom setups.
@@ -85,11 +170,10 @@ where
     for<'a> D: BitDeserializer<E, MemBufReader<'a, E>>,
 {
     /// Loads a sequential labeling from the given label basename by memory
-    /// mapping the `.labels` bitstream and the `.offsets` file.
+    /// mapping the bitstream and the offset files.
     ///
-    /// The `.properties` file is parsed to obtain the number of nodes and
-    /// arcs and to check that the endianness matches `E`. No `.ef` file is
-    /// required.
+    /// The properties file is parsed to obtain the number of nodes and arcs and
+    /// to check that the endianness matches `E`.
     pub fn load(label_basename: impl AsRef<Path>, bit_deser: D) -> anyhow::Result<Self> {
         let label_basename = label_basename.as_ref();
         let label_props = parse_label_properties::<E>(label_basename)?;
@@ -107,6 +191,7 @@ where
     }
 }
 
+#[doc(hidden)]
 pub struct NodeLabelsSeq<'a, E, BR, D> {
     labels_reader: BR,
     offsets_reader: MemBufReader<'a, BE>,
@@ -121,7 +206,7 @@ impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>>
     NodeLabelsLender<'succ> for NodeLabelsSeq<'_, E, BR, D>
 {
     type Label = D::DeserType;
-    type IntoIterator = SeqLabels<'succ, E, BR, D>;
+    type IntoIterator = LabelsSeq<'succ, E, BR, D>;
 }
 
 impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Lending<'succ>
@@ -146,7 +231,7 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Lender
         self.cumulative_offset += self.offsets_reader.read_gamma().unwrap();
         let res = (
             self.next_node,
-            SeqLabels {
+            LabelsSeq {
                 reader: &mut self.labels_reader,
                 bit_deser: self.bit_deser,
                 end_pos: self.cumulative_offset,
@@ -158,7 +243,6 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Lender
     }
 }
 
-// SAFETY: nodes are visited in order 0, 1, 2, …
 unsafe impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> SortedLender
     for NodeLabelsSeq<'_, E, BR, D>
 {
@@ -207,10 +291,13 @@ where
     }
 }
 
-/// A labeling based on a bitstream of labels and an indexed sequence of offsets.
+/// A labeling based on a bitstream of labels.
 ///
-/// Use [`load`](BitStreamLabeling::load) to memory-map a labeling from a label
+/// Use [`load`](BitStreamLabeling::load) to memory-map a labeling and the
+/// associated [Elias–Fano] structure representing pointers from a label
 /// basename, or [`new`](BitStreamLabeling::new) for custom setups.
+///
+/// [Elias–Fano]: crate::graphs::bvgraph::EF
 pub struct BitStreamLabeling<E: Endianness, S: CodesReaderFactory<E>, D, O: Offsets>
 where
     for<'a> S::CodesReader<'a>: BitRead<E> + BitSeek,
@@ -247,10 +334,12 @@ where
     for<'a> D: BitDeserializer<E, MemBufReader<'a, E>>,
 {
     /// Loads a labeling from the given label basename by memory mapping
-    /// the `.labels` bitstream and the `.ef` Elias–Fano pointer list.
+    /// the bitstream and the [Elias–Fano] pointer list.
     ///
     /// The `.properties` file is parsed to obtain the number of arcs and
     /// to check that the endianness matches `E`.
+    ///
+    /// [Elias–Fano]: crate::graphs::bvgraph::EF
     pub fn load(label_basename: impl AsRef<Path>, bit_deser: D) -> anyhow::Result<Self> {
         let label_basename = label_basename.as_ref();
         let label_props = parse_label_properties::<E>(label_basename)?;
@@ -270,6 +359,7 @@ where
     }
 }
 
+#[doc(hidden)]
 pub struct NodeLabels<'a, 'b, E, BR, D, O: Offsets> {
     reader: BR,
     bit_deser: &'a D,
@@ -283,7 +373,7 @@ impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, 
     NodeLabelsLender<'succ> for NodeLabels<'_, '_, E, BR, D, O>
 {
     type Label = D::DeserType;
-    type IntoIterator = SeqLabels<'succ, E, BR, D>;
+    type IntoIterator = LabelsSeq<'succ, E, BR, D>;
 }
 
 impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets>
@@ -303,14 +393,14 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offs
             return None;
         }
         self.reader
-            .set_bit_pos(self.offsets.uncase().get(self.next_node))
+            .set_bit_pos(self.offsets.uncase().index_value(self.next_node))
             .unwrap();
         let res = (
             self.next_node,
-            SeqLabels {
+            LabelsSeq {
                 reader: &mut self.reader,
                 bit_deser: self.bit_deser,
-                end_pos: self.offsets.uncase().get(self.next_node + 1),
+                end_pos: self.offsets.uncase().index_value(self.next_node + 1),
                 _marker: std::marker::PhantomData,
             },
         );
@@ -319,7 +409,8 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offs
     }
 }
 
-pub struct SeqLabels<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> {
+#[doc(hidden)]
+pub struct LabelsSeq<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> {
     pub(crate) reader: &'a mut BR,
     pub(crate) bit_deser: &'a D,
     pub(crate) end_pos: u64,
@@ -327,7 +418,7 @@ pub struct SeqLabels<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserial
 }
 
 impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterator
-    for SeqLabels<'_, E, BR, D>
+    for LabelsSeq<'_, E, BR, D>
 {
     type Item = D::DeserType;
 
@@ -341,7 +432,7 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterato
 }
 
 impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> FusedIterator
-    for SeqLabels<'_, E, BR, D>
+    for LabelsSeq<'_, E, BR, D>
 {
 }
 
@@ -353,7 +444,7 @@ unsafe impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, 
 
 // SAFETY: labels within a node are read sequentially from the bitstream.
 unsafe impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> SortedIterator
-    for SeqLabels<'_, E, BR, D>
+    for LabelsSeq<'_, E, BR, D>
 {
 }
 
@@ -393,6 +484,7 @@ where
 
 // TODO: avoid duplicate implementation for labels
 
+#[doc(hidden)]
 pub struct Labels<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> {
     reader: BR,
     deserializer: &'a D,
@@ -437,12 +529,12 @@ where
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
         let mut reader = self.factory.new_reader();
         reader
-            .set_bit_pos(self.offsets.uncase().get(node_id))
+            .set_bit_pos(self.offsets.uncase().index_value(node_id))
             .unwrap();
         Labels {
             reader,
             deserializer: &self.bit_deser,
-            end_pos: self.offsets.uncase().get(node_id + 1),
+            end_pos: self.offsets.uncase().index_value(node_id + 1),
             _marker: std::marker::PhantomData,
         }
     }

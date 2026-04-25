@@ -14,7 +14,8 @@ use arbitrary::Arbitrary;
 use dsi_bitstream::prelude::*;
 use lender::prelude::*;
 use sux::prelude::*;
-use sux::traits::{IndexedSeq, TryIntoUnaligned};
+use sux::traits::TryIntoUnaligned;
+use value_traits::slices::SliceByValue;
 
 #[derive(Arbitrary, Debug)]
 pub struct FuzzCase {
@@ -184,7 +185,7 @@ pub fn harness(data: FuzzCase) {
     // verify that elias-fano has the right values
     assert_eq!(ef.len(), offsets.len());
     for (i, offset) in offsets.iter().enumerate() {
-        assert_eq!(ef.get(i), *offset);
+        assert_eq!(ef.index_value(i), *offset);
     }
 
     // create code reader builders

@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! Zipping (cartesian product) of labelings.
+
 use core::iter;
 
 use lender::{IntoLender, Lend, Lender, Lending, unsafe_assume_covariance};
@@ -14,27 +16,23 @@ use crate::prelude::{
     SequentialLabeling, SortedIterator, SortedLender,
 };
 
-/**
-
-Zips together two labelings.
-
-A wrapper tuple struct that zips together two labelings, and provides
-in return a labeling on pairs. It can be used simply to combine labelings
-over the same graph, but, more importantly, to attach a labeling to a graph,
-obtaining a labeled graph. Depending on the traits implemented by the two
-component labelings, the resulting labeling will be [sequential] or
-[random-access].
-
-Note that the two labelings should be on the same graph: a [`debug_assert!`]
-will check if two sequential iterators have the same length and return nodes in the
-same order, but no such check is possible for labels as we use [`Iterator::zip`],
-which does not perform length checks. For extra safety, consider using
-[`Zip::verify`] to perform a complete scan of the two labelings.
-
-[sequential]: SequentialLabeling
-[random-access]: RandomAccessLabeling
-
-*/
+/// Zips together two labelings.
+///
+/// A wrapper tuple struct that zips together two labelings, and provides
+/// in return a labeling on pairs. It can be used simply to combine labelings
+/// over the same graph, but, more importantly, to attach a labeling to a graph,
+/// obtaining a labeled graph. Depending on the traits implemented by the two
+/// component labelings, the resulting labeling will be [sequential] or
+/// [random-access].
+///
+/// Note that the two labelings should be on the same graph: a [`debug_assert!`]
+/// will check if two sequential iterators have the same length and return nodes in the
+/// same order, but no such check is possible for labels as we use [`Iterator::zip`],
+/// which does not perform length checks. For extra safety, consider using
+/// [`Zip::verify`] to perform a complete scan of the two labelings.
+///
+/// [sequential]: SequentialLabeling
+/// [random-access]: RandomAccessLabeling
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Zip<L: SequentialLabeling, R: SequentialLabeling>(pub L, pub R);
@@ -72,6 +70,7 @@ impl<L: SequentialLabeling, R: SequentialLabeling> Zip<L, R> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[doc(hidden)]
 pub struct NodeLabels<L, R>(L, R);
 
 impl<'succ, L, R> NodeLabelsLender<'succ> for NodeLabels<L, R>

@@ -882,7 +882,7 @@ pub fn cutpoints(
     use_dcf: bool,
 ) -> Result<Vec<usize>> {
     use epserde::prelude::*;
-    use sux::traits::IndexedSeq;
+    use value_traits::slices::SliceByValue;
     use sux::utils::FairChunks;
     use webgraph::prelude::{DCF, DEG_CUMUL_EXTENSION};
 
@@ -901,12 +901,12 @@ pub fn cutpoints(
             dcf.len(),
             num_nodes + 1
         );
-        ensure!(dcf.get(0) == 0, "DCF does not start with 0");
+        ensure!(dcf.index_value(0) == 0, "DCF does not start with 0");
         let num_arcs: u64 = num_arcs.expect("num_arcs_hint required for --dcf");
         ensure!(
-            dcf.get(num_nodes) == num_arcs,
+            dcf.index_value(num_nodes) == num_arcs,
             "DCF ends with {}, expected {} (num_arcs)",
-            dcf.get(num_nodes),
+            dcf.index_value(num_nodes),
             num_arcs
         );
         let num_threads = rayon::current_num_threads();

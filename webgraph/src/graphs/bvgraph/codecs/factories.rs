@@ -46,7 +46,7 @@ use std::{
     mem::MaybeUninit,
     path::Path,
 };
-use sux::traits::{IndexedSeq, Types};
+use value_traits::slices::SliceByValue;
 
 #[derive(Debug, Clone)]
 pub struct FileFactory<E: Endianness> {
@@ -249,24 +249,15 @@ pub struct EmptyDict<I, O> {
     _marker: core::marker::PhantomData<(I, O)>,
 }
 
-impl<I: for<'a> PartialEq<O> + PartialEq, O: PartialEq<I> + PartialEq> Types for EmptyDict<I, O> {
-    type Input = I;
-    type Output<'a> = O;
-}
-
-impl<I: for<'a> PartialEq<O> + PartialEq, O: PartialEq<I> + PartialEq> IndexedSeq
-    for EmptyDict<I, O>
-{
-    fn get(&self, _index: usize) -> Self::Output<'_> {
-        panic!("EmptyDict does not contain any elements");
-    }
-
-    unsafe fn get_unchecked(&self, _index: usize) -> Self::Output<'_> {
-        panic!();
-    }
+impl<I, O> SliceByValue for EmptyDict<I, O> {
+    type Value = O;
 
     fn len(&self) -> usize {
         0
+    }
+
+    unsafe fn get_value_unchecked(&self, _index: usize) -> Self::Value {
+        panic!("EmptyDict does not contain any elements");
     }
 }
 

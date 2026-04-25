@@ -14,7 +14,7 @@ use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 
 use epserde::deser::{MemCase, Owned};
-use sux::traits::IndexedSeq;
+use value_traits::slices::SliceByValue;
 
 /// A decoder that reads the codes of a graph from a bitstream using
 /// dynamically-dispatched functions.
@@ -236,7 +236,7 @@ where
     #[inline(always)]
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
-        code_reader.set_bit_pos(unsafe { self.offsets.uncase().get_unchecked(node) })?;
+        code_reader.set_bit_pos(unsafe { self.offsets.uncase().get_value_unchecked(node) })?;
 
         Ok(DynCodesDecoder {
             code_reader,

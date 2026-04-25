@@ -12,7 +12,7 @@ use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
 use lender::*;
 use std::io::prelude::*;
-use sux::traits::IndexedSeq;
+use value_traits::slices::SliceByValue;
 use webgraph::prelude::*;
 
 #[test]
@@ -45,7 +45,7 @@ fn test_offsets() -> Result<()> {
     let ef_offsets = ef_offsets.uncase();
 
     for (i, offset) in offsets.iter().enumerate() {
-        assert_eq!(*offset, ef_offsets.get(i));
+        assert_eq!(*offset, ef_offsets.index_value(i));
     }
 
     // Check that they read the same
@@ -56,13 +56,13 @@ fn test_offsets() -> Result<()> {
     }
 
     for (i, (offset, outdegree)) in graph.offset_deg_iter().enumerate() {
-        assert_eq!(offset, ef_offsets.get(i));
+        assert_eq!(offset, ef_offsets.index_value(i));
         assert_eq!(outdegree, graph.outdegree(i));
     }
 
     for start_node in 0..100 {
         for (i, (offset, outdegree)) in graph.offset_deg_iter_from(start_node).enumerate() {
-            assert_eq!(offset, ef_offsets.get(start_node + i));
+            assert_eq!(offset, ef_offsets.index_value(start_node + i));
             assert_eq!(outdegree, graph.outdegree(start_node + i));
         }
     }

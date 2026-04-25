@@ -18,6 +18,8 @@
   as `ParGraph` and `ParDcfGraph` can alter the default `IntoParLenders` splitting.
   Parallel compression methods take a `IntoParLenders` implementation.
 
+- New free functions to build the Elias–Fano representation of offsets.
+
 ### Fixed
 
 - `NonZeroUsize` has been replaced everywhere by `usize`, as there were no niche
@@ -73,6 +75,9 @@
 
 - `UnitLender` has been renamed `UnitLabelLender`, and `UnitSucc` has
   been renamed `UnitLabelSucc` for consistency.
+
+- The trait required for offsets is no longer `IndexedSeq`, but rather
+  `SliceByValue`, which is simpler and more appropriate.
 
 ### Improved
 

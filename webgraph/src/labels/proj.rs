@@ -4,16 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
+//! Left and right projections.
+//!
+//! The two structures in this module, [`Left`] and [`Right`], provide
+//! projection of a labeling whose labels are pairs. In particular,
+//! [`Left(Zip(g,h))`] is the same labeling as `g` and
+//! [`Right(Zip(g,h))`] is the same labeling as `h`.
+//!
+//! [`Left(Zip(g,h))`]: crate::labels::zip::Zip
+//! [`Right(Zip(g,h))`]: crate::labels::zip::Zip
 
-Left and right projections.
-
-The two structures in this module, [`Left`] and [`Right`], provide
-projection of a labeling whose labels are pairs. In particular,
-`Left(Zip(g,h))` is the same labeling as `g` and
-`Right(Zip(g,h))` is the same labeling as `h`.
-
-*/
 use crate::impl_parallel_from_split;
 use crate::prelude::{
     LenderIntoIterator, LenderLabel, NodeLabelsLender, Pair, RandomAccessGraph,
@@ -31,6 +31,7 @@ where
     S::Label: Pair;
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[doc(hidden)]
 pub struct LeftIterator<L>(pub L);
 
 impl<'succ, L> NodeLabelsLender<'succ> for LeftIterator<L>
@@ -74,11 +75,13 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[doc(hidden)]
 pub struct IntoLeftSucc<I: IntoIterator>(pub I)
 where
     I::Item: Pair;
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[doc(hidden)]
 pub struct LeftSucc<I: Iterator>(pub I)
 where
     I::Item: Pair;
@@ -286,6 +289,7 @@ where
     S::Label: Pair;
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[doc(hidden)]
 pub struct RightIterator<L>(pub L);
 
 impl<'succ, L> NodeLabelsLender<'succ> for RightIterator<L>
@@ -329,11 +333,13 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[doc(hidden)]
 pub struct IntoRightSucc<I: IntoIterator>(pub I)
 where
     I::Item: Pair;
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[doc(hidden)]
 pub struct RightSucc<I: Iterator>(pub I)
 where
     I::Item: Pair;

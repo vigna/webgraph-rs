@@ -7,11 +7,11 @@
 #![allow(dead_code)]
 
 use anyhow::Result;
-use dsi_bitstream::prelude::*;
+use epserde::ser::Serialize;
+use std::io::BufWriter;
 use std::path::{Path, PathBuf};
-use sux::traits::TryIntoUnaligned;
 use webgraph::graphs::vec_graph::VecGraph;
-use webgraph::prelude::{EF, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY};
+use webgraph::prelude::build_ef_with_data;
 
 /// Canonical test graph (8 nodes, 11 arcs).
 ///
@@ -40,13 +40,13 @@ pub fn test_graph() -> VecGraph {
     ])
 }
 
-/// Builds the Elias–Fano representation from a gamma-coded delta offsets
+/// Builds the Elias–Fano representation from a γ-coded delta offsets
 /// file and serializes it.
 ///
 /// - `num_nodes`: number of nodes in the graph.
 /// - `data_path`: the bitstream file (`.graph` or `.labels`) — used only
 ///   to compute the universe (bit-length).
-/// - `offsets_path`: gamma-coded delta offsets (`.offsets` or
+/// - `offsets_path`: γ-coded delta offsets (`.offsets` or
 ///   `.labeloffsets`).
 /// - `ef_path`: where to write the serialized EF.
 pub fn build_ef_from_offsets(
@@ -55,32 +55,7 @@ pub fn build_ef_from_offsets(
     offsets_path: &Path,
     ef_path: &Path,
 ) -> Result<()> {
-    use epserde::ser::Serialize;
-    use std::io::{BufWriter, Seek};
-    use sux::prelude::*;
-
-    let mut f = std::fs::File::open(data_path)?;
-    let file_len = 8 * f.seek(std::io::SeekFrom::End(0))?;
-
-    let of =
-        webgraph::utils::MmapHelper::<u32>::mmap(offsets_path, mmap_rs::MmapFlags::SEQUENTIAL)?;
-    let mut reader: BufBitReader<BE, _> = BufBitReader::new(MemWordReader::new(of.as_ref()));
-
-    let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len);
-    let mut offset = 0u64;
-    for _ in 0..num_nodes + 1 {
-        offset += reader.read_gamma()?;
-        efb.push(offset as _);
-    }
-
-    let ef = efb.build();
-    let ef: EF = unsafe {
-        ef.map_high_bits(
-            SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
-        )
-        .try_into_unaligned()?
-    };
-
+    let ef = build_ef_with_data(num_nodes, data_path, offsets_path)?;
     let mut ef_file = BufWriter::new(std::fs::File::create(ef_path)?);
     unsafe { ef.serialize(&mut ef_file)? };
     Ok(())
