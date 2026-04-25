@@ -4,17 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! A [`LabelComp`] that serializes labels to a bitstream using a
-//! [`BitSerializer`], recording per-node offsets for random access.
+//! A [`StoreLabels`] implementation that serializes labels to a bitstream
+//! using a [`BitSerializer`], recording per-node offsets for random access.
 
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
 use std::fs::File;
 use std::io::BufWriter;
+use std::io::Write;
 use std::path::Path;
 
-/// Compresses arc labels into a bitstream file with a companion
+/// Compresses arc labels into a bitstream with a companion
 /// delta-encoded offsets file.
 ///
 /// The label file contains only serialized label values. The number of labels
@@ -26,18 +27,22 @@ use std::path::Path;
 /// cumulative offsets for _n_ nodes — exactly the format that
 /// [`BitStreamLabeling`] expects.
 ///
-/// [`init`]: LabelComp::init
-pub struct BitStreamLabelComp<E: Endianness, S> {
+/// The type parameter `W` controls the underlying writer for the label
+/// bitstream (e.g., [`File`] for uncompressed, or
+/// [`zstd::Encoder`] for compressed temp files). The offsets
+/// writer is always file-backed.
+///
+/// [`init`]: StoreLabels::init
+pub struct BitStreamStoreLabels<E: Endianness, S, W: Write> {
     serializer: S,
-    bitstream: BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>,
+    bitstream: BufBitWriter<E, WordAdapter<usize, BufWriter<W>>>,
     offsets_writer: OffsetsWriter<File>,
     bits_for_curr_node: u64,
     total_label_bits: u64,
-    total_offsets_bits: u64,
     started: bool,
 }
 
-impl<E: Endianness, S> BitStreamLabelComp<E, S> {
+impl<E: Endianness, S> BitStreamStoreLabels<E, S, File> {
     /// Creates a new label compressor writing to the given paths.
     ///
     /// The `labels_path` receives the serialized label bitstream,
@@ -51,7 +56,6 @@ impl<E: Endianness, S> BitStreamLabelComp<E, S> {
         let offsets_path = offsets_path.as_ref();
         let bitstream = buf_bit_writer::from_path::<E, usize>(labels_path)
             .with_context(|| format!("Could not create label file {}", labels_path.display()))?;
-        // We write here the initial offset zero
         let offsets_writer = OffsetsWriter::from_path(offsets_path, true)?;
         Ok(Self {
             serializer,
@@ -59,16 +63,42 @@ impl<E: Endianness, S> BitStreamLabelComp<E, S> {
             offsets_writer,
             bits_for_curr_node: 0,
             total_label_bits: 0,
-            total_offsets_bits: 0,
             started: false,
         })
     }
 }
 
-impl<E: Endianness, S> StoreLabels for BitStreamLabelComp<E, S>
+impl<E: Endianness, S, W: Write> BitStreamStoreLabels<E, S, W> {
+    /// Creates a new label compressor from an existing writer.
+    ///
+    /// The `writer` receives the serialized label bitstream, and
+    /// `offsets_path` receives the γ-coded delta offsets. The
+    /// `write_zero` flag controls whether the initial zero offset is
+    /// written (true for sequential, false for parallel chunks whose
+    /// initial offset is written during concatenation).
+    pub fn from_writer(
+        serializer: S,
+        writer: W,
+        offsets_path: impl AsRef<Path>,
+        write_zero: bool,
+    ) -> Result<Self> {
+        let bitstream = BufBitWriter::new(WordAdapter::new(BufWriter::new(writer)));
+        let offsets_writer = OffsetsWriter::from_path(offsets_path, write_zero)?;
+        Ok(Self {
+            serializer,
+            bitstream,
+            offsets_writer,
+            bits_for_curr_node: 0,
+            total_label_bits: 0,
+            started: false,
+        })
+    }
+}
+
+impl<E: Endianness, S, W: Write> StoreLabels for BitStreamStoreLabels<E, S, W>
 where
-    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: BitWrite<E>,
-    S: BitSerializer<E, BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>>,
+    BufBitWriter<E, WordAdapter<usize, BufWriter<W>>>: BitWrite<E>,
+    S: BitSerializer<E, BufBitWriter<E, WordAdapter<usize, BufWriter<W>>>>,
 {
     type Label = S::SerType;
 
@@ -78,7 +108,7 @@ where
 
     fn push_node(&mut self) -> Result<()> {
         if self.started {
-            self.total_offsets_bits += self.offsets_writer.push(self.bits_for_curr_node)? as u64;
+            self.offsets_writer.push(self.bits_for_curr_node)?;
         }
         self.started = true;
         self.bits_for_curr_node = 0;
@@ -94,20 +124,18 @@ where
 
     fn flush(&mut self) -> Result<()> {
         if self.started {
-            self.total_offsets_bits += self.offsets_writer.push(self.bits_for_curr_node)? as u64;
+            self.offsets_writer.push(self.bits_for_curr_node)?;
         }
         self.bitstream.flush()?;
         self.offsets_writer.flush()?;
         Ok(())
     }
 
-    #[inline(always)]
     fn label_written_bits(&self) -> u64 {
         self.total_label_bits
     }
 
-    #[inline(always)]
     fn offsets_written_bits(&self) -> u64 {
-        self.total_offsets_bits
+        self.offsets_writer.written_bits()
     }
 }

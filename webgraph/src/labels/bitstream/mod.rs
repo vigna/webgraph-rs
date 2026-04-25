@@ -6,7 +6,7 @@
  */
 
 //! Bitstream-based label storage: reading ([`BitStreamLabeling`]) and
-//! writing ([`BitStreamLabelComp`]).
+//! writing ([`BitStreamStoreLabels`]).
 
 pub mod comp;
 pub use comp::*;

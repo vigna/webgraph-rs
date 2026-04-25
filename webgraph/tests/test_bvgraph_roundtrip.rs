@@ -741,7 +741,7 @@ fn test_bvcomp_labeled_roundtrip() -> Result<()> {
     let labels_path = tmp.path().join("labeled.labels");
     let label_offsets_path = tmp.path().join("labeled.labeloffsets");
 
-    let label_comp = webgraph::labels::BitStreamLabelComp::<BE, _>::new(
+    let label_comp = webgraph::labels::BitStreamStoreLabels::<BE, _, _>::new(
         FixedWidth::<u32>::new(),
         &labels_path,
         &label_offsets_path,

@@ -121,9 +121,9 @@ impl JobId for Job {
 ///
 /// TODO: This currently uses Write which requires std. To support no_std we will want to make W a WordWriter
 #[derive(Debug)]
-#[repr(transparent)]
 pub struct OffsetsWriter<W: Write> {
     buffer: BufBitWriter<BigEndian, WordAdapter<usize, BufWriter<W>>>,
+    written_bits: u64,
 }
 
 impl OffsetsWriter<File> {
@@ -142,21 +142,46 @@ impl<W: Write> OffsetsWriter<W> {
     /// Creates a new writer and writes the first offset value (0) if requested.
     pub fn from_write(writer: W, write_zero: bool) -> Result<Self> {
         let mut buffer = BufBitWriter::new(WordAdapter::new(BufWriter::new(writer)));
+        let mut written_bits = 0u64;
         if write_zero {
             // the first offset (of the first parallel offsets file) is always zero
-            buffer.write_gamma(0)?;
+            written_bits += buffer.write_gamma(0)? as u64;
         }
-        Ok(Self { buffer })
+        Ok(Self {
+            buffer,
+            written_bits,
+        })
     }
 
     /// Pushes a new delta offset.
     pub fn push(&mut self, delta: u64) -> Result<usize> {
-        Ok(self.buffer.write_gamma(delta)?)
+        let bits = self.buffer.write_gamma(delta)?;
+        self.written_bits += bits as u64;
+        Ok(bits)
     }
 
     /// Flushes the buffer.
     pub fn flush(&mut self) -> Result<()> {
         BitWrite::flush(&mut self.buffer)?;
+        Ok(())
+    }
+
+    /// Returns the number of bits written so far.
+    pub fn written_bits(&self) -> u64 {
+        self.written_bits
+    }
+
+    /// Copies bits from a reader into this writer.
+    pub fn copy_from<F: Endianness, RR: BitRead<F>>(
+        &mut self,
+        reader: &mut RR,
+        n: u64,
+    ) -> Result<()>
+    where
+        BufBitWriter<BigEndian, WordAdapter<usize, BufWriter<W>>>: BitWrite<BigEndian>,
+    {
+        self.buffer.copy_from(reader, n)?;
+        self.written_bits += n;
         Ok(())
     }
 }
