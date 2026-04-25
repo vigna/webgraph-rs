@@ -190,45 +190,6 @@ impl<W: Write> OffsetsWriter<W> {
     }
 }
 
-/// A wrapper around a shared reference that is [`Send`] and [`Sync`],
-/// bypassing the borrow checker by storing a raw pointer internally.
-///
-/// # Safety
-///
-/// The caller must ensure that the pointee outlives all uses and that
-/// no mutable alias exists while the pointer is dereferenced.
-struct SendSyncPtr<T>(core::ptr::NonNull<T>);
-
-impl<T> SendSyncPtr<T> {
-    /// Creates a new `SendSyncPtr` from a shared reference.
-    fn new(r: &T) -> Self {
-        Self(core::ptr::NonNull::from(r))
-    }
-
-    /// Returns a shared reference to the pointee.
-    ///
-    /// # Safety
-    ///
-    /// The caller must ensure no mutable alias exists.
-    unsafe fn as_ref(&self) -> &T {
-        // SAFETY: the caller guarantees the invariants of `SendSyncPtr`.
-        unsafe { self.0.as_ref() }
-    }
-}
-
-// SAFETY: the caller guarantees the pointed-to value outlives all uses
-// and that no mutable alias exists while the pointer is dereferenced.
-unsafe impl<T: Sync> Send for SendSyncPtr<T> {}
-unsafe impl<T: Sync> Sync for SendSyncPtr<T> {}
-
-impl<T> Clone for SendSyncPtr<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T> Copy for SendSyncPtr<T> {}
-
 /// Adapts an unlabeled [`IntoParLenders`] to produce `(usize, ())` pairs.
 struct UnitParLenders<G>(G);
 
@@ -638,14 +599,6 @@ impl BvCompConfig {
         let bvgraphz = self.bvgraphz;
         let chunk_size = self.chunk_size;
 
-        // SAFETY: `in_place_scope` guarantees that all spawned tasks complete
-        // before it returns, so the shared reference is valid for the entire
-        // duration of the spawned closures. We use a `SendSyncPtr` to avoid a
-        // borrow-checker conflict: the spawned closures need `&store_labels_config`
-        // while the main-thread concatenation code (which runs only after all
-        // spawned tasks finish) needs `&mut store_labels_config`.
-        let slc_ptr = SendSyncPtr::new(&store_labels_config);
-
         in_place_scope(|s| {
             for (thread_id, mut thread_lender) in Vec::from(lenders).into_iter().enumerate() {
                 let tmp_path = thread_path(thread_id);
@@ -653,9 +606,10 @@ impl BvCompConfig {
                 let chunk_offsets_path = tmp_path.with_extension(OFFSETS_EXTENSION);
                 let chunk_labels_path = tmp_path.with_extension(LABELS_EXTENSION);
                 let chunk_label_offsets_path = tmp_path.with_extension(LABELOFFSETS_EXTENSION);
+                let mut store_labels = store_labels_config
+                    .new_storage(&chunk_labels_path, &chunk_label_offsets_path)?;
                 let tx = tx.clone();
                 let mut comp_pl = comp_pl.clone();
-                // Spawn the thread
                 s.spawn(move |_| {
                     log::debug!("Thread {thread_id} started");
 
@@ -667,11 +621,6 @@ impl BvCompConfig {
                     let writer = buf_bit_writer::from_path::<E, usize>(&chunk_graph_path).unwrap();
                     let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags).unwrap();
 
-                    // SAFETY: see comment above on `slc_ptr`.
-                    let slc = unsafe { slc_ptr.as_ref() };
-                    let mut store_labels = slc
-                        .new_storage(&chunk_labels_path, &chunk_label_offsets_path)
-                        .unwrap();
                     store_labels.init().unwrap();
 
                     let stats;
