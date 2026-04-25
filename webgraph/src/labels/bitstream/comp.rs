@@ -73,11 +73,7 @@ impl<E: Endianness, S> BitStreamStoreLabels<E, S, File> {
 impl<E: Endianness, S, W: Write> BitStreamStoreLabels<E, S, W> {
     /// Creates a new label compressor from an existing writer and
     /// offsets writer.
-    pub fn from_writer(
-        serializer: S,
-        writer: W,
-        offsets_writer: OffsetsWriter<File>,
-    ) -> Self {
+    pub fn from_writer(serializer: S, writer: W, offsets_writer: OffsetsWriter<File>) -> Self {
         let bitstream = BufBitWriter::new(WordAdapter::new(BufWriter::new(writer)));
         Self {
             serializer,

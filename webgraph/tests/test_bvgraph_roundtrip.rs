@@ -739,12 +739,10 @@ fn test_bvcomp_labeled_roundtrip() -> Result<()> {
     let tmp = tempfile::TempDir::new()?;
     let basename = tmp.path().join("labeled");
 
-    let label_config = webgraph::labels::BitStreamStoreLabelsConfig::<BE, _>::new(
-        FixedWidth::<u32>::new(),
-    );
+    let label_config =
+        webgraph::labels::BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
 
-    BvComp::with_basename(&basename)
-        .comp_labeled_graph::<BE, _, _>(&graph, label_config)?;
+    BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, label_config)?;
 
     let labels_path = tmp.path().join("labeled.labels");
     let label_offsets_path = tmp.path().join("labeled.labeloffsets");
@@ -942,7 +940,9 @@ fn build_labeled_cnr2000() -> Result<webgraph::graphs::vec_graph::LabeledVecGrap
             arcs.push(((node, s), s as u32));
         }
     });
-    Ok(webgraph::graphs::vec_graph::LabeledVecGraph::from_arcs(arcs))
+    Ok(webgraph::graphs::vec_graph::LabeledVecGraph::from_arcs(
+        arcs,
+    ))
 }
 
 #[cfg_attr(feature = "slow_tests", test)]

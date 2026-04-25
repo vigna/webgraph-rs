@@ -113,11 +113,7 @@ pub trait StoreLabelsConfig {
     ) -> anyhow::Result<Self::StoreLabels>;
 
     /// Opens the final output files for concatenation.
-    fn init_concat(
-        &mut self,
-        labels_path: &Path,
-        offsets_path: &Path,
-    ) -> anyhow::Result<()>;
+    fn init_concat(&mut self, labels_path: &Path, offsets_path: &Path) -> anyhow::Result<()>;
 
     /// Appends one part's labels and offsets into the final files.
     fn concat_part(
@@ -136,20 +132,12 @@ impl StoreLabelsConfig for () {
     type StoreLabels = ();
 
     #[inline(always)]
-    fn new_storage(
-        &self,
-        _labels_path: &Path,
-        _offsets_path: &Path,
-    ) -> anyhow::Result<()> {
+    fn new_storage(&self, _labels_path: &Path, _offsets_path: &Path) -> anyhow::Result<()> {
         Ok(())
     }
 
     #[inline(always)]
-    fn init_concat(
-        &mut self,
-        _labels_path: &Path,
-        _offsets_path: &Path,
-    ) -> anyhow::Result<()> {
+    fn init_concat(&mut self, _labels_path: &Path, _offsets_path: &Path) -> anyhow::Result<()> {
         Ok(())
     }
 

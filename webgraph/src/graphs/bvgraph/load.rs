@@ -24,12 +24,12 @@ use std::{
 pub trait Access: 'static {}
 
 #[derive(Debug, Clone)]
-pub struct Sequential {}
+pub struct Sequential;
 #[sealed]
 impl Access for Sequential {}
 
 #[derive(Debug, Clone)]
-pub struct Random {}
+pub struct Random;
 #[sealed]
 impl Access for Random {}
 
@@ -48,7 +48,7 @@ pub struct Static<
     const BLOCKS: usize = { code_consts::GAMMA },
     const INTERVALS: usize = { code_consts::GAMMA },
     const RESIDUALS: usize = { code_consts::ZETA3 },
-> {}
+>;
 
 #[sealed]
 impl<
@@ -65,7 +65,7 @@ impl<
 ///
 /// Parameters are retrieved from the graph properties.
 #[derive(Debug, Clone)]
-pub struct Dynamic {}
+pub struct Dynamic;
 
 #[sealed]
 impl Dispatch for Dynamic {}
@@ -129,7 +129,7 @@ pub type LoadModeCodesReader<'a, E, LM> =
 /// Note that you must guarantee that the graph file is padded with enough
 /// zeroes so that it can be read one `u32` at a time.
 #[derive(Debug, Clone)]
-pub struct File {}
+pub struct File;
 #[sealed]
 impl LoadMode for File {
     type Factory<E: Endianness> = FileFactory<E>;
@@ -162,7 +162,7 @@ impl LoadMode for File {
 ///
 /// [set memory-mapping flags]: LoadConfig::flags
 #[derive(Debug, Clone)]
-pub struct Mmap {}
+pub struct Mmap;
 #[sealed]
 impl LoadMode for Mmap {
     type Factory<E: Endianness> = MmapHelper<u32>;
@@ -190,7 +190,7 @@ impl LoadMode for Mmap {
 
 /// The graph and offsets are loaded into allocated memory.
 #[derive(Debug, Clone)]
-pub struct LoadMem {}
+pub struct LoadMem;
 #[sealed]
 impl LoadMode for LoadMem {
     type Factory<E: Endianness> = MemoryFactory<E, Box<[u32]>>;
@@ -222,7 +222,7 @@ impl LoadMode for LoadMem {
 ///
 /// [set memory-mapping flags]: LoadConfig::flags
 #[derive(Debug, Clone)]
-pub struct LoadMmap {}
+pub struct LoadMmap;
 #[sealed]
 impl LoadMode for LoadMmap {
     type Factory<E: Endianness> = MemoryFactory<E, MmapHelper<u32>>;

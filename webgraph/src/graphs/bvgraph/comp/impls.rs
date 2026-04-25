@@ -562,8 +562,8 @@ impl BvCompConfig {
                 let chunk_offsets_path = tmp_path.with_extension(OFFSETS_EXTENSION);
                 let part_labels_path = tmp_path.with_extension(LABELS_EXTENSION);
                 let part_label_offsets_path = tmp_path.with_extension(LABELOFFSETS_EXTENSION);
-                let store_labels = store_labels_config
-                    .new_storage(&part_labels_path, &part_label_offsets_path)?;
+                let store_labels =
+                    store_labels_config.new_storage(&part_labels_path, &part_label_offsets_path)?;
                 let tx = tx.clone();
                 let mut comp_pl = comp_pl.clone();
                 s.spawn(move |_| {

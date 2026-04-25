@@ -95,11 +95,7 @@ where
     S: Clone,
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: BitWrite<E>,
 {
-    fn init_concat_inner(
-        &mut self,
-        labels_path: &Path,
-        offsets_path: &Path,
-    ) -> Result<()> {
+    fn init_concat_inner(&mut self, labels_path: &Path, offsets_path: &Path) -> Result<()> {
         let labels_writer = buf_bit_writer::from_path::<E, usize>(labels_path)
             .with_context(|| format!("Could not create {}", labels_path.display()))?;
         let mut offsets_writer = buf_bit_writer::from_path::<BE, usize>(offsets_path)
@@ -116,11 +112,11 @@ where
         offsets_written_bits: u64,
     ) -> Result<()> {
         let offsets_writer = self.offsets_writer.as_mut().unwrap();
-        let mut reader = <BufBitReader<BigEndian, _>>::new(<WordAdapter<u32, _>>::new(
-            BufReader::new(File::open(part_offsets_path).with_context(|| {
-                format!("Could not open {}", part_offsets_path.display())
-            })?),
-        ));
+        let mut reader =
+            <BufBitReader<BigEndian, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
+                File::open(part_offsets_path)
+                    .with_context(|| format!("Could not open {}", part_offsets_path.display()))?,
+            )));
         offsets_writer.copy_from(&mut reader, offsets_written_bits)?;
         std::fs::remove_file(part_offsets_path)?;
         Ok(())
@@ -151,19 +147,11 @@ where
 {
     type StoreLabels = BitStreamStoreLabels<E, S, File>;
 
-    fn new_storage(
-        &self,
-        labels_path: &Path,
-        offsets_path: &Path,
-    ) -> Result<Self::StoreLabels> {
+    fn new_storage(&self, labels_path: &Path, offsets_path: &Path) -> Result<Self::StoreLabels> {
         BitStreamStoreLabels::new(self.serializer.clone(), labels_path, offsets_path)
     }
 
-    fn init_concat(
-        &mut self,
-        labels_path: &Path,
-        offsets_path: &Path,
-    ) -> Result<()> {
+    fn init_concat(&mut self, labels_path: &Path, offsets_path: &Path) -> Result<()> {
         self.init_concat_inner(labels_path, offsets_path)
     }
 
@@ -195,31 +183,27 @@ where
     BufBitWriter<E, WordAdapter<usize, BufWriter<zstd::Encoder<'static, BufWriter<File>>>>>:
         BitWrite<E>,
     S: BitSerializer<
-        E,
-        BufBitWriter<E, WordAdapter<usize, BufWriter<zstd::Encoder<'static, BufWriter<File>>>>>,
-    >,
+            E,
+            BufBitWriter<E, WordAdapter<usize, BufWriter<zstd::Encoder<'static, BufWriter<File>>>>>,
+        >,
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: BitWrite<E>,
     BufBitReader<E, WordAdapter<u32, zstd::Decoder<'static, BufReader<File>>>>: BitRead<E>,
 {
     type StoreLabels = BitStreamStoreLabels<E, S, zstd::Encoder<'static, BufWriter<File>>>;
 
-    fn new_storage(
-        &self,
-        labels_path: &Path,
-        offsets_path: &Path,
-    ) -> Result<Self::StoreLabels> {
+    fn new_storage(&self, labels_path: &Path, offsets_path: &Path) -> Result<Self::StoreLabels> {
         let file = File::create(labels_path)
             .with_context(|| format!("Could not create {}", labels_path.display()))?;
         let encoder = zstd::Encoder::new(BufWriter::new(file), 0)?;
         let offsets_writer = OffsetsWriter::from_path(offsets_path, false)?;
-        Ok(BitStreamStoreLabels::from_writer(self.serializer.clone(), encoder, offsets_writer))
+        Ok(BitStreamStoreLabels::from_writer(
+            self.serializer.clone(),
+            encoder,
+            offsets_writer,
+        ))
     }
 
-    fn init_concat(
-        &mut self,
-        labels_path: &Path,
-        offsets_path: &Path,
-    ) -> Result<()> {
+    fn init_concat(&mut self, labels_path: &Path, offsets_path: &Path) -> Result<()> {
         self.init_concat_inner(labels_path, offsets_path)
     }
 
@@ -234,8 +218,7 @@ where
         let file = File::open(part_labels_path)
             .with_context(|| format!("Could not open {}", part_labels_path.display()))?;
         let decoder = zstd::Decoder::new(file)?;
-        let mut reader =
-            BufBitReader::<E, _>::new(WordAdapter::<u32, _>::new(decoder));
+        let mut reader = BufBitReader::<E, _>::new(WordAdapter::<u32, _>::new(decoder));
         labels_writer.copy_from(&mut reader, labels_written_bits)?;
         std::fs::remove_file(part_labels_path)?;
         self.concat_offsets_part(part_offsets_path, offsets_written_bits)
