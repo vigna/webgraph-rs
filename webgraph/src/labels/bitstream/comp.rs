@@ -61,7 +61,7 @@ impl<E: Endianness, S> BitStreamLabelComp<E, S> {
     }
 }
 
-impl<E: Endianness, S> LabelComp for BitStreamLabelComp<E, S>
+impl<E: Endianness, S> StoreLabels for BitStreamLabelComp<E, S>
 where
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: BitWrite<E>,
     S: BitSerializer<E, BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>>,
@@ -89,7 +89,7 @@ where
 
     fn flush(&mut self) -> Result<()> {
         if self.started {
-            self.offsets_writer.push(self.bits_for_curr_node as u64)?;
+            self.offsets_writer.push(self.bits_for_curr_node)?;
         }
         self.bitstream.flush()?;
         self.offsets_writer.flush()?;
