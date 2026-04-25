@@ -30,6 +30,10 @@ pub struct CompStats {
     /// Sum of reference distances (offsets) across all nodes (divide by
     /// [`num_nodes`](Self::num_nodes) to get the average).
     pub tot_dist: u64,
+    /// Length of the label bitstream.
+    pub labels_written_bits: u64,
+    /// Length of the label offsets bitstream.
+    pub label_offsets_written_bits: u64,
 }
 
 impl AddAssign for CompStats {
@@ -40,6 +44,8 @@ impl AddAssign for CompStats {
         self.offsets_written_bits += rhs.offsets_written_bits;
         self.tot_ref += rhs.tot_ref;
         self.tot_dist += rhs.tot_dist;
+        self.labels_written_bits += rhs.labels_written_bits;
+        self.label_offsets_written_bits += rhs.label_offsets_written_bits;
     }
 }
 
@@ -543,6 +549,8 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels> BvComp<E, W, SL> {
     pub fn flush(mut self) -> anyhow::Result<CompStats> {
         self.encoder.flush()?;
         self.offsets_writer.flush()?;
+        self.stats.labels_written_bits = self.store_labels.label_written_bits();
+        self.stats.label_offsets_written_bits = self.store_labels.offsets_written_bits();
         self.store_labels.flush()?;
         Ok(self.stats)
     }

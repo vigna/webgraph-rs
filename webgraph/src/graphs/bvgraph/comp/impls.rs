@@ -109,6 +109,10 @@ struct Job {
     num_arcs: u64,
     tot_ref: u64,
     tot_dist: u64,
+    chunk_labels_path: Option<PathBuf>,
+    labels_written_bits: u64,
+    chunk_label_offsets_path: Option<PathBuf>,
+    label_offsets_written_bits: u64,
 }
 
 impl JobId for Job {
@@ -183,6 +187,61 @@ impl<W: Write> OffsetsWriter<W> {
         self.buffer.copy_from(reader, n)?;
         self.written_bits += n;
         Ok(())
+    }
+}
+
+/// A wrapper around a shared reference that is [`Send`] and [`Sync`],
+/// bypassing the borrow checker by storing a raw pointer internally.
+///
+/// # Safety
+///
+/// The caller must ensure that the pointee outlives all uses and that
+/// no mutable alias exists while the pointer is dereferenced.
+struct SendSyncPtr<T>(core::ptr::NonNull<T>);
+
+impl<T> SendSyncPtr<T> {
+    /// Creates a new `SendSyncPtr` from a shared reference.
+    fn new(r: &T) -> Self {
+        Self(core::ptr::NonNull::from(r))
+    }
+
+    /// Returns a shared reference to the pointee.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure no mutable alias exists.
+    unsafe fn as_ref(&self) -> &T {
+        // SAFETY: the caller guarantees the invariants of `SendSyncPtr`.
+        unsafe { self.0.as_ref() }
+    }
+}
+
+// SAFETY: the caller guarantees the pointed-to value outlives all uses
+// and that no mutable alias exists while the pointer is dereferenced.
+unsafe impl<T: Sync> Send for SendSyncPtr<T> {}
+unsafe impl<T: Sync> Sync for SendSyncPtr<T> {}
+
+impl<T> Clone for SendSyncPtr<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> Copy for SendSyncPtr<T> {}
+
+/// Adapts an unlabeled [`IntoParLenders`] to produce `(usize, ())` pairs.
+struct UnitParLenders<G>(G);
+
+impl<G> IntoParLenders for UnitParLenders<G>
+where
+    G: for<'a> IntoParLenders<ParLender: NodeLabelsLender<'a, Label = usize>>,
+{
+    type ParLender = UnitLender<G::ParLender>;
+
+    fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
+        let (lenders, boundaries) = self.0.into_par_lenders();
+        let wrapped: Vec<_> = Vec::from(lenders).into_iter().map(UnitLender).collect();
+        (wrapped.into_boxed_slice(), boundaries)
     }
 }
 
@@ -521,12 +580,44 @@ impl BvCompConfig {
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
+        self.par_comp_labeled::<E, _, _>(UnitParLenders(graph), ())
+    }
+
+    /// Compresses a labeled [`IntoParLenders`] in parallel and returns the
+    /// length in bits of the graph bitstream.
+    ///
+    /// This method is the labeled counterpart of [`par_comp`]. Each worker
+    /// thread writes per-chunk label and label-offset files via a
+    /// [`StoreLabels`] instance obtained from `store_labels_config`. After
+    /// all threads finish, the main thread concatenates the chunk files
+    /// using [`StoreLabelsConfig::concat_chunk`].
+    ///
+    /// [`par_comp`]: Self::par_comp
+    pub fn par_comp_labeled<E: Endianness, G, SLC>(
+        &mut self,
+        graph: G,
+        mut store_labels_config: SLC,
+    ) -> Result<u64>
+    where
+        G: for<'a> IntoParLenders<
+            ParLender: NodeLabelsLender<
+                'a,
+                Label = (usize, <SLC::StoreLabels as StoreLabels>::Label),
+            >,
+        >,
+        SLC: StoreLabelsConfig + Send + Sync,
+        SLC::StoreLabels: Send,
+        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
+        BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
+    {
         let (lenders, boundaries) = graph.into_par_lenders();
         let num_nodes = *boundaries.last().unwrap_or(&0);
         let tmp_dir = self.tmp_dir()?;
 
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
         let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
+        let labels_path = self.basename.with_extension(LABELS_EXTENSION);
+        let label_offsets_path = self.basename.with_extension(LABELOFFSETS_EXTENSION);
 
         let (tx, rx) = crossbeam_channel::unbounded();
 
@@ -547,11 +638,21 @@ impl BvCompConfig {
         let bvgraphz = self.bvgraphz;
         let chunk_size = self.chunk_size;
 
+        // SAFETY: `in_place_scope` guarantees that all spawned tasks complete
+        // before it returns, so the shared reference is valid for the entire
+        // duration of the spawned closures. We use a `SendSyncPtr` to avoid a
+        // borrow-checker conflict: the spawned closures need `&store_labels_config`
+        // while the main-thread concatenation code (which runs only after all
+        // spawned tasks finish) needs `&mut store_labels_config`.
+        let slc_ptr = SendSyncPtr::new(&store_labels_config);
+
         in_place_scope(|s| {
             for (thread_id, mut thread_lender) in Vec::from(lenders).into_iter().enumerate() {
                 let tmp_path = thread_path(thread_id);
                 let chunk_graph_path = tmp_path.with_extension(GRAPH_EXTENSION);
                 let chunk_offsets_path = tmp_path.with_extension(OFFSETS_EXTENSION);
+                let chunk_labels_path = tmp_path.with_extension(LABELS_EXTENSION);
+                let chunk_label_offsets_path = tmp_path.with_extension(LABELOFFSETS_EXTENSION);
                 let tx = tx.clone();
                 let mut comp_pl = comp_pl.clone();
                 // Spawn the thread
@@ -566,6 +667,13 @@ impl BvCompConfig {
                     let writer = buf_bit_writer::from_path::<E, usize>(&chunk_graph_path).unwrap();
                     let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags).unwrap();
 
+                    // SAFETY: see comment above on `slc_ptr`.
+                    let slc = unsafe { slc_ptr.as_ref() };
+                    let mut store_labels = slc
+                        .new_storage(&chunk_labels_path, &chunk_label_offsets_path)
+                        .unwrap();
+                    store_labels.init().unwrap();
+
                     let stats;
                     let mut last_node;
                     if bvgraphz {
@@ -577,13 +685,13 @@ impl BvCompConfig {
                             cp_flags.max_ref_count,
                             cp_flags.min_interval_length,
                             node_id,
-                            (),
+                            store_labels,
                         );
-                        bvcomp.push(UnitSucc(successors.into_iter())).unwrap();
+                        bvcomp.push(successors.into_iter()).unwrap();
                         last_node = first_node;
                         let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
                         for_! ( (_, succ) in iter_nodes {
-                            bvcomp.push(UnitSucc(succ.into_iter())).unwrap();
+                            bvcomp.push(succ.into_iter()).unwrap();
                             log_comp_stats(&bvcomp.stats(), false);
                             comp_pl.update();
                         });
@@ -596,13 +704,13 @@ impl BvCompConfig {
                             cp_flags.max_ref_count,
                             cp_flags.min_interval_length,
                             node_id,
-                            (),
+                            store_labels,
                         );
-                        bvcomp.push(UnitSucc(successors.into_iter())).unwrap();
+                        bvcomp.push(successors.into_iter()).unwrap();
                         last_node = first_node;
                         let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
                         for_! ( (_, succ) in iter_nodes {
-                            bvcomp.push(UnitSucc(succ.into_iter())).unwrap();
+                            bvcomp.push(succ.into_iter()).unwrap();
                             log_comp_stats(&bvcomp.stats(), false);
                             comp_pl.update();
                         });
@@ -624,6 +732,10 @@ impl BvCompConfig {
                         num_arcs: stats.num_arcs,
                         tot_ref: stats.tot_ref,
                         tot_dist: stats.tot_dist,
+                        chunk_labels_path: Some(chunk_labels_path),
+                        labels_written_bits: stats.labels_written_bits,
+                        chunk_label_offsets_path: Some(chunk_label_offsets_path),
+                        label_offsets_written_bits: stats.label_offsets_written_bits,
                     })
                     .ok(); // If channel is closed, main thread already has an error
                 });
@@ -647,6 +759,8 @@ impl BvCompConfig {
                 .with_context(|| format!("Could not create offsets {}", offsets_path.display()))?;
             offsets_writer.write_gamma(0)?;
 
+            store_labels_config.init_concat(&labels_path, &label_offsets_path)?;
+
             let mut total_stats = super::CompStats::default();
 
             let mut next_node = 0;
@@ -663,6 +777,10 @@ impl BvCompConfig {
                 num_arcs,
                 tot_ref,
                 tot_dist,
+                chunk_labels_path,
+                labels_written_bits,
+                chunk_label_offsets_path,
+                label_offsets_written_bits,
             } in TaskQueue::new(rx.into_rayon_iter())
             {
                 ensure!(
@@ -719,6 +837,15 @@ impl BvCompConfig {
                     })?;
                 std::fs::remove_file(chunk_offsets_path)?;
 
+                if let (Some(lp), Some(lop)) = (chunk_labels_path, chunk_label_offsets_path) {
+                    store_labels_config.concat_chunk(
+                        &lp,
+                        labels_written_bits,
+                        &lop,
+                        label_offsets_written_bits,
+                    )?;
+                }
+
                 total_stats += super::CompStats {
                     num_nodes: last_node - first_node + 1,
                     num_arcs,
@@ -726,9 +853,13 @@ impl BvCompConfig {
                     offsets_written_bits,
                     tot_ref,
                     tot_dist,
+                    labels_written_bits: 0,
+                    label_offsets_written_bits: 0,
                 };
                 copy_pl.update_with_count(last_node - first_node + 1);
             }
+
+            store_labels_config.flush_concat()?;
 
             log::info!("Flushing the merged bitstreams");
             graph_writer.flush()?;
