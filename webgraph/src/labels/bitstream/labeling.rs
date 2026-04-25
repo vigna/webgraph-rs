@@ -32,6 +32,7 @@ where
     factory: S,
     bit_deser: D,
     offsets: MemCase<O>,
+    num_arcs: u64,
     _marker: std::marker::PhantomData<E>,
 }
 
@@ -40,13 +41,14 @@ where
     for<'a> S::CodesReader<'a>: BitRead<E> + BitSeek,
     for<'a> D: BitDeserializer<E, S::CodesReader<'a>>,
 {
-    /// Creates a new labeling from a reader factory, a deserializer, and
-    /// offsets.
-    pub fn new(factory: S, bit_deser: D, offsets: MemCase<O>) -> Self {
+    /// Creates a new labeling from a reader factory, a deserializer,
+    /// offsets, and the number of arcs.
+    pub fn new(factory: S, bit_deser: D, offsets: MemCase<O>, num_arcs: u64) -> Self {
         Self {
             factory,
             bit_deser,
             offsets,
+            num_arcs,
             _marker: std::marker::PhantomData,
         }
     }
@@ -156,6 +158,11 @@ where
         self.offsets.uncase().len() - 1
     }
 
+    #[inline(always)]
+    fn num_arcs_hint(&self) -> Option<u64> {
+        Some(self.num_arcs)
+    }
+
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         NodeLabels {
             offsets: &self.offsets,
@@ -208,7 +215,7 @@ where
         Self: 'succ;
 
     fn num_arcs(&self) -> u64 {
-        todo!();
+        self.num_arcs
     }
 
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {

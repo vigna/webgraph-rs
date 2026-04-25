@@ -67,6 +67,7 @@ impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> BitDeserializer<BE, BR> for SwhD
 pub fn mmap<D>(
     path: impl AsRef<Path>,
     bit_deser: D,
+    num_arcs: u64,
 ) -> Result<BitStreamLabeling<BE, MmapHelper<u32>, D, EF>>
 where
     for<'a> D: BitDeserializer<BE, MemBufReader<'a, BE>>,
@@ -82,6 +83,7 @@ where
             EF::mmap(&ef_path, Flags::empty())
                 .with_context(|| format!("Could not parse {}", ef_path.display()))
         }?,
+        num_arcs,
     ))
 }
 
@@ -92,7 +94,7 @@ pub fn main() -> Result<()> {
         .filter_level(log::LevelFilter::Info)
         .try_init()?;
 
-    let labels = mmap(&args.basename, SwhDeserializer::new(args.width))?;
+    let labels = mmap(&args.basename, SwhDeserializer::new(args.width), 0)?;
 
     for _ in 0..10 {
         let mut pl = ProgressLogger::default();

@@ -111,14 +111,18 @@ fn write_label_properties<E: dsi_bitstream::traits::Endianness>(
     s.push_str(&format!("arcs={num_arcs}\n"));
     s.push_str(&format!("serializer={serializer_name}\n"));
     s.push_str(&format!("length={labels_written_bits}\n"));
-    s.push_str(&format!(
-        "bitsperlink={:.3}\n",
-        labels_written_bits as f64 / num_arcs as f64
-    ));
-    s.push_str(&format!(
-        "bitspernode={:.3}\n",
-        labels_written_bits as f64 / num_nodes as f64
-    ));
+    if num_arcs > 0 {
+        s.push_str(&format!(
+            "bitsperlink={:.3}\n",
+            labels_written_bits as f64 / num_arcs as f64
+        ));
+    }
+    if num_nodes > 0 {
+        s.push_str(&format!(
+            "bitspernode={:.3}\n",
+            labels_written_bits as f64 / num_nodes as f64
+        ));
+    }
     let props_path = labels_basename.with_extension(PROPERTIES_EXTENSION);
     std::fs::write(&props_path, &s)
         .with_context(|| format!("Could not write {}", props_path.display()))?;

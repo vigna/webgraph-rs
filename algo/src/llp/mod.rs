@@ -394,8 +394,16 @@ pub fn layered_label_propagation_labels_only<
             iter_pl.update_and_display();
 
             obj_func += delta_obj_func;
-            let gain = delta_obj_func / obj_func;
-            let gain_impr = (prev_gain - gain) / prev_gain;
+            let gain = if obj_func > 0.0 {
+                delta_obj_func / obj_func
+            } else {
+                0.0
+            };
+            let gain_impr = if prev_gain > 0.0 {
+                (prev_gain - gain) / prev_gain
+            } else {
+                0.0
+            };
             prev_gain = gain;
             improv_window.pop_front();
             improv_window.push_back(gain_impr);
