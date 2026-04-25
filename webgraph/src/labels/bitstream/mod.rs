@@ -13,6 +13,3 @@ pub use comp::*;
 
 pub mod labeling;
 pub use labeling::*;
-
-pub mod seq_labeling;
-pub use seq_labeling::BitStreamLabelingSeq;
