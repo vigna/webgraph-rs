@@ -109,9 +109,9 @@ struct Job {
     num_arcs: u64,
     tot_ref: u64,
     tot_dist: u64,
-    chunk_labels_path: Option<PathBuf>,
+    part_labels_path: Option<PathBuf>,
     labels_written_bits: u64,
-    chunk_label_offsets_path: Option<PathBuf>,
+    part_label_offsets_path: Option<PathBuf>,
     label_offsets_written_bits: u64,
 }
 
@@ -507,7 +507,7 @@ impl BvCompConfig {
     /// thread writes per-chunk label and label-offset files via a
     /// [`StoreLabels`] instance obtained from `store_labels_config`. After
     /// all threads finish, the main thread concatenates the chunk files
-    /// using [`StoreLabelsConfig::concat_chunk`].
+    /// using [`StoreLabelsConfig::concat_part`].
     ///
     /// [`par_comp`]: Self::par_comp
     pub fn par_comp_labeled<E: Endianness, G, SLC>(
@@ -560,10 +560,10 @@ impl BvCompConfig {
                 let tmp_path = thread_path(thread_id);
                 let chunk_graph_path = tmp_path.with_extension(GRAPH_EXTENSION);
                 let chunk_offsets_path = tmp_path.with_extension(OFFSETS_EXTENSION);
-                let chunk_labels_path = tmp_path.with_extension(LABELS_EXTENSION);
-                let chunk_label_offsets_path = tmp_path.with_extension(LABELOFFSETS_EXTENSION);
+                let part_labels_path = tmp_path.with_extension(LABELS_EXTENSION);
+                let part_label_offsets_path = tmp_path.with_extension(LABELOFFSETS_EXTENSION);
                 let store_labels = store_labels_config
-                    .new_storage(&chunk_labels_path, &chunk_label_offsets_path)?;
+                    .new_storage(&part_labels_path, &part_label_offsets_path)?;
                 let tx = tx.clone();
                 let mut comp_pl = comp_pl.clone();
                 s.spawn(move |_| {
@@ -635,9 +635,9 @@ impl BvCompConfig {
                         num_arcs: stats.num_arcs,
                         tot_ref: stats.tot_ref,
                         tot_dist: stats.tot_dist,
-                        chunk_labels_path: Some(chunk_labels_path),
+                        part_labels_path: Some(part_labels_path),
                         labels_written_bits: stats.labels_written_bits,
-                        chunk_label_offsets_path: Some(chunk_label_offsets_path),
+                        part_label_offsets_path: Some(part_label_offsets_path),
                         label_offsets_written_bits: stats.label_offsets_written_bits,
                     })
                     .ok(); // If channel is closed, main thread already has an error
@@ -680,9 +680,9 @@ impl BvCompConfig {
                 num_arcs,
                 tot_ref,
                 tot_dist,
-                chunk_labels_path,
+                part_labels_path,
                 labels_written_bits,
-                chunk_label_offsets_path,
+                part_label_offsets_path,
                 label_offsets_written_bits,
             } in TaskQueue::new(rx.into_rayon_iter())
             {
@@ -740,8 +740,8 @@ impl BvCompConfig {
                     })?;
                 std::fs::remove_file(chunk_offsets_path)?;
 
-                if let (Some(lp), Some(lop)) = (chunk_labels_path, chunk_label_offsets_path) {
-                    store_labels_config.concat_chunk(
+                if let (Some(lp), Some(lop)) = (part_labels_path, part_label_offsets_path) {
+                    store_labels_config.concat_part(
                         &lp,
                         labels_written_bits,
                         &lop,

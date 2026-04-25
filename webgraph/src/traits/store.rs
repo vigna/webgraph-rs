@@ -88,21 +88,21 @@ impl StoreLabels for () {
 ///
 /// This is the factory counterpart to [`StoreLabels`]: it knows *how*
 /// to create label writers (via [`new_storage`]) and how to concatenate
-/// their output (via [`init_concat`], [`concat_chunk`], [`flush_concat`]).
+/// their output (via [`init_concat`], [`concat_part`], [`flush_concat`]).
 ///
 /// Sequential compression only uses [`new_storage`]; parallel
 /// compression additionally uses the concatenation methods to merge
-/// per-thread chunk files into the final output.
+/// per-thread part files into the final output.
 ///
 /// The unit type implements this trait as a no-op factory that spawns
 /// `()` stores.
 ///
 /// [`new_storage`]: Self::new_storage
 /// [`init_concat`]: Self::init_concat
-/// [`concat_chunk`]: Self::concat_chunk
+/// [`concat_part`]: Self::concat_part
 /// [`flush_concat`]: Self::flush_concat
 pub trait StoreLabelsConfig {
-    /// The per-chunk label writer this factory creates.
+    /// The per-part label writer this factory creates.
     type StoreLabels: StoreLabels;
 
     /// Creates a [`StoreLabels`] instance writing to the given paths.
@@ -119,12 +119,12 @@ pub trait StoreLabelsConfig {
         offsets_path: &Path,
     ) -> anyhow::Result<()>;
 
-    /// Appends one chunk's labels and offsets into the final files.
-    fn concat_chunk(
+    /// Appends one part's labels and offsets into the final files.
+    fn concat_part(
         &mut self,
-        chunk_labels_path: &Path,
+        part_labels_path: &Path,
         labels_written_bits: u64,
-        chunk_offsets_path: &Path,
+        part_offsets_path: &Path,
         offsets_written_bits: u64,
     ) -> anyhow::Result<()>;
 
@@ -154,11 +154,11 @@ impl StoreLabelsConfig for () {
     }
 
     #[inline(always)]
-    fn concat_chunk(
+    fn concat_part(
         &mut self,
-        _chunk_labels_path: &Path,
+        _part_labels_path: &Path,
         _labels_written_bits: u64,
-        _chunk_offsets_path: &Path,
+        _part_offsets_path: &Path,
         _offsets_written_bits: u64,
     ) -> anyhow::Result<()> {
         Ok(())

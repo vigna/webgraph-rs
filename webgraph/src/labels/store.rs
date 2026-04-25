@@ -17,15 +17,15 @@ use std::path::Path;
 
 use super::BitStreamStoreLabels;
 
-/// Typestate marker: label chunk files are written uncompressed.
+/// Typestate marker: label part files are written uncompressed.
 pub struct Uncompressed;
 
-/// Typestate marker: label chunk files are zstd-compressed.
+/// Typestate marker: label part files are zstd-compressed.
 pub struct Zstd;
 
 /// Configures and spawns [`BitStreamStoreLabels`] instances.
 ///
-/// The typestate parameter `C` controls whether per-thread chunk files
+/// The typestate parameter `C` controls whether per-thread part files
 /// are written with zstd compression ([`Zstd`]) or uncompressed
 /// ([`Uncompressed`]). The final concatenated output is always
 /// uncompressed.
@@ -59,7 +59,7 @@ impl<E: Endianness, S: Clone> BitStreamStoreLabelsConfig<E, S, Uncompressed> {
     }
 
     /// Transitions to the [`Zstd`] typestate, enabling zstd compression
-    /// for per-thread chunk files.
+    /// for per-thread part files.
     pub fn with_compressed(self) -> BitStreamStoreLabelsConfig<E, S, Zstd> {
         BitStreamStoreLabelsConfig {
             serializer: self.serializer,
@@ -100,19 +100,19 @@ where
         Ok(())
     }
 
-    fn concat_offsets_chunk(
+    fn concat_offsets_part(
         &mut self,
-        chunk_offsets_path: &Path,
+        part_offsets_path: &Path,
         offsets_written_bits: u64,
     ) -> Result<()> {
         let offsets_writer = self.offsets_writer.as_mut().unwrap();
         let mut reader = <BufBitReader<BigEndian, _>>::new(<WordAdapter<u32, _>>::new(
-            BufReader::new(File::open(chunk_offsets_path).with_context(|| {
-                format!("Could not open {}", chunk_offsets_path.display())
+            BufReader::new(File::open(part_offsets_path).with_context(|| {
+                format!("Could not open {}", part_offsets_path.display())
             })?),
         ));
         offsets_writer.copy_from(&mut reader, offsets_written_bits)?;
-        std::fs::remove_file(chunk_offsets_path)?;
+        std::fs::remove_file(part_offsets_path)?;
         Ok(())
     }
 
@@ -157,18 +157,18 @@ where
         self.init_concat_inner(labels_path, offsets_path)
     }
 
-    fn concat_chunk(
+    fn concat_part(
         &mut self,
-        chunk_labels_path: &Path,
+        part_labels_path: &Path,
         labels_written_bits: u64,
-        chunk_offsets_path: &Path,
+        part_offsets_path: &Path,
         offsets_written_bits: u64,
     ) -> Result<()> {
         let labels_writer = self.labels_writer.as_mut().unwrap();
-        let mut reader = buf_bit_reader::from_path::<E, u32>(chunk_labels_path)?;
+        let mut reader = buf_bit_reader::from_path::<E, u32>(part_labels_path)?;
         labels_writer.copy_from(&mut reader, labels_written_bits)?;
-        std::fs::remove_file(chunk_labels_path)?;
-        self.concat_offsets_chunk(chunk_offsets_path, offsets_written_bits)
+        std::fs::remove_file(part_labels_path)?;
+        self.concat_offsets_part(part_offsets_path, offsets_written_bits)
     }
 
     fn flush_concat(&mut self) -> Result<()> {
@@ -212,22 +212,22 @@ where
         self.init_concat_inner(labels_path, offsets_path)
     }
 
-    fn concat_chunk(
+    fn concat_part(
         &mut self,
-        chunk_labels_path: &Path,
+        part_labels_path: &Path,
         labels_written_bits: u64,
-        chunk_offsets_path: &Path,
+        part_offsets_path: &Path,
         offsets_written_bits: u64,
     ) -> Result<()> {
         let labels_writer = self.labels_writer.as_mut().unwrap();
-        let file = File::open(chunk_labels_path)
-            .with_context(|| format!("Could not open {}", chunk_labels_path.display()))?;
+        let file = File::open(part_labels_path)
+            .with_context(|| format!("Could not open {}", part_labels_path.display()))?;
         let decoder = zstd::Decoder::with_buffer(BufReader::new(file))?;
         let mut reader =
             BufBitReader::<E, _>::new(WordAdapter::<u32, _>::new(BufReader::new(decoder)));
         labels_writer.copy_from(&mut reader, labels_written_bits)?;
-        std::fs::remove_file(chunk_labels_path)?;
-        self.concat_offsets_chunk(chunk_offsets_path, offsets_written_bits)
+        std::fs::remove_file(part_labels_path)?;
+        self.concat_offsets_part(part_offsets_path, offsets_written_bits)
     }
 
     fn flush_concat(&mut self) -> Result<()> {
