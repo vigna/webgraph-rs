@@ -211,7 +211,8 @@ where
         let file = File::create(labels_path)
             .with_context(|| format!("Could not create {}", labels_path.display()))?;
         let encoder = zstd::Encoder::new(BufWriter::new(file), 0)?;
-        BitStreamStoreLabels::from_writer(self.serializer.clone(), encoder, offsets_path)
+        let offsets_writer = OffsetsWriter::from_path(offsets_path, false)?;
+        Ok(BitStreamStoreLabels::from_writer(self.serializer.clone(), encoder, offsets_writer))
     }
 
     fn init_concat(

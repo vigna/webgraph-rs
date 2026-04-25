@@ -71,18 +71,15 @@ impl<E: Endianness, S> BitStreamStoreLabels<E, S, File> {
 }
 
 impl<E: Endianness, S, W: Write> BitStreamStoreLabels<E, S, W> {
-    /// Creates a new label compressor from an existing writer.
-    ///
-    /// The `writer` receives the serialized label bitstream, and
-    /// `offsets_path` receives the γ-coded delta offsets.
+    /// Creates a new label compressor from an existing writer and
+    /// offsets writer.
     pub fn from_writer(
         serializer: S,
         writer: W,
-        offsets_path: impl AsRef<Path>,
-    ) -> Result<Self> {
+        offsets_writer: OffsetsWriter<File>,
+    ) -> Self {
         let bitstream = BufBitWriter::new(WordAdapter::new(BufWriter::new(writer)));
-        let offsets_writer = OffsetsWriter::from_path(offsets_path, false)?;
-        Ok(Self {
+        Self {
             serializer,
             bitstream,
             offsets_writer,
@@ -90,7 +87,7 @@ impl<E: Endianness, S, W: Write> BitStreamStoreLabels<E, S, W> {
             total_label_bits: 0,
             total_offsets_bits: 0,
             started: false,
-        })
+        }
     }
 }
 
