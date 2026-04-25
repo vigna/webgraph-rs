@@ -667,66 +667,6 @@ macro_rules! impl_parallel_from_split {
     };
 }
 
-/// A way to store labels alongsize a graph compressor.
-///
-/// Implementations receive labels one arc at a time via [`push_label`],
-/// grouped by node via [`push_node`]. The [`init`] method performs any
-/// setup (e.g., writing an initial offset), and [`flush`] finalizes the
-/// output.
-///
-/// The unit type implements this trait for the label label `()`, making it
-/// possible to use labeled compressors as unlabeled ones by wrapping the
-/// unlabeled graph in a [`UnitLabelGraph`].
-///
-/// [`push_label`]: Self::push_label
-/// [`push_node`]: Self::push_node
-/// [`init`]: Self::init
-/// [`flush`]: Self::flush
-/// [`UnitLabelGraph`]: crate::traits::UnitLabelGraph
-pub trait StoreLabels {
-    /// The arc-label type that this compressor accepts.
-    type Label;
-
-    /// Performs any setup before compression begins.
-    fn init(&mut self) -> anyhow::Result<()>;
-
-    /// Signals the start of a new node's labels.
-    ///
-    /// On every call except the first, implementations typically
-    /// record the accumulated bit count for the previous node.
-    fn push_node(&mut self) -> anyhow::Result<()>;
-
-    /// Compresses a single arc label.
-    fn push_label(&mut self, label: &Self::Label) -> anyhow::Result<()>;
-
-    /// Finalizes compression and flushes all output.
-    fn flush(&mut self) -> anyhow::Result<()>;
-}
-
-impl StoreLabels for () {
-    type Label = ();
-
-    #[inline(always)]
-    fn init(&mut self) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    #[inline(always)]
-    fn push_node(&mut self) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    #[inline(always)]
-    fn push_label(&mut self, _label: &()) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    #[inline(always)]
-    fn flush(&mut self) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
-
 /// Error types that can occur during checking the implementation of a random
 /// access labeling.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
