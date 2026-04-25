@@ -199,7 +199,7 @@ where
         BufBitWriter<E, WordAdapter<usize, BufWriter<zstd::Encoder<'static, BufWriter<File>>>>>,
     >,
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: BitWrite<E>,
-    BufBitReader<E, WordAdapter<u32, BufReader<zstd::Decoder<'static, BufReader<File>>>>>: BitRead<E>,
+    BufBitReader<E, WordAdapter<u32, zstd::Decoder<'static, BufReader<File>>>>: BitRead<E>,
 {
     type StoreLabels = BitStreamStoreLabels<E, S, zstd::Encoder<'static, BufWriter<File>>>;
 
@@ -232,9 +232,9 @@ where
         let labels_writer = self.labels_writer.as_mut().unwrap();
         let file = File::open(part_labels_path)
             .with_context(|| format!("Could not open {}", part_labels_path.display()))?;
-        let decoder = zstd::Decoder::with_buffer(BufReader::new(file))?;
+        let decoder = zstd::Decoder::new(file)?;
         let mut reader =
-            BufBitReader::<E, _>::new(WordAdapter::<u32, _>::new(BufReader::new(decoder)));
+            BufBitReader::<E, _>::new(WordAdapter::<u32, _>::new(decoder));
         labels_writer.copy_from(&mut reader, labels_written_bits)?;
         std::fs::remove_file(part_labels_path)?;
         self.concat_offsets_part(part_offsets_path, offsets_written_bits)
