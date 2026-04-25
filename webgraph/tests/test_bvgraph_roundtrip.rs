@@ -720,3 +720,77 @@ fn test_bvcomp_with_custom_comp_flags() -> Result<()> {
     labels::eq_sorted(&graph, &loaded)?;
     Ok(())
 }
+
+#[test]
+fn test_bvcomp_labeled_roundtrip() -> Result<()> {
+    use epserde::deser::{Deserialize, Flags};
+    use webgraph::graphs::vec_graph::LabeledVecGraph;
+    use webgraph::labels::{BitStreamLabeling, Supply};
+    use webgraph::traits::FixedWidth;
+
+    let graph = LabeledVecGraph::from_arcs([
+        ((0, 1), 10u32),
+        ((0, 2), 20),
+        ((1, 3), 30),
+        ((2, 3), 40),
+        ((3, 0), 50),
+    ]);
+
+    let tmp = tempfile::TempDir::new()?;
+    let basename = tmp.path().join("labeled");
+    let labels_path = tmp.path().join("labeled.labels");
+    let label_offsets_path = tmp.path().join("labeled.labeloffsets");
+
+    let label_comp = webgraph::labels::BitStreamLabelComp::<BE, _>::new(
+        FixedWidth::<u32>::new(),
+        &labels_path,
+        &label_offsets_path,
+    )?;
+
+    BvComp::with_basename(&basename)
+        .comp_labeled_graph::<BE, _, _>(&graph, label_comp)?;
+
+    // Build Elias-Fano offsets for the labels
+    let label_ef_path = tmp.path().join("labeled.labelef");
+    common::build_ef_from_offsets(
+        graph.num_nodes(),
+        &labels_path,
+        &label_offsets_path,
+        &label_ef_path,
+    )?;
+
+    // Load the graph and labeling, zip them, and compare
+    struct MmapSupplier {
+        backend: webgraph::utils::MmapHelper<u32>,
+    }
+
+    impl Supply for MmapSupplier {
+        type Item<'a>
+            = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>
+        where
+            Self: 'a;
+
+        fn request(&self) -> Self::Item<'_> {
+            BufBitReader::<BE, _>::new(MemWordReader::new(self.backend.as_ref()))
+        }
+    }
+
+    let seq = BvGraphSeq::with_basename(&basename)
+        .endianness::<BE>()
+        .load()?;
+
+    let labeling = BitStreamLabeling::new(
+        MmapSupplier {
+            backend: webgraph::utils::MmapHelper::<u32>::mmap(
+                &labels_path,
+                mmap_rs::MmapFlags::empty(),
+            )?,
+        },
+        FixedWidth::<u32>::new(),
+        unsafe { EF::mmap(&label_ef_path, Flags::empty())? },
+    );
+
+    graph::eq_labeled(&graph, &Zip(seq, labeling))?;
+
+    Ok(())
+}

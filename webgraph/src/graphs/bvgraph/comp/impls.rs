@@ -322,7 +322,7 @@ impl BvCompConfig {
     where
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
-        self.comp_lender::<E, _>(graph.iter(), Some(graph.num_nodes()))
+        self.comp_labeled_graph::<E, (), ()>(UnitLabelGraph(graph), ())
     }
 
     /// Compresses sequentially a [`NodeLabelsLender`] and returns
@@ -337,6 +337,51 @@ impl BvCompConfig {
         L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
+        self.comp_labeled_lender::<E, _, _>(
+            UnitLender(iter.into_lender()),
+            (),
+            expected_num_nodes,
+        )
+    }
+
+    /// Compresses sequentially a [`LabeledSequentialGraph`] and returns
+    /// the number of bits written to the graph bitstream.
+    ///
+    /// The `store_labels` parameter receives arc labels alongside graph
+    /// compression.
+    pub fn comp_labeled_graph<E: Endianness, L, SL: StoreLabels<Label = L>>(
+        &mut self,
+        graph: impl LabeledSequentialGraph<L>,
+        store_labels: SL,
+    ) -> Result<u64>
+    where
+        BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
+    {
+        let num_nodes = graph.num_nodes();
+        self.comp_labeled_lender::<E, _, _>(graph.iter(), store_labels, Some(num_nodes))
+    }
+
+    /// Compresses sequentially a labeled [`NodeLabelsLender`] and returns
+    /// the number of bits written to the graph bitstream.
+    ///
+    /// The `store_labels` parameter receives arc labels alongside graph
+    /// compression. Use `()` for unlabeled graphs.
+    ///
+    /// The optional `expected_num_nodes` parameter will be used to provide
+    /// forecasts on the progress logger.
+    pub fn comp_labeled_lender<E, L, SL>(
+        &mut self,
+        iter: L,
+        mut store_labels: SL,
+        expected_num_nodes: Option<usize>,
+    ) -> Result<u64>
+    where
+        E: Endianness,
+        L: IntoLender,
+        SL: StoreLabels,
+        L::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, SL::Label)>,
+        BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
+    {
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
 
         // Compress the graph
@@ -348,6 +393,8 @@ impl BvCompConfig {
         // create a file for offsets
         let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
         let offset_writer = OffsetsWriter::from_path(offsets_path, true)?;
+
+        store_labels.init()?;
 
         let mut pl = progress_logger![
             display_memory = true,
@@ -364,6 +411,7 @@ impl BvCompConfig {
                 self.comp_flags.max_ref_count,
                 self.comp_flags.min_interval_length,
                 0,
+                store_labels,
             );
 
             for_! ( (_node_id, successors) in iter {
@@ -383,6 +431,7 @@ impl BvCompConfig {
                 self.comp_flags.max_ref_count,
                 self.comp_flags.min_interval_length,
                 0,
+                store_labels,
             );
 
             for_! ( (_node_id, successors) in iter {
@@ -493,12 +542,13 @@ impl BvCompConfig {
                             cp_flags.max_ref_count,
                             cp_flags.min_interval_length,
                             node_id,
+                            (),
                         );
-                        bvcomp.push(successors).unwrap();
+                        bvcomp.push(UnitSucc(successors.into_iter())).unwrap();
                         last_node = first_node;
                         let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
                         for_! ( (_, succ) in iter_nodes {
-                            bvcomp.push(succ.into_iter()).unwrap();
+                            bvcomp.push(UnitSucc(succ.into_iter())).unwrap();
                             log_comp_stats(&bvcomp.stats(), false);
                             comp_pl.update();
                         });
@@ -511,12 +561,13 @@ impl BvCompConfig {
                             cp_flags.max_ref_count,
                             cp_flags.min_interval_length,
                             node_id,
+                            (),
                         );
-                        bvcomp.push(successors).unwrap();
+                        bvcomp.push(UnitSucc(successors.into_iter())).unwrap();
                         last_node = first_node;
                         let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
                         for_! ( (_, succ) in iter_nodes {
-                            bvcomp.push(succ.into_iter()).unwrap();
+                            bvcomp.push(UnitSucc(succ.into_iter())).unwrap();
                             log_comp_stats(&bvcomp.stats(), false);
                             comp_pl.update();
                         });

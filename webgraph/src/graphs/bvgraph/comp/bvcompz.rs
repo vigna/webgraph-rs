@@ -56,7 +56,7 @@ struct ReferenceTableEntry {
 /// [`par_comp`]: BvCompConfig::par_comp
 /// [Zuckerli paper]: <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9272613>
 #[derive(Debug)]
-pub struct BvCompZ<E, W: Write> {
+pub struct BvCompZ<E, W: Write, SL: StoreLabels = ()> {
     /// The successors of each node in the chunk.
     backrefs: RaggedArray<usize>,
     /// The references to the adjacency list to copy
@@ -90,9 +90,11 @@ pub struct BvCompZ<E, W: Write> {
     start_chunk_node: usize,
     /// The statistics of the compression process.
     stats: CompStats,
+    /// The label store.
+    store_labels: SL,
 }
 
-impl BvCompZ<(), std::io::Sink> {
+impl BvCompZ<(), std::io::Sink, ()> {
     /// Convenience method returning a [`BvCompConfig`] with
     /// settings suitable for the Zuckerli-based compressor.
     pub fn with_basename(basename: impl AsRef<Path>) -> BvCompConfig {
@@ -105,11 +107,12 @@ impl BvCompZ<(), std::io::Sink> {
     }
 }
 
-impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
+impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels> BvCompZ<E, W, SL> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
     /// Creates a new BvGraph compressor.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         encoder: E,
         offsets_writer: OffsetsWriter<W>,
@@ -118,6 +121,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         max_ref_count: usize,
         min_interval_length: usize,
         start_node: usize,
+        store_labels: SL,
     ) -> Self {
         BvCompZ {
             backrefs: RaggedArray::new(),
@@ -136,6 +140,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
                 .map(|_| Compressor::new())
                 .collect(),
             stats: CompStats::default(),
+            store_labels,
         }
     }
 
@@ -146,10 +151,19 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
     /// It returns a non-zero value only if this is the last element of a chunk
     /// and so all the pending adjacency lists are optimized and then written to
     /// the encoder.
-    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<()> {
-        // collect the iterator inside the backrefs, to reuse the capacity already
-        // allocated
-        self.backrefs.push(succ_iter);
+    pub fn push<I: IntoIterator<Item = (usize, SL::Label)>>(
+        &mut self,
+        succ_iter: I,
+    ) -> anyhow::Result<()> {
+        self.store_labels.push_node()?;
+        let store_labels = &mut self.store_labels;
+        let mut succ_iter = succ_iter.into_iter();
+        self.backrefs.push(std::iter::from_fn(|| {
+            succ_iter.next().map(|(succ, label)| {
+                store_labels.push_label(&label).unwrap();
+                succ
+            })
+        }));
         let offset_in_chunk = self.curr_node - self.start_chunk_node;
         // get the ref
         let curr_list = &self.backrefs[offset_in_chunk];
@@ -264,6 +278,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         // Flush bits are just padding
         self.encoder.flush()?;
         self.offsets_writer.flush()?;
+        self.store_labels.flush()?;
         Ok(self.stats)
     }
 
@@ -273,13 +288,13 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
     /// empty iterator).
     ///
     /// This most commonly is called with a reference to a graph.
-    pub fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<()>
+    pub fn extend<I>(&mut self, iter_nodes: I) -> anyhow::Result<()>
     where
-        L: IntoLender,
-        L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+        I: IntoLender,
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, SL::Label)>,
     {
         for_! ( (_, succ) in iter_nodes {
-            self.push(succ.into_iter())?;
+            self.push(succ)?;
         });
         Ok(())
     }

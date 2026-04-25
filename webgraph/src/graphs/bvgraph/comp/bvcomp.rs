@@ -77,7 +77,7 @@ impl AddAssign for CompStats {
 /// [`par_comp`]: BvCompConfig::par_comp
 /// [`BvCompZ`]: super::BvCompZ
 #[derive(Debug)]
-pub struct BvComp<E, W: Write> {
+pub struct BvComp<E, W: Write, SL: StoreLabels = ()> {
     /// The ring-buffer that stores the neighbors of the last
     /// `compression_window` nodes
     backrefs: CircularBuffer<Vec<usize>>,
@@ -108,9 +108,11 @@ pub struct BvComp<E, W: Write> {
     start_node: usize,
     /// The statistics of the compression process.
     stats: CompStats,
+    /// The label store.
+    store_labels: SL,
 }
 
-impl BvComp<(), std::io::Sink> {
+impl BvComp<(), std::io::Sink, ()> {
     /// Convenience method returning a [`BvCompConfig`] with
     /// settings suitable for the standard Boldi–Vigna compressor.
     pub fn with_basename(basename: impl AsRef<Path>) -> BvCompConfig {
@@ -381,7 +383,7 @@ impl Compressor {
     }
 }
 
-impl<E: EncodeAndEstimate, W: Write> BvComp<E, W> {
+impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels> BvComp<E, W, SL> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
@@ -393,6 +395,7 @@ impl<E: EncodeAndEstimate, W: Write> BvComp<E, W> {
         max_ref_count: usize,
         min_interval_length: usize,
         start_node: usize,
+        store_labels: SL,
     ) -> Self {
         BvComp {
             backrefs: CircularBuffer::new(compression_window + 1),
@@ -408,6 +411,7 @@ impl<E: EncodeAndEstimate, W: Write> BvComp<E, W> {
                 .map(|_| Compressor::new())
                 .collect(),
             stats: CompStats::default(),
+            store_labels,
         }
     }
 
@@ -415,13 +419,18 @@ impl<E: EncodeAndEstimate, W: Write> BvComp<E, W> {
     /// The iterator must yield the successors of the node and the nodes HAVE
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
     /// empty iterator).
-    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<()> {
-        // collect the iterator inside the backrefs, to reuse the capacity already
-        // allocated
+    pub fn push<I: IntoIterator<Item = (usize, SL::Label)>>(
+        &mut self,
+        succ_iter: I,
+    ) -> anyhow::Result<()> {
+        self.store_labels.push_node()?;
         {
             let succ_vec = &mut self.backrefs[self.curr_node];
             succ_vec.clear();
-            succ_vec.extend(succ_iter);
+            for (succ, label) in succ_iter {
+                succ_vec.push(succ);
+                self.store_labels.push_label(&label)?;
+            }
             if succ_vec.len().max(1024) < succ_vec.capacity() / 4 {
                 succ_vec.shrink_to(succ_vec.capacity() / 2);
             }
@@ -534,6 +543,7 @@ impl<E: EncodeAndEstimate, W: Write> BvComp<E, W> {
     pub fn flush(mut self) -> anyhow::Result<CompStats> {
         self.encoder.flush()?;
         self.offsets_writer.flush()?;
+        self.store_labels.flush()?;
         Ok(self.stats)
     }
 
@@ -543,13 +553,13 @@ impl<E: EncodeAndEstimate, W: Write> BvComp<E, W> {
     /// empty iterator).
     ///
     /// This most commonly is called with a reference to a graph.
-    pub fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<()>
+    pub fn extend<I>(&mut self, iter_nodes: I) -> anyhow::Result<()>
     where
-        L: IntoLender,
-        L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+        I: IntoLender,
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, SL::Label)>,
     {
         for_! ( (_, succ) in iter_nodes {
-            self.push(succ.into_iter())?;
+            self.push(succ)?;
         });
         Ok(())
     }

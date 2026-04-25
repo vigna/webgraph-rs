@@ -46,8 +46,9 @@ pub fn harness(data: FuzzCase) {
             comp_flags.max_ref_count,
             comp_flags.min_interval_length,
             0,
+            (),
         );
-        bvcomp.extend(graph.iter()).unwrap();
+        bvcomp.extend(UnitLender(graph.iter())).unwrap();
         bvcomp.flush().unwrap();
     }
     // Compress in little endian
@@ -64,8 +65,9 @@ pub fn harness(data: FuzzCase) {
             comp_flags.max_ref_count,
             comp_flags.min_interval_length,
             0,
+            (),
         );
-        bvcomp.extend(graph.iter()).unwrap();
+        bvcomp.extend(UnitLender(graph.iter())).unwrap();
         bvcomp.flush().unwrap();
     }
     assert_eq!(codes_data_be.len(), codes_data_le.len());
@@ -177,14 +179,7 @@ pub fn harness(data: FuzzCase) {
         assert_eq!(offset_be, offset_le);
     }
     // build elias-fano
-    let ef = efb.build();
-    let ef: EF = unsafe {
-        ef.map_high_bits(
-            SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
-        )
-        .try_into_unaligned()
-        .unwrap()
-    };
+    let ef = efb.build_with_seq().try_into_unaligned().unwrap();
 
     // verify that elias-fano has the right values
     assert_eq!(ef.len(), offsets.len());

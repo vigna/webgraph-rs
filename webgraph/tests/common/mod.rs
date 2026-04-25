@@ -40,32 +40,30 @@ pub fn test_graph() -> VecGraph {
     ])
 }
 
-/// Builds the Elias–Fano representation of offsets for a graph.
+/// Builds the Elias–Fano representation from a gamma-coded delta offsets
+/// file and serializes it.
 ///
-/// Replicates the core of `webgraph build ef` by reading the .offsets file.
-pub fn build_ef(basename: &Path) -> Result<()> {
+/// - `num_nodes`: number of nodes in the graph.
+/// - `data_path`: the bitstream file (`.graph` or `.labels`) — used only
+///   to compute the universe (bit-length).
+/// - `offsets_path`: gamma-coded delta offsets (`.offsets` or
+///   `.labeloffsets`).
+/// - `ef_path`: where to write the serialized EF.
+pub fn build_ef_from_offsets(
+    num_nodes: usize,
+    data_path: &Path,
+    offsets_path: &Path,
+    ef_path: &Path,
+) -> Result<()> {
     use epserde::ser::Serialize;
     use std::io::{BufWriter, Seek};
     use sux::prelude::*;
 
-    let graph_path = basename.with_extension("graph");
-    let mut f = std::fs::File::open(&graph_path)?;
+    let mut f = std::fs::File::open(data_path)?;
     let file_len = 8 * f.seek(std::io::SeekFrom::End(0))?;
 
-    let properties_path = basename.with_extension("properties");
-    let props = std::fs::read_to_string(&properties_path)?;
-    let num_nodes: usize = props
-        .lines()
-        .find(|l| l.starts_with("nodes="))
-        .unwrap()
-        .strip_prefix("nodes=")
-        .unwrap()
-        .parse()?;
-
-    // Read from the .offsets file (gamma-coded in BE)
-    let offsets_path = basename.with_extension("offsets");
     let of =
-        webgraph::utils::MmapHelper::<u32>::mmap(&offsets_path, mmap_rs::MmapFlags::SEQUENTIAL)?;
+        webgraph::utils::MmapHelper::<u32>::mmap(offsets_path, mmap_rs::MmapFlags::SEQUENTIAL)?;
     let mut reader: BufBitReader<BE, _> = BufBitReader::new(MemWordReader::new(of.as_ref()));
 
     let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len);
@@ -83,10 +81,32 @@ pub fn build_ef(basename: &Path) -> Result<()> {
         .try_into_unaligned()?
     };
 
-    let ef_path = basename.with_extension("ef");
-    let mut ef_file = BufWriter::new(std::fs::File::create(&ef_path)?);
+    let mut ef_file = BufWriter::new(std::fs::File::create(ef_path)?);
     unsafe { ef.serialize(&mut ef_file)? };
     Ok(())
+}
+
+/// Builds the Elias–Fano representation of offsets for a graph.
+///
+/// Replicates the core of `webgraph build ef` by reading the `.offsets`
+/// file. Reads `num_nodes` from the `.properties` file.
+pub fn build_ef(basename: &Path) -> Result<()> {
+    let properties_path = basename.with_extension("properties");
+    let props = std::fs::read_to_string(&properties_path)?;
+    let num_nodes: usize = props
+        .lines()
+        .find(|l| l.starts_with("nodes="))
+        .unwrap()
+        .strip_prefix("nodes=")
+        .unwrap()
+        .parse()?;
+
+    build_ef_from_offsets(
+        num_nodes,
+        &basename.with_extension("graph"),
+        &basename.with_extension("offsets"),
+        &basename.with_extension("ef"),
+    )
 }
 
 /// Returns the basename for the cnr-2000 test graph, selecting the
