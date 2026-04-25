@@ -293,10 +293,6 @@ impl<'a, G: RandomAccessGraph + Sync, OL: Level<USE_TOT>, const USE_TOT: bool>
         assert!(graph.num_nodes() > 0, "The graph must be nonempty");
         // TODO debug_assert!(check_symmetric(graph), "graph should be symmetric");
         let scc = sccs::symm_par(graph, &mut pl.concurrent());
-        pl.info(format_args!(
-            "Number of connected components: {}",
-            scc.num_components(),
-        ));
         let visit = ParFairNoPred::new(graph);
         let transposed_visit = ParFairNoPred::new(graph);
 
@@ -866,7 +862,8 @@ impl<
         let scc_sizes = self.scc.compute_sizes();
         let max_size_scc = math::argmax(&scc_sizes).unwrap();
         pl.info(format_args!(
-            "The largest component contains {} nodes ({:.3}%)",
+            "Number of connected components: {}; the largest component contains {} nodes ({:.3}%)",
+            self.scc.num_components(),
             scc_sizes[max_size_scc],
             100.0 * scc_sizes[max_size_scc] as f64 / self.num_nodes as f64
         ));
