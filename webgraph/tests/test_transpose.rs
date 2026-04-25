@@ -38,6 +38,10 @@ fn test_transpose_labeled() -> anyhow::Result<()> {
             let result = f64::from_bits((exponent << 53) | mantissa);
             Ok(Payload(result))
         }
+
+        fn name(&self) -> String {
+            "GammaFloat64".to_string()
+        }
     }
 
     #[derive(Clone, Copy, PartialEq, Debug, Default)]
@@ -61,6 +65,10 @@ fn test_transpose_labeled() -> anyhow::Result<()> {
             written_bits += bitstream.write_gamma(mantissa)?;
             written_bits += bitstream.write_gamma(exponent)?;
             Ok(written_bits)
+        }
+
+        fn name(&self) -> String {
+            "GammaFloat64".to_string()
         }
     }
     let arcs = [

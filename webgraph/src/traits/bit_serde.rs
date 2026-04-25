@@ -18,6 +18,16 @@ pub trait BitSerializer<E: Endianness, BW: BitWrite<E>> {
     type SerType;
     /// Serializes the given value to a [`BitWrite`].
     fn serialize(&self, value: &Self::SerType, bitstream: &mut BW) -> Result<usize, BW::Error>;
+    /// Returns a stable, human-readable name for this codec.
+    ///
+    /// The name is written to the `.properties` file during compression
+    /// and checked against the deserializer's name at load time to prevent
+    /// mismatches.
+    ///
+    /// The format mirrors Rust constructor syntax: e.g.,
+    /// `"FixedWidth<u32>"` for the default width, or
+    /// `"FixedWidth<u32>(20)"` for a custom width.
+    fn name(&self) -> String;
 }
 
 /// A trait for types implementing logic for deserializing another type from a
@@ -27,6 +37,10 @@ pub trait BitDeserializer<E: Endianness, BR: BitRead<E>> {
     type DeserType;
     /// Deserializes the given value from a [`BitRead`].
     fn deserialize(&self, bitstream: &mut BR) -> Result<Self::DeserType, BR::Error>;
+    /// Returns a stable, human-readable name for this codec.
+    ///
+    /// See [`BitSerializer::name`] for the naming convention.
+    fn name(&self) -> String;
 }
 
 /// Combines a [`BitSerializer`] and a [`BitDeserializer`] into a single type
@@ -46,6 +60,9 @@ impl<E: Endianness, BW: BitWrite<E>, S: BitSerializer<E, BW>, D> BitSerializer<E
     fn serialize(&self, value: &Self::SerType, bitstream: &mut BW) -> Result<usize, BW::Error> {
         self.0.serialize(value, bitstream)
     }
+    fn name(&self) -> String {
+        self.0.name()
+    }
 }
 
 impl<E: Endianness, BR: BitRead<E>, S, D: BitDeserializer<E, BR>> BitDeserializer<E, BR>
@@ -56,6 +73,9 @@ impl<E: Endianness, BR: BitRead<E>, S, D: BitDeserializer<E, BR>> BitDeserialize
     fn deserialize(&self, bitstream: &mut BR) -> Result<Self::DeserType, BR::Error> {
         self.1.deserialize(bitstream)
     }
+    fn name(&self) -> String {
+        self.1.name()
+    }
 }
 
 /// No-op implementation of [`BitSerializer`] for `()`.
@@ -65,6 +85,9 @@ impl<E: Endianness, BW: BitWrite<E>> BitSerializer<E, BW> for () {
     fn serialize(&self, _value: &Self::SerType, _bitstream: &mut BW) -> Result<usize, BW::Error> {
         Ok(0)
     }
+    fn name(&self) -> String {
+        "()".to_string()
+    }
 }
 
 /// No-op implementation of [`BitDeserializer`] for `()`.
@@ -73,6 +96,9 @@ impl<E: Endianness, BR: BitRead<E>> BitDeserializer<E, BR> for () {
     #[inline(always)]
     fn deserialize(&self, _bitstream: &mut BR) -> Result<Self::DeserType, BR::Error> {
         Ok(())
+    }
+    fn name(&self) -> String {
+        "()".to_string()
     }
 }
 
@@ -155,11 +181,24 @@ impl<T: PrimitiveInteger> Default for FixedWidth<T> {
     }
 }
 
+impl<T: PrimitiveInteger> FixedWidth<T> {
+    fn codec_name(&self) -> String {
+        if self.bits == T::BITS as usize {
+            format!("FixedWidth<{}>", std::any::type_name::<T>())
+        } else {
+            format!("FixedWidth<{}>({})", std::any::type_name::<T>(), self.bits)
+        }
+    }
+}
+
 impl<E: Endianness, BW: BitWrite<E>, T: PrimitiveInteger> BitSerializer<E, BW> for FixedWidth<T> {
     type SerType = T;
     #[inline(always)]
     fn serialize(&self, value: &T, bitstream: &mut BW) -> Result<usize, BW::Error> {
         bitstream.write_bits(value.as_to::<u64>(), self.bits)
+    }
+    fn name(&self) -> String {
+        self.codec_name()
     }
 }
 
@@ -175,5 +214,8 @@ impl<E: Endianness, BR: BitRead<E>, T: PrimitiveInteger> BitDeserializer<E, BR> 
         } else {
             Ok(T::as_from(raw))
         }
+    }
+    fn name(&self) -> String {
+        self.codec_name()
     }
 }

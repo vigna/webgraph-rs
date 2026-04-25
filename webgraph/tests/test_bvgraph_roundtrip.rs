@@ -744,10 +744,18 @@ fn test_bvcomp_labeled_roundtrip() -> Result<()> {
 
     BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, label_config)?;
 
-    let labels_path = tmp.path().join("labeled.labels");
-    let label_offsets_path = tmp.path().join("labeled.labeloffsets");
+    let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
 
-    let label_ef_path = tmp.path().join("labeled.labelef");
+    // Verify the label properties file
+    let label_props =
+        webgraph::graphs::bvgraph::parse_label_properties::<BE>(&labels_basename)?;
+    assert_eq!(label_props.num_nodes, 4);
+    assert_eq!(label_props.num_arcs, 5);
+    assert_eq!(label_props.serializer, "FixedWidth<u32>");
+
+    let labels_path = labels_basename.with_extension("labels");
+    let label_offsets_path = labels_basename.with_extension("offsets");
+    let label_ef_path = labels_basename.with_extension("ef");
     common::build_ef_from_offsets(
         graph.num_nodes(),
         &labels_path,
@@ -792,9 +800,10 @@ fn test_par_comp_labeled_roundtrip() -> Result<()> {
 
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 
-    let labels_path = basename.with_extension("labels");
-    let label_offsets_path = basename.with_extension("labeloffsets");
-    let label_ef_path = basename.with_extension("labelef");
+    let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
+    let labels_path = labels_basename.with_extension("labels");
+    let label_offsets_path = labels_basename.with_extension("offsets");
+    let label_ef_path = labels_basename.with_extension("ef");
     common::build_ef_from_offsets(
         graph.num_nodes(),
         &labels_path,
@@ -840,9 +849,10 @@ fn test_par_comp_labeled_roundtrip_zstd() -> Result<()> {
 
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 
-    let labels_path = basename.with_extension("labels");
-    let label_offsets_path = basename.with_extension("labeloffsets");
-    let label_ef_path = basename.with_extension("labelef");
+    let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
+    let labels_path = labels_basename.with_extension("labels");
+    let label_offsets_path = labels_basename.with_extension("offsets");
+    let label_ef_path = labels_basename.with_extension("ef");
     common::build_ef_from_offsets(
         graph.num_nodes(),
         &labels_path,
@@ -905,9 +915,10 @@ fn test_comp_labeled_cnr2000() -> Result<()> {
 
     BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, label_config)?;
 
-    let labels_path = basename.with_extension("labels");
-    let label_offsets_path = basename.with_extension("labeloffsets");
-    let label_ef_path = basename.with_extension("labelef");
+    let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
+    let labels_path = labels_basename.with_extension("labels");
+    let label_offsets_path = labels_basename.with_extension("offsets");
+    let label_ef_path = labels_basename.with_extension("ef");
     common::build_ef_from_offsets(
         graph.num_nodes(),
         &labels_path,
@@ -952,9 +963,10 @@ fn test_par_comp_labeled_cnr2000() -> Result<()> {
 
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 
-    let labels_path = basename.with_extension("labels");
-    let label_offsets_path = basename.with_extension("labeloffsets");
-    let label_ef_path = basename.with_extension("labelef");
+    let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
+    let labels_path = labels_basename.with_extension("labels");
+    let label_offsets_path = labels_basename.with_extension("offsets");
+    let label_ef_path = labels_basename.with_extension("ef");
     common::build_ef_from_offsets(
         graph.num_nodes(),
         &labels_path,

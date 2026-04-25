@@ -172,6 +172,10 @@ where
     fn flush_concat(&mut self) -> Result<()> {
         self.flush_concat_inner()
     }
+
+    fn label_serializer_name(&self) -> String {
+        self.serializer.name()
+    }
 }
 
 // --- Zstd StoreLabelsConfig impl ---
@@ -226,5 +230,9 @@ where
 
     fn flush_concat(&mut self) -> Result<()> {
         self.flush_concat_inner()
+    }
+
+    fn label_serializer_name(&self) -> String {
+        self.serializer.name()
     }
 }

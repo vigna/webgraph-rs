@@ -58,6 +58,10 @@ impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> BitDeserializer<BE, BR> for SwhD
         }
         Ok(labels)
     }
+
+    fn name(&self) -> String {
+        format!("SwhLabels({})", self.width)
+    }
 }
 
 pub fn mmap<D>(

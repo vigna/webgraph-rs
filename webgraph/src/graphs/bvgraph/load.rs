@@ -741,6 +741,61 @@ pub fn get_endianness<P: AsRef<Path>>(basename: P) -> Result<String> {
     Ok(endianness)
 }
 
+/// Metadata read from a label `.properties` file.
+#[derive(Debug, Clone)]
+pub struct LabelProperties {
+    /// Number of nodes in the graph.
+    pub num_nodes: usize,
+    /// Number of arcs (labels) in the graph.
+    pub num_arcs: u64,
+    /// Stable name of the serializer that produced the labels.
+    pub serializer: String,
+}
+
+/// Reads the label `.properties` file for the given label basename and
+/// returns the metadata. Checks that the endianness matches `E`.
+pub fn parse_label_properties<E: Endianness>(
+    label_basename: impl AsRef<Path>,
+) -> Result<LabelProperties> {
+    let path = label_basename.as_ref().with_extension(PROPERTIES_EXTENSION);
+    let name = path.display();
+    let f =
+        std::fs::File::open(&path).with_context(|| format!("Cannot open label properties {name}"))?;
+    let map = java_properties::read(BufReader::new(f))
+        .with_context(|| format!("Cannot parse {name} as a properties file"))?;
+
+    let endianness = map
+        .get("endianness")
+        .map(|x| x.to_string())
+        .unwrap_or_else(|| BigEndian::NAME.to_string());
+    anyhow::ensure!(
+        endianness == E::NAME,
+        "Label endianness mismatch in {name}: found {endianness}, expected {}",
+        E::NAME
+    );
+
+    let num_nodes = map
+        .get("nodes")
+        .with_context(|| format!("Missing 'nodes' property in {name}"))?
+        .parse::<usize>()
+        .with_context(|| format!("Cannot parse 'nodes' as usize in {name}"))?;
+    let num_arcs = map
+        .get("arcs")
+        .with_context(|| format!("Missing 'arcs' property in {name}"))?
+        .parse::<u64>()
+        .with_context(|| format!("Cannot parse 'arcs' as u64 in {name}"))?;
+    let serializer = map
+        .get("serializer")
+        .with_context(|| format!("Missing 'serializer' property in {name}"))?
+        .to_string();
+
+    Ok(LabelProperties {
+        num_nodes,
+        num_arcs,
+        serializer,
+    })
+}
+
 /// Reads the `.properties` file and returns the number of nodes, number of arcs, and compression
 /// flags for the graph. The endianness is checked against the expected one.
 pub fn parse_properties<E: Endianness>(path: impl AsRef<Path>) -> Result<(usize, u64, CompFlags)> {

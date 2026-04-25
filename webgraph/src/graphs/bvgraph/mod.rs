@@ -135,7 +135,7 @@
 //! [ε-serde]: <https://docs.rs/epserde/latest/epserde/>
 //! [Java implementation]: <http://webgraph.di.unimi.it/>
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::traits::*;
 
@@ -144,8 +144,20 @@ pub const PROPERTIES_EXTENSION: &str = "properties";
 pub const OFFSETS_EXTENSION: &str = "offsets";
 pub const EF_EXTENSION: &str = "ef";
 pub const LABELS_EXTENSION: &str = "labels";
-pub const LABELOFFSETS_EXTENSION: &str = "labeloffsets";
+pub const LABELS_BASENAME_SUFFIX: &str = "-labels";
 pub const DEG_CUMUL_EXTENSION: &str = "dcf";
+
+/// Returns the basename for label files given a graph basename.
+///
+/// By convention, label files use a basename derived from the graph
+/// basename by appending [`LABELS_BASENAME_SUFFIX`] (e.g., `graph-labels`
+/// for a graph with basename `graph`). The label files then use standard
+/// extensions: `.labels`, `.offsets`, `.properties`, `.ef`.
+pub fn labels_basename(basename: impl AsRef<Path>) -> PathBuf {
+    let mut name = basename.as_ref().as_os_str().to_owned();
+    name.push(LABELS_BASENAME_SUFFIX);
+    PathBuf::from(name)
+}
 
 mod offset_deg_iter;
 use dsi_bitstream::{

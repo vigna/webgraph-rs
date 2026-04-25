@@ -126,6 +126,13 @@ pub trait StoreLabelsConfig {
 
     /// Finalizes concatenation and flushes output.
     fn flush_concat(&mut self) -> anyhow::Result<()>;
+
+    /// Returns the stable name of the label serializer, or an empty string
+    /// for unlabeled graphs.
+    ///
+    /// The compressor writes this to the `.properties` file; the loader
+    /// checks it against the deserializer provided at load time.
+    fn label_serializer_name(&self) -> String;
 }
 
 impl StoreLabelsConfig for () {
@@ -155,5 +162,10 @@ impl StoreLabelsConfig for () {
     #[inline(always)]
     fn flush_concat(&mut self) -> anyhow::Result<()> {
         Ok(())
+    }
+
+    #[inline(always)]
+    fn label_serializer_name(&self) -> String {
+        "()".to_string()
     }
 }

@@ -96,6 +96,35 @@ fn log_comp_stats(stats: &super::CompStats, force: bool) {
     }
 }
 
+/// Writes the `.properties` file for a label bitstream.
+fn write_label_properties<E: dsi_bitstream::traits::Endianness>(
+    labels_basename: &Path,
+    serializer_name: &str,
+    num_nodes: usize,
+    num_arcs: u64,
+    labels_written_bits: u64,
+) -> Result<()> {
+    let mut s = String::new();
+    s.push_str("#Label properties\n");
+    s.push_str(&format!("endianness={}\n", E::NAME));
+    s.push_str(&format!("nodes={num_nodes}\n"));
+    s.push_str(&format!("arcs={num_arcs}\n"));
+    s.push_str(&format!("serializer={serializer_name}\n"));
+    s.push_str(&format!("length={labels_written_bits}\n"));
+    s.push_str(&format!(
+        "bitsperlink={:.3}\n",
+        labels_written_bits as f64 / num_arcs as f64
+    ));
+    s.push_str(&format!(
+        "bitspernode={:.3}\n",
+        labels_written_bits as f64 / num_nodes as f64
+    ));
+    let props_path = labels_basename.with_extension(PROPERTIES_EXTENSION);
+    std::fs::write(&props_path, &s)
+        .with_context(|| format!("Could not write {}", props_path.display()))?;
+    Ok(())
+}
+
 /// A compression job.
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
 struct Job {
@@ -390,8 +419,9 @@ impl BvCompConfig {
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
-        let labels_path = self.basename.with_extension(LABELS_EXTENSION);
-        let label_offsets_path = self.basename.with_extension(LABELOFFSETS_EXTENSION);
+        let label_base = labels_basename(&self.basename);
+        let labels_path = label_base.with_extension(LABELS_EXTENSION);
+        let label_offsets_path = label_base.with_extension(OFFSETS_EXTENSION);
 
         // Compress the graph
         let bit_write = buf_bit_writer::from_path::<E, usize>(&graph_path)
@@ -474,6 +504,17 @@ impl BvCompConfig {
         std::fs::write(&properties_path, properties)
             .with_context(|| format!("Could not write {}", properties_path.display()))?;
 
+        let label_ser_name = store_labels_config.label_serializer_name();
+        if label_ser_name != "()" {
+            write_label_properties::<E>(
+                &label_base,
+                &label_ser_name,
+                comp_stats.num_nodes,
+                comp_stats.num_arcs,
+                comp_stats.labels_written_bits,
+            )?;
+        }
+
         Ok(comp_stats.written_bits)
     }
 
@@ -533,8 +574,9 @@ impl BvCompConfig {
 
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
         let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
-        let labels_path = self.basename.with_extension(LABELS_EXTENSION);
-        let label_offsets_path = self.basename.with_extension(LABELOFFSETS_EXTENSION);
+        let label_base = labels_basename(&self.basename);
+        let labels_path = label_base.with_extension(LABELS_EXTENSION);
+        let label_offsets_path = label_base.with_extension(OFFSETS_EXTENSION);
 
         let (tx, rx) = crossbeam_channel::unbounded();
 
@@ -560,8 +602,9 @@ impl BvCompConfig {
                 let tmp_path = thread_path(thread_id);
                 let chunk_graph_path = tmp_path.with_extension(GRAPH_EXTENSION);
                 let chunk_offsets_path = tmp_path.with_extension(OFFSETS_EXTENSION);
-                let part_labels_path = tmp_path.with_extension(LABELS_EXTENSION);
-                let part_label_offsets_path = tmp_path.with_extension(LABELOFFSETS_EXTENSION);
+                let label_tmp_stem = tmp_dir.join(format!("{thread_id:016x}-labels"));
+                let part_labels_path = label_tmp_stem.with_extension(LABELS_EXTENSION);
+                let part_label_offsets_path = label_tmp_stem.with_extension(OFFSETS_EXTENSION);
                 let store_labels =
                     store_labels_config.new_storage(&part_labels_path, &part_label_offsets_path)?;
                 let tx = tx.clone();
@@ -756,8 +799,8 @@ impl BvCompConfig {
                     offsets_written_bits,
                     tot_ref,
                     tot_dist,
-                    labels_written_bits: 0,
-                    label_offsets_written_bits: 0,
+                    labels_written_bits,
+                    label_offsets_written_bits,
                 };
                 copy_pl.update_with_count(last_node - first_node + 1);
             }
@@ -786,6 +829,17 @@ impl BvCompConfig {
                     properties_path.display()
                 )
             })?;
+
+            let label_ser_name = store_labels_config.label_serializer_name();
+            if label_ser_name != "()" {
+                write_label_properties::<E>(
+                    &label_base,
+                    &label_ser_name,
+                    total_stats.num_nodes,
+                    total_stats.num_arcs,
+                    total_stats.labels_written_bits,
+                )?;
+            }
 
             log::info!(
                 "Compressed {} arcs into {} bits at {:.4} bits/arc",
