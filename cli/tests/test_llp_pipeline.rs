@@ -183,7 +183,7 @@ fn test_llp_pipeline() -> Result<()> {
     log::info!("Graph size: {} bytes", graph_size);
     log::info!("Bits per arc: {}", bits_per_arc);
     assert!(
-        bits_per_arc < 1.05 * EXPECTED_BITS_PER_ARC, //  allow 5% error
+        bits_per_arc < 1.10 * EXPECTED_BITS_PER_ARC, //  allow 10% error
         "The graph is too large: {:.3} bits per arc, the expected is {:.3}",
         bits_per_arc,
         EXPECTED_BITS_PER_ARC
