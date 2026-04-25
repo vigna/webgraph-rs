@@ -177,22 +177,6 @@ impl<W: Write> OffsetsWriter<W> {
     }
 }
 
-/// Adapts an unlabeled [`IntoParLenders`] to produce `(usize, ())` pairs.
-struct UnitParLenders<G>(G);
-
-impl<G> IntoParLenders for UnitParLenders<G>
-where
-    G: for<'a> IntoParLenders<ParLender: NodeLabelsLender<'a, Label = usize>>,
-{
-    type ParLender = UnitLender<G::ParLender>;
-
-    fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
-        let (lenders, boundaries) = self.0.into_par_lenders();
-        let wrapped: Vec<_> = Vec::from(lenders).into_iter().map(UnitLender).collect();
-        (wrapped.into_boxed_slice(), boundaries)
-    }
-}
-
 /// Configures and runs BvGraph compression.
 ///
 /// A `BvCompConfig` is normally obtained via the convenience methods
@@ -524,7 +508,7 @@ impl BvCompConfig {
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
-        self.par_comp_labeled::<E, _, _>(UnitParLenders(graph), ())
+        self.par_comp_labeled::<E, _, _>(UnitLabelParLenders(graph), ())
     }
 
     /// Compresses a labeled [`IntoParLenders`] in parallel and returns the

@@ -53,7 +53,7 @@ use lender::*;
 
 use super::{
     SortedIterator, SortedLender,
-    labels::EqError,
+    labels::{EqError, IntoParLenders},
     lenders::{LenderIntoIter, NodeLabelsLender},
     split::SplitLabeling,
 };
@@ -355,6 +355,24 @@ impl_parallel_from_split!(
         for<'a> G::SplitLender<'a>: ExactSizeLender + lender::FusedLender
     ]
 );
+
+/// Adapts an unlabeled [`IntoParLenders`] to produce `(usize, ())` pairs,
+/// mirroring at the parallel-lender level what [`UnitLabelGraph`] does for
+/// sequential iteration.
+pub struct UnitLabelParLenders<G>(pub G);
+
+impl<G> IntoParLenders for UnitLabelParLenders<G>
+where
+    G: for<'a> IntoParLenders<ParLender: NodeLabelsLender<'a, Label = usize>>,
+{
+    type ParLender = UnitLender<G::ParLender>;
+
+    fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
+        let (lenders, boundaries) = self.0.into_par_lenders();
+        let wrapped: Vec<_> = Vec::from(lenders).into_iter().map(UnitLender).collect();
+        (wrapped.into_boxed_slice(), boundaries)
+    }
+}
 
 /// A labeled random-access graph.
 ///
