@@ -738,17 +738,16 @@ fn test_bvcomp_labeled_roundtrip() -> Result<()> {
 
     let tmp = tempfile::TempDir::new()?;
     let basename = tmp.path().join("labeled");
-    let labels_path = tmp.path().join("labeled.labels");
-    let label_offsets_path = tmp.path().join("labeled.labeloffsets");
 
-    let label_comp = webgraph::labels::BitStreamStoreLabels::<BE, _, _>::new(
+    let label_config = webgraph::labels::BitStreamStoreLabelsConfig::<BE, _>::new(
         FixedWidth::<u32>::new(),
-        &labels_path,
-        &label_offsets_path,
-    )?;
+    );
 
     BvComp::with_basename(&basename)
-        .comp_labeled_graph::<BE, _, _>(&graph, label_comp)?;
+        .comp_labeled_graph::<BE, _, _>(&graph, label_config)?;
+
+    let labels_path = tmp.path().join("labeled.labels");
+    let label_offsets_path = tmp.path().join("labeled.labeloffsets");
 
     // Build Elias-Fano offsets for the labels
     let label_ef_path = tmp.path().join("labeled.labelef");

@@ -372,42 +372,50 @@ impl BvCompConfig {
     /// Compresses sequentially a [`LabeledSequentialGraph`] and returns
     /// the number of bits written to the graph bitstream.
     ///
-    /// The `store_labels` parameter receives arc labels alongside graph
-    /// compression.
-    pub fn comp_labeled_graph<E: Endianness, L, SL: StoreLabels<Label = L>>(
+    /// The `store_labels_config` parameter provides the factory for creating
+    /// label storage instances alongside graph compression.
+    pub fn comp_labeled_graph<E: Endianness, L, SLC: StoreLabelsConfig>(
         &mut self,
         graph: impl LabeledSequentialGraph<L>,
-        store_labels: SL,
+        store_labels_config: SLC,
     ) -> Result<u64>
     where
+        SLC::StoreLabels: StoreLabels<Label = L>,
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
         let num_nodes = graph.num_nodes();
-        self.comp_labeled_lender::<E, _, _>(graph.iter(), store_labels, Some(num_nodes))
+        self.comp_labeled_lender::<E, _, _>(graph.iter(), store_labels_config, Some(num_nodes))
     }
 
     /// Compresses sequentially a labeled [`NodeLabelsLender`] and returns
     /// the number of bits written to the graph bitstream.
     ///
-    /// The `store_labels` parameter receives arc labels alongside graph
-    /// compression. Use `()` for unlabeled graphs.
+    /// The `store_labels_config` parameter provides the factory for creating
+    /// label storage instances alongside graph compression. Use `()` for
+    /// unlabeled graphs.
     ///
     /// The optional `expected_num_nodes` parameter will be used to provide
     /// forecasts on the progress logger.
-    pub fn comp_labeled_lender<E, L, SL>(
+    pub fn comp_labeled_lender<E, L, SLC>(
         &mut self,
         iter: L,
-        mut store_labels: SL,
+        store_labels_config: SLC,
         expected_num_nodes: Option<usize>,
     ) -> Result<u64>
     where
         E: Endianness,
         L: IntoLender,
-        SL: StoreLabels,
-        L::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, SL::Label)>,
+        SLC: StoreLabelsConfig,
+        SLC::StoreLabels: StoreLabels,
+        L::Lender: for<'next> NodeLabelsLender<
+            'next,
+            Label = (usize, <SLC::StoreLabels as StoreLabels>::Label),
+        >,
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
+        let labels_path = self.basename.with_extension(LABELS_EXTENSION);
+        let label_offsets_path = self.basename.with_extension(LABELOFFSETS_EXTENSION);
 
         // Compress the graph
         let bit_write = buf_bit_writer::from_path::<E, usize>(&graph_path)
@@ -419,6 +427,8 @@ impl BvCompConfig {
         let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
         let offset_writer = OffsetsWriter::from_path(offsets_path, true)?;
 
+        let mut store_labels = store_labels_config
+            .new_storage(&labels_path, &label_offsets_path)?;
         store_labels.init()?;
 
         let mut pl = progress_logger![
