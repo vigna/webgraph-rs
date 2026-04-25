@@ -6,7 +6,7 @@
  */
 use crate::{IntSliceFormat, LogIntervalArg, NumThreadsArg};
 use anyhow::{Result, ensure};
-use clap::{Parser, ValueEnum};
+use clap::{ArgGroup, Parser, ValueEnum};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::{ProgressLog, concurrent_progress_logger};
 use std::path::{Path, PathBuf};
@@ -16,6 +16,12 @@ use webgraph_algo::distances::exact_sum_sweep::{
 };
 
 #[derive(Parser, Debug)]
+#[command(group(
+        ArgGroup::new("symmetric or transpose")
+        .required(true)
+        .multiple(false)
+        .args(["transpose", "symmetric"]),
+))]
 #[command(name = "exact-sum-sweep", about = "Computes radius, diameter, and possibly eccentricities using the ExactSumSweep algorithm (scalar values are printed on stdout).", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The items to be computed ("all-forward" computes forward eccentricities,
@@ -26,8 +32,9 @@ pub struct CliArgs {
     /// The basename of the graph.​
     pub basename: PathBuf,
 
-    /// The transposed graph of "basename".​
-    pub transposed: Option<PathBuf>,
+    /// The basename of the transpose of the graph. If the graph is symmetric,
+    /// use the --symm option instead.​
+    pub transpose: Option<PathBuf>,
 
     #[arg(short, long = "symm")]
     /// The graph is symmetric.​
@@ -70,11 +77,11 @@ pub enum LevelArg {
 
 pub fn main(args: CliArgs) -> Result<()> {
     ensure!(
-        args.symmetric || args.transposed.is_some(),
+        args.symmetric || args.transpose.is_some(),
         "You have to either pass --transposed with the basename of the transposed graph or --symm if the graph is symmetric."
     );
     ensure!(
-        !(args.symmetric && args.transposed.is_some()),
+        !(args.symmetric && args.transpose.is_some()),
         "--transposed is needed only if the graph is not symmetric."
     );
     ensure!(
@@ -178,7 +185,7 @@ pub fn exact_sum_sweep<E: Endianness>(args: CliArgs) -> Result<()> {
         }
     } else {
         let transpose_path = args
-            .transposed
+            .transpose
             .as_ref()
             .expect("You have to pass the transposed graph if the graph is not symmetric.");
         let transpose = BvGraph::with_basename(transpose_path).load()?;

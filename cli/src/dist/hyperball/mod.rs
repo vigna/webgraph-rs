@@ -60,6 +60,12 @@ impl Centralities {
 }
 
 #[derive(Parser, Debug)]
+#[command(group(
+        ArgGroup::new("symmetric or transpose")
+        .required(true)
+        .multiple(false)
+        .args(["transpose", "symmetric"]),
+))]
 #[command(
     name = "hyperball",
     about = "Computes centralities using HyperBall.",
@@ -68,15 +74,15 @@ pub struct CliArgs {
     /// The basename of the graph.​
     pub basename: PathBuf,
 
-    #[clap(long, default_value_t = false, conflicts_with = "transposed")]
+    #[clap(long = "symm", short, default_value_t = false)]
     /// The graph is symmetric (it will be used as its own transpose).​
-    pub symm: bool,
+    pub symmetric: bool,
 
-    /// The basename of the transposed graph. If available, HyperBall will
-    /// perform systolic iterations which will speed up the computation.
-    /// If the graph is symmetric, use the --symm option instead.​
+    /// The basename of the transpose of the graph. If available, HyperBall will
+    /// perform systolic iterations which will speed up the computation. If the
+    /// graph is symmetric, use the --symm option instead.​
     #[clap(short, long)]
-    pub transposed: Option<PathBuf>,
+    pub transpose: Option<PathBuf>,
 
     #[clap(flatten)]
     pub centralities: Centralities,
@@ -91,9 +97,9 @@ pub struct CliArgs {
     /// trades ~33% extra space for significantly faster merge operations.​
     pub hll8: bool,
 
-    #[clap(long, default_value = "usize::MAX")]
+    #[clap(long)]
     /// Maximum number of iterations to run.​
-    pub upper_bound: usize,
+    pub upper_bound: Option<usize>,
 
     #[clap(long)]
     /// A value that will be used to stop the computation by relative increment
@@ -153,9 +159,9 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
     // Some(&BvGraph::with_basename(transposed_path).load()?) below.
     let mut _transpose_loaded = None;
 
-    let transpose = if args.symm {
+    let transpose = if args.symmetric {
         Some(&graph)
-    } else if let Some(transposed_path) = args.transposed {
+    } else if let Some(transposed_path) = args.transpose {
         log::info!("Loading transpose...");
         _transpose_loaded = Some(BvGraph::with_basename(transposed_path).load()?);
         _transpose_loaded.as_ref()
@@ -170,7 +176,14 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
             let mut hb = $hb;
 
             let rng = rand::rngs::SmallRng::seed_from_u64(args.seed);
-            thread_pool.install(|| hb.run(args.upper_bound, args.threshold, rng, &mut pl))?;
+            thread_pool.install(|| {
+                hb.run(
+                    args.upper_bound.unwrap_or(usize::MAX),
+                    args.threshold,
+                    rng,
+                    &mut pl,
+                )
+            })?;
 
             log::info!("Storing the results...");
 
