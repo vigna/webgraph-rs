@@ -223,10 +223,16 @@ pub type EF = Unaligned<
 /// are the bit offsets of each node's data in the associated bitstream. The
 /// `upper_bound` parameter is the universe of the Elias–Fano representation
 /// (typically the bit-length of the bitstream).
+///
+/// Use [`no_logging`](dsi_progress_logger::no_logging) if no progress logging
+/// is needed.
+///
+/// See also [`build_ef_with_data`], [`store_ef`], and [`store_ef_with_data`].
 pub fn build_ef(
     num_nodes: usize,
     upper_bound: u64,
     offsets_path: impl AsRef<Path>,
+    pl: &mut impl dsi_progress_logger::ProgressLog,
 ) -> anyhow::Result<EF> {
     let mut reader = buf_bit_reader::from_path::<BE, u32>(offsets_path.as_ref())?;
     let mut efb = EliasFanoBuilder::new(num_nodes + 1, upper_bound);
@@ -234,6 +240,7 @@ pub fn build_ef(
     for _ in 0..num_nodes + 1 {
         offset += reader.read_gamma()?;
         efb.push(offset);
+        pl.light_update();
     }
     let ef = efb.build();
     Ok(unsafe {
@@ -249,13 +256,60 @@ pub fn build_ef(
 ///
 /// This is a convenience wrapper around [`build_ef`] that sets the upper bound
 /// to `8 * file_size(data_path)`.
+///
+/// Use [`no_logging`](dsi_progress_logger::no_logging) if no progress logging
+/// is needed.
+///
+/// See also [`build_ef`], [`store_ef`], and [`store_ef_with_data`].
 pub fn build_ef_with_data(
     num_nodes: usize,
     data_path: impl AsRef<Path>,
     offsets_path: impl AsRef<Path>,
+    pl: &mut impl dsi_progress_logger::ProgressLog,
 ) -> anyhow::Result<EF> {
     let file_len = 8 * std::fs::metadata(data_path.as_ref())?.len();
-    build_ef(num_nodes, file_len, offsets_path)
+    build_ef(num_nodes, file_len, offsets_path, pl)
+}
+
+/// Builds and serializes an [`EF`] representation by reading γ-coded offset
+/// gaps from a file.
+///
+/// This is a convenience wrapper around [`build_ef`] that also serializes the
+/// result to `ef_path`.
+///
+/// See also [`build_ef`], [`build_ef_with_data`], and [`store_ef_with_data`].
+pub fn store_ef(
+    num_nodes: usize,
+    upper_bound: u64,
+    offsets_path: impl AsRef<Path>,
+    ef_path: impl AsRef<Path>,
+    pl: &mut impl dsi_progress_logger::ProgressLog,
+) -> anyhow::Result<()> {
+    let ef = build_ef(num_nodes, upper_bound, offsets_path, pl)?;
+    let mut ef_file = std::io::BufWriter::new(std::fs::File::create(ef_path.as_ref())?);
+    unsafe { epserde::ser::Serialize::serialize(&ef, &mut ef_file)? };
+    Ok(())
+}
+
+/// Builds and serializes an [`EF`] representation by reading γ-coded offset
+/// gaps from a file, computing the upper bound from the bit-length of a data
+/// file.
+///
+/// This is a convenience wrapper around [`build_ef_with_data`] that also
+/// serializes the result to `ef_path`.
+///
+/// See also [`build_ef`], [`build_ef_with_data`], and [`store_ef`].
+pub fn store_ef_with_data(
+    num_nodes: usize,
+    data_path: impl AsRef<Path>,
+    offsets_path: impl AsRef<Path>,
+    ef_path: impl AsRef<Path>,
+    pl: &mut impl dsi_progress_logger::ProgressLog,
+) -> anyhow::Result<()> {
+    let ef = build_ef_with_data(num_nodes, data_path, offsets_path, pl)?;
+    let mut ef_file = std::io::BufWriter::new(std::fs::File::create(ef_path.as_ref())?);
+    unsafe { epserde::ser::Serialize::serialize(&ef, &mut ef_file)? };
+    Ok(())
 }
 
 /// Compound trait expressing the trait bounds for offsets.
@@ -265,10 +319,7 @@ pub fn build_ef_with_data(
 /// the associated deserialization type.
 ///
 /// [`MemCase`]: epserde::deser::MemCase
-pub trait Offsets:
-    for<'a> DeserInner<DeserType<'a>: SliceByValue<Value = u64>>
-{
-}
+pub trait Offsets: for<'a> DeserInner<DeserType<'a>: SliceByValue<Value = u64>> {}
 impl<T: for<'a> DeserInner<DeserType<'a>: SliceByValue<Value = u64>>> Offsets for T {}
 
 /// The default type we use for the cumulative function of degrees.

@@ -221,8 +221,11 @@ impl<W: Write> OffsetsWriter<W> {
 /// - [`comp_lender`]: compresses a [`NodeLabelsLender`] sequentially;
 /// - [`par_comp`]: compresses an [`IntoParLenders`] in parallel.
 ///
-/// All methods produce the `.graph`, `.offsets`, and `.properties` files
-/// and return the total number of bits written to the graph bitstream.
+/// All methods produce the `.graph`, `.offsets`, and `.properties` files and
+/// return the total number of bits written to the graph bitstream. After
+/// generating the files, you can use [`build_ef`] (or the command `webgraph
+/// build ef`) to generate the associated `.ef` file, which is necessary
+/// for random access.
 ///
 /// # Examples
 ///
@@ -255,6 +258,7 @@ impl<W: Write> OffsetsWriter<W> {
 /// [`comp_lender`]: Self::comp_lender
 /// [`NodeLabelsLender`]: crate::traits::NodeLabelsLender
 /// [`par_comp`]: Self::par_comp
+/// [`build_ef`]: crate::graphs::bvgraph::build_ef
 #[derive(Debug)]
 pub struct BvCompConfig {
     /// The basename of the output files.

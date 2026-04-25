@@ -55,7 +55,7 @@ impl PartComp for Zstd {}
 ///
 /// // Zstd-compressed temp files
 /// let config = BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new())
-///     .with_compressed();
+///     .with_zstd();
 /// ```
 pub struct BitStreamStoreLabelsConfig<E: Endianness, S, C: PartComp = Uncompressed> {
     serializer: S,

@@ -14,7 +14,6 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 use log::info;
-use mmap_rs::MmapFlags;
 use std::fs::File;
 use std::io::{BufWriter, Seek};
 use std::path::{Path, PathBuf};
@@ -113,25 +112,15 @@ where
         })?;
     pl.expected_updates(num_nodes);
 
-    let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len);
-
-    if of_file_path.exists() {
+    let ef = if of_file_path.exists() {
         info!(
             "Building Elias–Fano from offsets at '{}'",
             of_file_path.display()
         );
         pl.start("Building Elias–Fano from offsets...");
-        let of = <MmapHelper<u32>>::mmap(&of_file_path, MmapFlags::SEQUENTIAL)?;
-        let mut reader = of.new_reader();
-        let mut offset = 0u64;
-        for _ in 0..num_nodes + 1 {
-            offset += reader
-                .read_gamma()
-                .map_err(|_| anyhow::anyhow!("Could not read gamma"))?;
-            efb.push(offset);
-            pl.light_update();
-        }
+        let ef = build_ef(num_nodes, file_len, &of_file_path, &mut pl)?;
         pl.done();
+        ef
     } else {
         info!("No offsets file, reading the graph to build Elias–Fano");
         let seq_graph = BvGraphSeq::with_basename(basename)
@@ -139,6 +128,7 @@ where
             .load()
             .with_context(|| format!("Could not load graph at {}", basename.display()))?;
         pl.start("Building Elias–Fano from graph...");
+        let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len);
         let mut iter = seq_graph.offset_deg_iter();
         for (offset, _degree) in iter.by_ref() {
             efb.push(offset as _);
@@ -146,15 +136,14 @@ where
         }
         efb.push(iter.get_pos() as _);
         pl.done();
-    }
-
-    info!("Building the index over the high bits...");
-    let ef = efb.build();
-    let ef: EF = unsafe {
-        ef.map_high_bits(
-            SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
-        )
-        .try_into_unaligned()?
+        info!("Building the index over the high bits...");
+        let ef = efb.build();
+        unsafe {
+            ef.map_high_bits(
+                SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
+            )
+            .try_into_unaligned()?
+        }
     };
 
     let ef_path = basename.with_extension(EF_EXTENSION);

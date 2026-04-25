@@ -7,11 +7,10 @@
 #![allow(dead_code)]
 
 use anyhow::Result;
-use epserde::ser::Serialize;
-use std::io::BufWriter;
+use dsi_progress_logger::no_logging;
 use std::path::{Path, PathBuf};
 use webgraph::graphs::vec_graph::VecGraph;
-use webgraph::prelude::build_ef_with_data;
+use webgraph::prelude::store_ef_with_data;
 
 /// Canonical test graph (8 nodes, 11 arcs).
 ///
@@ -42,29 +41,18 @@ pub fn test_graph() -> VecGraph {
 
 /// Builds the Elias–Fano representation from a γ-coded delta offsets
 /// file and serializes it.
-///
-/// - `num_nodes`: number of nodes in the graph.
-/// - `data_path`: the bitstream file (`.graph` or `.labels`) — used only
-///   to compute the universe (bit-length).
-/// - `offsets_path`: γ-coded delta offsets (`.offsets` or
-///   `.labeloffsets`).
-/// - `ef_path`: where to write the serialized EF.
 pub fn build_ef_from_offsets(
     num_nodes: usize,
     data_path: &Path,
     offsets_path: &Path,
     ef_path: &Path,
 ) -> Result<()> {
-    let ef = build_ef_with_data(num_nodes, data_path, offsets_path)?;
-    let mut ef_file = BufWriter::new(std::fs::File::create(ef_path)?);
-    unsafe { ef.serialize(&mut ef_file)? };
-    Ok(())
+    store_ef_with_data(num_nodes, data_path, offsets_path, ef_path, &mut no_logging![])
 }
 
-/// Builds the Elias–Fano representation of offsets for a graph.
+/// Builds the Elias–Fano representation of offsets for a graph basename.
 ///
-/// Replicates the core of `webgraph build ef` by reading the `.offsets`
-/// file. Reads `num_nodes` from the `.properties` file.
+/// Reads `num_nodes` from the `.properties` file.
 pub fn build_ef(basename: &Path) -> Result<()> {
     let properties_path = basename.with_extension("properties");
     let props = std::fs::read_to_string(&properties_path)?;

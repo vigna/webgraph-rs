@@ -75,11 +75,16 @@
 //!
 //! // Build the Elias–Fano index for random access (or use webgraph build ef)
 //! let n = graph.num_nodes();
+//! # use dsi_progress_logger::no_logging;
 //! let ef = build_ef_with_data(n,
-//!     &basename.with_extension("graph"), &basename.with_extension("offsets"))?;
+//!     &basename.with_extension("graph"),
+//!     &basename.with_extension("offsets"),
+//!     &mut no_logging![])?;
 //! # unsafe { ef.serialize(&mut BufWriter::new(std::fs::File::create(basename.with_extension("ef"))?))?; }
 //! let ef = build_ef_with_data(n,
-//!     &labels_basename.with_extension("labels"), &labels_basename.with_extension("offsets"))?;
+//!     &labels_basename.with_extension("labels"),
+//!     &labels_basename.with_extension("offsets"),
+//!     &mut no_logging![])?;
 //! # unsafe { ef.serialize(&mut BufWriter::new(std::fs::File::create(labels_basename.with_extension("ef"))?))?; }
 //!
 //! // --- Random access ---
