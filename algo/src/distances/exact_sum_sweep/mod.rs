@@ -78,16 +78,16 @@
 //! All large allocations are in `usize`. For the symmetric case the algorithm
 //! permanently allocates three arrays of size _n_ (two for forward-eccentricity
 //! bounds and one for the SCC component assignment), plus one array of size _n_
-//! if `USE_TOT` is true. At the time of pivot computation, one more array of
+//! if `use_tot` is true. At the time of pivot computation, one more array of
 //! size _n_ and two arrays of size equal to the number of components are
 //! allocated. Thus, normal usage is three `usize` per node (plus one if
-//! `USE_TOT` is true), while at peak there is one additional `usize` per
+//! `use_tot` is true), while at peak there is one additional `usize` per
 //! node and two per component.
 //!
 //! For the directed case, there are two additional arrays of size _n_ for the
-//! backward-eccentricity bounds, plus one array of size _n_ if `USE_TOT` is
+//! backward-eccentricity bounds, plus one array of size _n_ if `use_tot` is
 //! true, bringing the permanent allocation to five `usize` per node (plus two
-//! if `USE_TOT` is true). Additionally, the DAG of strongly connected
+//! if `use_tot` is true). Additionally, the DAG of strongly connected
 //! components is stored permanently, using one `usize` per component for
 //! offsets and three `usize` per DAG edge for the connection data. At peak, the
 //! pivot computation allocates two arrays of size _n_ and three of size equal
@@ -112,20 +112,20 @@
 //!
 //! # Examples
 //!
-//! ```
-//! use webgraph_algo::distances::exact_sum_sweep::{self, *};
-//! use dsi_progress_logger::no_logging;
-//! use webgraph::graphs::vec_graph::VecGraph;
-//! use webgraph::labels::proj::Left;
-//!
+//! ```rust
+//! # use webgraph_algo::distances::exact_sum_sweep::{self, *};
+//! # use dsi_progress_logger::no_logging;
+//! # use webgraph::graphs::vec_graph::VecGraph;
+//! # use webgraph::labels::proj::Left;
 //! let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0), (2, 4)]);
 //! let transpose = VecGraph::from_arcs([(1, 0), (2, 1), (3, 2), (0, 3), (4, 2)]);
 //!
 //! // Let's compute all eccentricities
-//! let result = <exact_sum_sweep::All as Level>::run(
+//! let result = All::run(
 //!     &graph,
 //!     &transpose,
 //!     None,
+//!     true,
 //!     no_logging![]
 //! );
 //!
@@ -135,10 +135,11 @@
 //! assert_eq!(result.backward_eccentricities.as_ref(), &vec![3, 3, 3, 3, 4]);
 //!
 //! // Let's just compute the radius and diameter
-//! let result = <exact_sum_sweep::RadiusDiameter as Level>::run(
+//! let result = RadiusDiameter::run(
 //!     &graph,
 //!     &transpose,
 //!     None,
+//!     true,
 //!     no_logging![]
 //! );
 //!
@@ -155,10 +156,11 @@
 //! let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0), (2, 4)]);
 //! let transpose = VecGraph::from_arcs([(1, 0), (2, 1), (3, 2), (0, 3), (4, 2)]);
 //!
-//! let result = <exact_sum_sweep::RadiusDiameter as Level>::run(
+//! let result = RadiusDiameter::run(
 //!     &graph,
 //!     &transpose,
 //!     None,
+//!     true,
 //!     no_logging![]
 //! );
 //!
@@ -181,8 +183,9 @@
 //!     [(0, 1), (1, 0), (1, 2), (2, 1), (2, 0), (0, 2), (3, 4), (4, 3)]
 //! );
 //!
-//! let result = <exact_sum_sweep::RadiusDiameter as Level>::run_symm(
+//! let result = RadiusDiameter::run_symm(
 //!     &graph,
+//!     true,
 //!     no_logging![]
 //! );
 //!
@@ -230,7 +233,7 @@ struct ExactSumSweep<
     G2: RandomAccessGraph + Sync,
     V1: Parallel<EventNoPred> + Sync,
     V2: Parallel<EventNoPred> + Sync,
-    OL: Level<USE_TOT>,
+    OL: Level,
     const USE_TOT: bool,
 > {
     pub graph: &'a G1,
@@ -284,7 +287,7 @@ struct ExactSumSweep<
     _marker: std::marker::PhantomData<OL>,
 }
 
-impl<'a, G: RandomAccessGraph + Sync, OL: Level<USE_TOT>, const USE_TOT: bool>
+impl<'a, G: RandomAccessGraph + Sync, OL: Level, const USE_TOT: bool>
     ExactSumSweep<'a, G, G, ParFairNoPred<&'a G>, ParFairNoPred<&'a G>, OL, USE_TOT>
 {
     /// Builds a new instance to compute the *ExactSumSweep* algorithm on
@@ -310,13 +313,8 @@ impl<'a, G: RandomAccessGraph + Sync, OL: Level<USE_TOT>, const USE_TOT: bool>
     }
 }
 
-impl<
-    'a,
-    G1: RandomAccessGraph + Sync,
-    G2: RandomAccessGraph + Sync,
-    OL: Level<USE_TOT>,
-    const USE_TOT: bool,
-> ExactSumSweep<'a, G1, G2, ParFairNoPred<&'a G1>, ParFairNoPred<&'a G2>, OL, USE_TOT>
+impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level, const USE_TOT: bool>
+    ExactSumSweep<'a, G1, G2, ParFairNoPred<&'a G1>, ParFairNoPred<&'a G2>, OL, USE_TOT>
 {
     /// Builds a new instance to compute the *ExactSumSweep* algorithm on
     /// directed graphs.
@@ -380,7 +378,7 @@ impl<
     G2: RandomAccessGraph + Sync,
     V1: Parallel<EventNoPred> + Sync,
     V2: Parallel<EventNoPred> + Sync,
-    OL: Level<USE_TOT>,
+    OL: Level,
     const USE_TOT: bool,
 > ExactSumSweep<'a, G1, G2, V1, V2, OL, USE_TOT>
 {
@@ -482,7 +480,7 @@ impl<
     G2: RandomAccessGraph + Sync,
     V1: Parallel<EventNoPred> + Sync,
     V2: Parallel<EventNoPred> + Sync,
-    OL: Level<USE_TOT>,
+    OL: Level,
     const USE_TOT: bool,
 > ExactSumSweep<'_, G1, G2, V1, V2, OL, USE_TOT>
 {

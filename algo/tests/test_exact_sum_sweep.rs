@@ -30,8 +30,8 @@ fn test_path() -> Result<()> {
     let transposed = BTreeGraph::from_arcs(arcs.iter().map(|(a, b)| (*b, *a)));
 
     for sum_sweep in [
-        <All as Level>::run(&graph, &transposed, None, no_logging![]),
-        <All as Level<false>>::run(&graph, &transposed, None, no_logging![]),
+        All::run(&graph, &transposed, None, true, no_logging![]),
+        All::run(&graph, &transposed, None, false, no_logging![]),
     ] {
         assert_eq!(sum_sweep.forward_eccentricities[0], 2);
         assert_eq!(sum_sweep.forward_eccentricities[1], 1);
@@ -71,8 +71,8 @@ fn test_many_scc() -> Result<()> {
     let transposed = VecGraph::from_arcs(transposed_arcs);
 
     for sum_sweep in [
-        <All as Level>::run(&graph, &transposed, None, no_logging![]),
-        <All as Level<false>>::run(&graph, &transposed, None, no_logging![]),
+        All::run(&graph, &transposed, None, true, no_logging![]),
+        All::run(&graph, &transposed, None, false, no_logging![]),
     ] {
         assert_eq!(sum_sweep.radius, 2);
         assert_eq!(sum_sweep.radial_vertex, 1);
@@ -89,8 +89,8 @@ fn test_lozenge() -> Result<()> {
     let transposed = VecGraph::from_arcs(arcs.iter().map(|(a, b)| (*b, *a)));
 
     for sum_sweep in [
-        <Radius as Level>::run(&graph, &transposed, None, no_logging![]),
-        <Radius as Level<false>>::run(&graph, &transposed, None, no_logging![]),
+        Radius::run(&graph, &transposed, None, true, no_logging![]),
+        Radius::run(&graph, &transposed, None, false, no_logging![]),
     ] {
         assert_eq!(sum_sweep.radius, 2);
         assert!(sum_sweep.radial_vertex == 0 || sum_sweep.radial_vertex == 1);
@@ -130,8 +130,14 @@ fn test_many_dir_path() -> Result<()> {
     };
 
     for sum_sweep in [
-        <All as Level>::run(&graph, &transpose, Some(make_radial()), no_logging![]),
-        <All as Level<false>>::run(&graph, &transpose, Some(make_radial()), no_logging![]),
+        All::run(&graph, &transpose, Some(make_radial()), true, no_logging![]),
+        All::run(
+            &graph,
+            &transpose,
+            Some(make_radial()),
+            false,
+            no_logging![],
+        ),
     ] {
         assert_eq!(sum_sweep.diameter, 6);
         assert_eq!(sum_sweep.radius, 1);
@@ -164,8 +170,8 @@ fn test_cycle() -> Result<()> {
         let transposed = transposed_vec_graph;
 
         for sum_sweep in [
-            <RadiusDiameter as Level>::run(&graph, &transposed, None, no_logging![]),
-            <RadiusDiameter as Level<false>>::run(&graph, &transposed, None, no_logging![]),
+            RadiusDiameter::run(&graph, &transposed, None, true, no_logging![]),
+            RadiusDiameter::run(&graph, &transposed, None, false, no_logging![]),
         ] {
             assert_eq!(sum_sweep.diameter, size - 1);
             assert_eq!(sum_sweep.radius, size - 1);
@@ -203,8 +209,20 @@ fn test_clique() -> Result<()> {
         };
 
         for sum_sweep in [
-            <All as Level>::run(&graph, &transposed, Some(make_radial()), no_logging![]),
-            <All as Level<false>>::run(&graph, &transposed, Some(make_radial()), no_logging![]),
+            All::run(
+                &graph,
+                &transposed,
+                Some(make_radial()),
+                true,
+                no_logging![],
+            ),
+            All::run(
+                &graph,
+                &transposed,
+                Some(make_radial()),
+                false,
+                no_logging![],
+            ),
         ] {
             for i in 0..size {
                 assert_eq!(sum_sweep.forward_eccentricities[i], 1);
@@ -227,8 +245,8 @@ fn test_empty() -> Result<()> {
     let transposed = vec_graph;
 
     for sum_sweep in [
-        <All as Level>::run(&graph, &transposed, None, no_logging![]),
-        <All as Level<false>>::run(&graph, &transposed, None, no_logging![]),
+        All::run(&graph, &transposed, None, true, no_logging![]),
+        All::run(&graph, &transposed, None, false, no_logging![]),
     ] {
         assert_eq!(sum_sweep.radius, 0);
         assert_eq!(sum_sweep.diameter, 0);
@@ -244,8 +262,8 @@ fn test_sparse() -> Result<()> {
     let transpose = BTreeGraph::from_arcs(arcs.iter().map(|(x, y)| (*y, *x)));
 
     for sum_sweep in [
-        <All as Level>::run(&graph, &transpose, None, no_logging![]),
-        <All as Level<false>>::run(&graph, &transpose, None, no_logging![]),
+        All::run(&graph, &transpose, None, true, no_logging![]),
+        All::run(&graph, &transpose, None, false, no_logging![]),
     ] {
         assert_eq!(sum_sweep.radius, 1);
         assert_eq!(sum_sweep.radial_vertex, 10);
@@ -272,16 +290,18 @@ fn test_no_radial_vertices() -> Result<()> {
     let transposed = transposed_vec_graph;
 
     for sum_sweep in [
-        <All as Level>::run(
+        All::run(
             &graph,
             &transposed,
             Some(AtomicBitVec::new(2)),
+            true,
             no_logging![],
         ),
-        <All as Level<false>>::run(
+        All::run(
             &graph,
             &transposed,
             Some(AtomicBitVec::new(2)),
+            false,
             no_logging![],
         ),
     ] {
@@ -299,7 +319,7 @@ fn test_empty_graph() {
     let graph = vec_graph.clone();
     let transposed = vec_graph;
 
-    <All as Level>::run(&graph, &transposed, None, no_logging![]);
+    All::run(&graph, &transposed, None, true, no_logging![]);
 }
 
 #[test]
@@ -313,8 +333,8 @@ fn test_graph_no_edges() -> Result<()> {
     let transposed = vec_graph;
 
     for sum_sweep in [
-        <All as Level>::run(&graph, &transposed, None, no_logging![]),
-        <All as Level<false>>::run(&graph, &transposed, None, no_logging![]),
+        All::run(&graph, &transposed, None, true, no_logging![]),
+        All::run(&graph, &transposed, None, false, no_logging![]),
     ] {
         assert_eq!(sum_sweep.radius, 0);
         assert_eq!(sum_sweep.diameter, 0);
@@ -332,8 +352,8 @@ fn test_er() -> Result<()> {
         let trans = VecGraph::from_lender(transpose(&graph, MemoryUsage::BatchSize(1000))?.iter());
 
         for ess in [
-            <All as Level>::run(&graph, &trans, None, no_logging![]),
-            <All as Level<false>>::run(&graph, &trans, None, no_logging![]),
+            All::run(&graph, &trans, None, true, no_logging![]),
+            All::run(&graph, &trans, None, false, no_logging![]),
         ] {
             let mut pll = Seq::new(&graph);
             let mut ecc = [0; 100];

@@ -78,8 +78,8 @@ fn symm_star() -> VecGraph {
 fn test_ess_diameter_only() -> Result<()> {
     let (graph, transpose) = directed_graph();
     for result in [
-        <exact_sum_sweep::Diameter as Level>::run(&graph, &transpose, None, no_logging![]),
-        <exact_sum_sweep::Diameter as Level<false>>::run(&graph, &transpose, None, no_logging![]),
+        exact_sum_sweep::Diameter::run(&graph, &transpose, None, true, no_logging![]),
+        exact_sum_sweep::Diameter::run(&graph, &transpose, None, false, no_logging![]),
     ] {
         assert_eq!(result.diameter, 3);
     }
@@ -90,8 +90,8 @@ fn test_ess_diameter_only() -> Result<()> {
 fn test_ess_radius_only() -> Result<()> {
     let (graph, transpose) = directed_graph();
     for result in [
-        <exact_sum_sweep::Radius as Level>::run(&graph, &transpose, None, no_logging![]),
-        <exact_sum_sweep::Radius as Level<false>>::run(&graph, &transpose, None, no_logging![]),
+        exact_sum_sweep::Radius::run(&graph, &transpose, None, true, no_logging![]),
+        exact_sum_sweep::Radius::run(&graph, &transpose, None, false, no_logging![]),
     ] {
         assert_eq!(result.radius, 2);
     }
@@ -102,8 +102,8 @@ fn test_ess_radius_only() -> Result<()> {
 fn test_ess_all_forward() -> Result<()> {
     let (graph, transpose) = directed_graph();
     for result in [
-        <exact_sum_sweep::AllForward as Level>::run(&graph, &transpose, None, no_logging![]),
-        <exact_sum_sweep::AllForward as Level<false>>::run(&graph, &transpose, None, no_logging![]),
+        exact_sum_sweep::AllForward::run(&graph, &transpose, None, true, no_logging![]),
+        exact_sum_sweep::AllForward::run(&graph, &transpose, None, false, no_logging![]),
     ] {
         assert_eq!(result.diameter, 3);
         assert_eq!(result.radius, 2);
@@ -119,13 +119,8 @@ fn test_ess_all_forward() -> Result<()> {
 fn test_ess_radius_diameter() -> Result<()> {
     let (graph, transpose) = directed_graph();
     for result in [
-        <exact_sum_sweep::RadiusDiameter as Level>::run(&graph, &transpose, None, no_logging![]),
-        <exact_sum_sweep::RadiusDiameter as Level<false>>::run(
-            &graph,
-            &transpose,
-            None,
-            no_logging![],
-        ),
+        exact_sum_sweep::RadiusDiameter::run(&graph, &transpose, None, true, no_logging![]),
+        exact_sum_sweep::RadiusDiameter::run(&graph, &transpose, None, false, no_logging![]),
     ] {
         assert_eq!(result.diameter, 3);
         assert_eq!(result.radius, 2);
@@ -137,8 +132,8 @@ fn test_ess_radius_diameter() -> Result<()> {
 fn test_ess_all_symm() {
     let graph = symm_graph();
     for result in [
-        <exact_sum_sweep::All as Level>::run_symm(&graph, no_logging![]),
-        <exact_sum_sweep::All as Level<false>>::run_symm(&graph, no_logging![]),
+        exact_sum_sweep::All::run_symm(&graph, true, no_logging![]),
+        exact_sum_sweep::All::run_symm(&graph, false, no_logging![]),
     ] {
         assert_eq!(result.diameter, 1);
         assert_eq!(result.radius, 1);
@@ -150,8 +145,8 @@ fn test_ess_all_symm() {
 fn test_ess_all_forward_symm() {
     let graph = symm_graph();
     for result in [
-        <exact_sum_sweep::AllForward as Level>::run_symm(&graph, no_logging![]),
-        <exact_sum_sweep::AllForward as Level<false>>::run_symm(&graph, no_logging![]),
+        exact_sum_sweep::AllForward::run_symm(&graph, true, no_logging![]),
+        exact_sum_sweep::AllForward::run_symm(&graph, false, no_logging![]),
     ] {
         assert_eq!(result.diameter, 1);
         assert_eq!(result.radius, 1);
@@ -162,8 +157,8 @@ fn test_ess_all_forward_symm() {
 fn test_ess_diameter_symm() {
     let graph = symm_graph();
     for result in [
-        <exact_sum_sweep::Diameter as Level>::run_symm(&graph, no_logging![]),
-        <exact_sum_sweep::Diameter as Level<false>>::run_symm(&graph, no_logging![]),
+        exact_sum_sweep::Diameter::run_symm(&graph, true, no_logging![]),
+        exact_sum_sweep::Diameter::run_symm(&graph, false, no_logging![]),
     ] {
         assert_eq!(result.diameter, 1);
     }
@@ -173,8 +168,8 @@ fn test_ess_diameter_symm() {
 fn test_ess_radius_symm() {
     let graph = symm_graph();
     for result in [
-        <exact_sum_sweep::Radius as Level>::run_symm(&graph, no_logging![]),
-        <exact_sum_sweep::Radius as Level<false>>::run_symm(&graph, no_logging![]),
+        exact_sum_sweep::Radius::run_symm(&graph, true, no_logging![]),
+        exact_sum_sweep::Radius::run_symm(&graph, false, no_logging![]),
     ] {
         assert_eq!(result.radius, 1);
     }
@@ -184,8 +179,8 @@ fn test_ess_radius_symm() {
 fn test_ess_radius_diameter_symm() {
     let graph = symm_graph();
     for result in [
-        <exact_sum_sweep::RadiusDiameter as Level>::run_symm(&graph, no_logging![]),
-        <exact_sum_sweep::RadiusDiameter as Level<false>>::run_symm(&graph, no_logging![]),
+        exact_sum_sweep::RadiusDiameter::run_symm(&graph, true, no_logging![]),
+        exact_sum_sweep::RadiusDiameter::run_symm(&graph, false, no_logging![]),
     ] {
         assert_eq!(result.diameter, 1);
         assert_eq!(result.radius, 1);
@@ -198,8 +193,8 @@ fn test_ess_symm_path() {
     let graph = VecGraph::from_arcs([(0, 1), (1, 0), (1, 2), (2, 1), (2, 3), (3, 2)]);
 
     for result in [
-        <exact_sum_sweep::All as Level>::run_symm(&graph, no_logging![]),
-        <exact_sum_sweep::All as Level<false>>::run_symm(&graph, no_logging![]),
+        exact_sum_sweep::All::run_symm(&graph, true, no_logging![]),
+        exact_sum_sweep::All::run_symm(&graph, false, no_logging![]),
     ] {
         assert_eq!(result.diameter, 3);
         assert_eq!(result.radius, 2);
@@ -212,8 +207,8 @@ fn test_ess_diameter_cycle() {
     let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0)]);
     let transpose = VecGraph::from_arcs([(1, 0), (2, 1), (3, 2), (0, 3)]);
     for result in [
-        <exact_sum_sweep::Diameter as Level>::run(&graph, &transpose, None, no_logging![]),
-        <exact_sum_sweep::Diameter as Level<false>>::run(&graph, &transpose, None, no_logging![]),
+        exact_sum_sweep::Diameter::run(&graph, &transpose, None, true, no_logging![]),
+        exact_sum_sweep::Diameter::run(&graph, &transpose, None, false, no_logging![]),
     ] {
         assert_eq!(result.diameter, 3);
     }
@@ -224,8 +219,8 @@ fn test_ess_all_forward_cycle() {
     let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0)]);
     let transpose = VecGraph::from_arcs([(1, 0), (2, 1), (3, 2), (0, 3)]);
     for result in [
-        <exact_sum_sweep::AllForward as Level>::run(&graph, &transpose, None, no_logging![]),
-        <exact_sum_sweep::AllForward as Level<false>>::run(&graph, &transpose, None, no_logging![]),
+        exact_sum_sweep::AllForward::run(&graph, &transpose, None, true, no_logging![]),
+        exact_sum_sweep::AllForward::run(&graph, &transpose, None, false, no_logging![]),
     ] {
         assert_eq!(result.diameter, 3);
         assert_eq!(result.radius, 3);
@@ -242,8 +237,8 @@ fn test_ess_all_star_graph() {
     let graph = VecGraph::from_arcs([(0, 1), (1, 0), (0, 2), (2, 0), (0, 3), (3, 0)]);
 
     for result in [
-        <exact_sum_sweep::All as Level>::run_symm(&graph, no_logging![]),
-        <exact_sum_sweep::All as Level<false>>::run_symm(&graph, no_logging![]),
+        exact_sum_sweep::All::run_symm(&graph, true, no_logging![]),
+        exact_sum_sweep::All::run_symm(&graph, false, no_logging![]),
     ] {
         assert_eq!(result.diameter, 2);
         assert_eq!(result.radius, 1);
@@ -258,11 +253,10 @@ fn test_ess_all_star_graph() {
 fn test_ess_symmetric_vs_non_symmetric() {
     for graph in [symm_graph(), symm_path(), symm_star()] {
         // All
-        let symm = <exact_sum_sweep::All as Level>::run_symm(&graph, no_logging![]);
-        let symm_no_tot = <exact_sum_sweep::All as Level<false>>::run_symm(&graph, no_logging![]);
-        let dir = <exact_sum_sweep::All as Level>::run(&graph, &graph, None, no_logging![]);
-        let dir_no_tot =
-            <exact_sum_sweep::All as Level<false>>::run(&graph, &graph, None, no_logging![]);
+        let symm = exact_sum_sweep::All::run_symm(&graph, true, no_logging![]);
+        let symm_no_tot = exact_sum_sweep::All::run_symm(&graph, false, no_logging![]);
+        let dir = exact_sum_sweep::All::run(&graph, &graph, None, true, no_logging![]);
+        let dir_no_tot = exact_sum_sweep::All::run(&graph, &graph, None, false, no_logging![]);
 
         for (label, result) in [
             ("symm", (symm.diameter, symm.radius)),
@@ -292,17 +286,13 @@ fn test_ess_symmetric_vs_non_symmetric() {
         );
 
         // RadiusDiameter
-        let symm_rd = <exact_sum_sweep::RadiusDiameter as Level>::run_symm(&graph, no_logging![]);
+        let symm_rd = exact_sum_sweep::RadiusDiameter::run_symm(&graph, true, no_logging![]);
         let symm_rd_no_tot =
-            <exact_sum_sweep::RadiusDiameter as Level<false>>::run_symm(&graph, no_logging![]);
+            exact_sum_sweep::RadiusDiameter::run_symm(&graph, false, no_logging![]);
         let dir_rd =
-            <exact_sum_sweep::RadiusDiameter as Level>::run(&graph, &graph, None, no_logging![]);
-        let dir_rd_no_tot = <exact_sum_sweep::RadiusDiameter as Level<false>>::run(
-            &graph,
-            &graph,
-            None,
-            no_logging![],
-        );
+            exact_sum_sweep::RadiusDiameter::run(&graph, &graph, None, true, no_logging![]);
+        let dir_rd_no_tot =
+            exact_sum_sweep::RadiusDiameter::run(&graph, &graph, None, false, no_logging![]);
         for (label, d, r) in [
             ("symm", symm_rd.diameter, symm_rd.radius),
             (
@@ -321,12 +311,11 @@ fn test_ess_symmetric_vs_non_symmetric() {
         }
 
         // Diameter
-        let symm_d = <exact_sum_sweep::Diameter as Level>::run_symm(&graph, no_logging![]);
-        let symm_d_no_tot =
-            <exact_sum_sweep::Diameter as Level<false>>::run_symm(&graph, no_logging![]);
-        let dir_d = <exact_sum_sweep::Diameter as Level>::run(&graph, &graph, None, no_logging![]);
+        let symm_d = exact_sum_sweep::Diameter::run_symm(&graph, true, no_logging![]);
+        let symm_d_no_tot = exact_sum_sweep::Diameter::run_symm(&graph, false, no_logging![]);
+        let dir_d = exact_sum_sweep::Diameter::run(&graph, &graph, None, true, no_logging![]);
         let dir_d_no_tot =
-            <exact_sum_sweep::Diameter as Level<false>>::run(&graph, &graph, None, no_logging![]);
+            exact_sum_sweep::Diameter::run(&graph, &graph, None, false, no_logging![]);
         for (label, d) in [
             ("symm", symm_d.diameter),
             ("symm_no_tot", symm_d_no_tot.diameter),
@@ -337,12 +326,10 @@ fn test_ess_symmetric_vs_non_symmetric() {
         }
 
         // Radius
-        let symm_r = <exact_sum_sweep::Radius as Level>::run_symm(&graph, no_logging![]);
-        let symm_r_no_tot =
-            <exact_sum_sweep::Radius as Level<false>>::run_symm(&graph, no_logging![]);
-        let dir_r = <exact_sum_sweep::Radius as Level>::run(&graph, &graph, None, no_logging![]);
-        let dir_r_no_tot =
-            <exact_sum_sweep::Radius as Level<false>>::run(&graph, &graph, None, no_logging![]);
+        let symm_r = exact_sum_sweep::Radius::run_symm(&graph, true, no_logging![]);
+        let symm_r_no_tot = exact_sum_sweep::Radius::run_symm(&graph, false, no_logging![]);
+        let dir_r = exact_sum_sweep::Radius::run(&graph, &graph, None, true, no_logging![]);
+        let dir_r_no_tot = exact_sum_sweep::Radius::run(&graph, &graph, None, false, no_logging![]);
         for (label, r) in [
             ("symm", symm_r.radius),
             ("symm_no_tot", symm_r_no_tot.radius),

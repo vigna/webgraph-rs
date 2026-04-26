@@ -17,25 +17,26 @@ compression.
 - **Strongly Connected Components** ([SCCs]): [Tarjan's algorithm] and
   [Kosaraju's algorithm] for computing SCCs in directed graphs;
   [sequential][symm_seq] and [parallel][symm_par] computation
-  of connected components for symmetric graphs
-- **[Topological Sorting]**: Orders vertices of a directed acyclic graph
-- **[Acyclicity Testing]**: Checks if a graph is acyclic
+  of connected components for symmetric graphs.
+- **[Topological Sorting]**: Orders vertices of a directed acyclic graph.
+- **[Acyclicity Testing]**: Checks if a graph is acyclic.
 
 ### Distance Computation
 
 - **[HyperBall]**: Probabilistic algorithm for computing distances, closeness
-  centrality, and other measures using HyperLogLog counters
+  centrality, harmonic centrality and other measures using HyperLogLog counters.
 - **[ExactSumSweep]**: Exact computation of eccentricities, radius, and
-  diameter
+  diameter.
 
 ### Community Detection
 
 - **[Layered Label Propagation]** (LLP): Fast community detection algorithm for
-  large graphs
+  large graphs.
 
 ### Ranking
 
 - **[PageRank]**: Fast parallel computation of PageRank.
+- **[BiRank]**: Fast parallel computation of BiRank.
 
 ## CLI Integration
 
@@ -63,6 +64,7 @@ Union nor the Italian MUR can be held responsible for them.
 [command-line interface]: https://docs.rs/webgraph-cli/latest/index.html
 [WebGraph framework]: https://webgraph.di.unimi.it/
 [PageRank]: https://docs.rs/webgraph-algo/latest/webgraph_algo/rank/pagerank/index.html
+[BiRank]: https://docs.rs/webgraph-algo/latest/webgraph_algo/rank/birank/index.html
 [crates.io badge]: https://img.shields.io/crates/v/webgraph-algo.svg
 [crates.io]: https://crates.io/crates/webgraph-algo
 [docs.rs badge]: https://docs.rs/webgraph-algo/badge.svg

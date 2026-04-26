@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Traits and basic implementations to support parallel completion by splitting
+//! Traits and basic implementations to support parallel iteration by splitting
 //! the [iterator] of a labeling into multiple iterators.
 //!
 //! [iterator]: SequentialLabeling::Lender

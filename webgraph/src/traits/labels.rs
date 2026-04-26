@@ -623,9 +623,9 @@ pub trait IntoParLenders {
 }
 
 /// Implements [`IntoParLenders`] for a type that already implements
-/// [`SplitLabeling`](crate::traits::SplitLabeling), using the split lender as the parallel lender.
+/// [`SplitLabeling`], using the split lenders as the parallel lenders.
 ///
-/// The macro requires that the split lender satisfies the additional bounds
+/// The macro requires that the split lenders satisfies the additional bounds
 /// `ExactSizeLender + FusedLender`.
 ///
 /// # Usage
@@ -642,6 +642,8 @@ pub trait IntoParLenders {
 /// 1. Generics (in brackets), or `[]` for none.
 /// 2. The type to implement `IntoParLenders` for.
 /// 3. Where clauses (in brackets), or `[]` for none.
+///
+/// [`SplitLabeling`]: crate::traits::SplitLabeling
 #[macro_export]
 macro_rules! impl_parallel_from_split {
     (

@@ -124,23 +124,14 @@ pub fn exact_sum_sweep<E: Endianness>(args: CliArgs) -> Result<()> {
         pl.log_interval(log_interval);
     }
 
-    let no_tot = args.no_tot;
+    let use_tot = !args.no_tot;
 
-    // Dispatches to Level<true> or Level<false> depending on the --no-tot flag.
     macro_rules! ess {
         (symm $Level:ident) => {
-            if no_tot {
-                <$Level as Level<false>>::run_symm(graph, &mut pl)
-            } else {
-                <$Level as Level>::run_symm(graph, &mut pl)
-            }
+            $Level::run_symm(graph, use_tot, &mut pl)
         };
         ($Level:ident, $transpose:expr) => {
-            if no_tot {
-                <$Level as Level<false>>::run(graph, $transpose, None, &mut pl)
-            } else {
-                <$Level as Level>::run(graph, $transpose, None, &mut pl)
-            }
+            $Level::run(graph, $transpose, None, use_tot, &mut pl)
         };
     }
 

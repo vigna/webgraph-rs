@@ -39,8 +39,8 @@ techniques. More precisely, it is currently made of:
 
 ## Users of WebGraph
 
-<a href="https://www.softwareheritage.org/"><img src="https://raw.githubusercontent.com/vigna/webgraph-rs/main/svg/SWH.svg" width="200"></a>
-
+<a href="https://www.softwareheritage.org/">
+<img src="https://raw.githubusercontent.com/vigna/webgraph-rs/main/svg/SWH.svg" width="200"></a>
         
 <a href="https://www.commoncrawl.org/"><img src="https://raw.githubusercontent.com/vigna/webgraph-rs/main/svg/CC.svg" width="200"></a>
 
@@ -49,50 +49,48 @@ techniques. More precisely, it is currently made of:
 You are welcome to use and improve WebGraph for your research work! If you find
 our software useful for research, please cite the following papers in your own:
 
-- “[WebGraph: The Next Generation (Is in Rust)]”, by Tommaso Fontana,
+- "[WebGraph: The Next Generation (Is in Rust)]", by Tommaso Fontana,
   Sebastiano Vigna, and Stefano Zacchiroli, in _WWW '24: Companion Proceedings
   of the ACM on Web Conference 2024_, pages 686–689.
   [DOI 10.1145/3589335.3651581].
 
-- “[The WebGraph Framework I: Compression Techniques]”, by Paolo Boldi
+- "[The WebGraph Framework I: Compression Techniques]", by Paolo Boldi
   and Sebastiano Vigna, in _Proc. of the 13th international conference on
   World Wide Web_, WWW 2004, pages 595–602, ACM.
   [DOI 10.1145/988672.988752].
 
-## Quick Setup
+## Loading a compressed graph
 
-Assuming you have built all binaries, you will first need a graph in BV format,
-for example downloading it from the [LAW web site] or the [Common Crawl web
-site]. For a graph with basename `BASENAME`, you will need the `BASENAME.graph`
-file (the bitstream containing a compressed representation of the graph), the
-`BASENAME.properties` file (metadata), and the `BASENAME.offsets` file (a
-bitstream containing pointers into the graph bitstream).
+A graph in BV format consists of a `BASENAME.graph` file (the compressed
+bitstream), a `BASENAME.properties` file (metadata), and a `BASENAME.offsets`
+file (pointers into the bitstream). You can download graphs from the [LAW web
+site] or the [Common Crawl web site].
 
-As a first step, if you need random access to the successors of a node, you need
-to build an [Elias–Fano] representation of the offsets (this part can be skipped
-if you just need sequential access). There is a [command-line interface] with many
-subcommands, among which `build`, and `webgraph build ef BASENAME` will build
-the representation for you, serializing it with [ε-serde] in a file
-named `BASENAME.ef`.
+For random access to the successors of a node, you also need a `BASENAME.ef`
+file containing an [Elias–Fano] representation of the offsets. You can build it
+with the [command-line interface] (`webgraph build ef BASENAME`) or
+programmatically with [`store_ef`].
 
-Then, to load the graph you need to call
+To load a graph with random access:
 
 ```ignore
 let graph = BvGraph::with_basename("BASENAME").load()?;
 ```
 
-The [`with_basename`] method returns a [`LoadConfig`] instance that can be
-further customized, selecting endianness, type of memory access, and so on. By
-default you will get big endianness, memory mapping for both the graph and the
-offsets, and dynamic code dispatch.
+[`BvGraph::with_basename`] returns a [`LoadConfig`] that can be further
+customized, selecting endianness, type of memory access (memory mapping, full
+loading, etc.), and so on. By default you will get big endianness, memory
+mapping, and dynamic code dispatch.
 
-Note that on Windows memory mapping requires that the length of the graph file
-is a multiple of the internal bit buffer. You can use the CLI command `run pad
-u32` to ensure that your graph file is properly padded.
+If you only need [sequential access][iteration] (e.g., scanning all arcs), use
+[`BvGraphSeq`], which does not require the `.ef` file:
 
-Once you load the graph, you can [retrieve the successors of a node] or
-[iterate on the whole graph]. In particular, using the handy [`for_`] macro,
-you can write an iteration on the graph as
+```ignore
+let graph = BvGraphSeq::with_basename("BASENAME").load()?;
+```
+
+You can [retrieve the successors of a node] or [iterate on the whole
+graph]. In particular, using the handy [`for_`] macro:
 
 ```ignore
 for_![(src, succ) in graph {
@@ -102,85 +100,171 @@ for_![(src, succ) in graph {
 }];
 ```
 
-## Compact Representations
+Note that on Windows memory mapping requires that the length of the graph file
+is a multiple of the internal bit buffer. You can use the CLI command `run pad
+u32` to ensure that your graph file is properly padded.
 
-[`CsrGraph`] is a classical immutable compact graph representation.
+## In-memory graph representations
 
-## Mutable Graphs
+Several structures are available for building graphs in memory:
 
-A number of structures make it possible to create dynamically growing graphs:
-[`BTreeGraph`], [`VecGraph`] and their labeled counterparts
-[`LabeledBTreeGraph`] and [`LabeledVecGraph`]. These structures can also
-be serialized with [serde] using the feature
-gate `serde`; [`VecGraph`]/[`LabeledVecGraph`] can also be serialized with
-[ε-serde].
+- [`VecGraph`] and [`LabeledVecGraph`]: mutable graphs backed by vectors; arcs
+  must be added in increasing successor order. Serializable with [ε-serde].
 
-## Command–Line Interface
+- [`BTreeGraph`] and [`LabeledBTreeGraph`]: mutable graphs backed by B-tree
+  maps; arcs can be added in any order.
 
-We provide a [command-line interface] to perform various operations on graphs.
-The CLI is the main method of the library, so it can be executed with `cargo
-run`.
+- [`CsrGraph`]: a classical immutable Compressed Sparse Row representation,
+  useful for algorithms that need fast random access without compression
+  overhead. Serializable with [ε-serde].
 
-## More Options
+All these types (except `ArcListGraph`) can also be serialized with [serde]
+using the feature gate `serde`.
 
-- By starting from the [`BvGraphSeq`] class you can obtain an instance that does
-  not need the `BASENAME.ef` file, but provides only [iteration].
+## Importing your data
 
-- Graphs can be labeled by [zipping] them together with a [labeling]. In fact,
-  graphs are just labelings with `usize` labels.
+The [command-line interface] provides a `from arcs` subcommand that reads
+tab-separated arcs from standard input and compresses them directly into BV
+format.
 
-## Operating on Graphs
+From code, you have several options depending on how your data is organized:
 
-There are many operations available on graphs, such as [transpose],
-[simplify], and [permute].
+- If you can generate arcs **in sorted order** (by source, then by target), wrap
+  your iterator in an [`ArcListGraph`] and pass it directly to
+  [`BvCompConfig::comp_graph`]; no intermediate storage is needed.
 
-## Compressing Graphs Given as List of Arcs
+- If your arcs are **unsorted**, [`ParSortedGraph::from_pairs`] accepts an
+  iterator on `(usize, usize)` pairs, sorts them, and returns a graph ready for
+  parallel compression.
 
-A simple way to compress a graph is to provide it as a list of arcs. The
-`webgraph` CLI provides a command `from` with a subcommand `arcs` that reads a
-list of TAB-separated list of arcs from standard input and writes a compressed
-graph in BV graph format. For example,
+- If you can produce arcs in parallel as a **Rayon parallel iterator**,
+  [`ParSortedGraph::par_from_pairs`] does the same with parallel sorting.
 
-```bash
-echo -e "0\t1\n1\t2\n2\t3" >3-cycle.tsv
-cargo run --release from arcs 3-cycle <3-cycle.tsv
+In all cases the result implements [`IntoParLenders`], so it can be passed to
+[`BvCompConfig::par_comp`] for parallel compression. For full control over
+deduplication, memory budget, and progress logging, use the
+[`ParSortedGraphConf`] builder obtained via [`ParSortedGraph::config()`].
+
+All of the above also works for labeled graphs: just use `((usize, usize), L)`
+pairs instead of `(usize, usize)` and the corresponding
+[`ParSortedLabeledGraph`] methods.
+
+## Compressing graphs
+
+The entry point for compression is [`BvComp::with_basename`], which returns a
+[`BvCompConfig`] builder. Compression parameters (window size, codes for
+different components, etc.) are controlled by [`CompFlags`]. compression
+paramters are described in detail in the [`bvgraph`] module documentation.
+
+To compress sequentially a graph that implements [`SequentialGraph`]:
+
+```ignore
+BvComp::with_basename("BASENAME")
+    .comp_graph::<BE>(graph)?;
 ```
 
-will create a file compressed graph with basename `3-cycle`. The numbers
-represent node ids starting from zero.
+For better compression ratios at the cost of a longer compression time, use
+[`BvCompConfig::with_bvgraphz`], which enables Zuckerli-like
+dynamic-programming reference selection.
 
-If the node ids are not numbers, but labels, you can use the `--labels` flag. A
-mapping from assigned node number (in order of appearance) to labels will be
-created in RAM and stored in `3-cycle.nodes` file (one label per line the first
-label corresponding to node id 0). The labels are stored in a `HashMap`, so, for
-very large graphs, the mapping might not fit in RAM. For example,
+### Parallel compression
 
-```bash
-echo -e "a\tb\nb\tc\nc\ta" > graph.tsv
-# convert to bvgraph
-cat graph.tsv | cargo run --release from arcs --labels graph
+Any graph implementing [`IntoParLenders`] can be compressed in parallel:
+
+```ignore
+BvComp::with_basename("BASENAME")
+    .par_comp::<BE, _>(&graph)?;
 ```
 
-The graph can be converted back in the arcs format using the `to arcs` command.
-Passing the `.nodes` files to `--labels` will write the labels instead of the
-node numbers.
+All common graph types implement [`IntoParLenders`] automatically via
+[`SplitLabeling`]. Transparent wrappers can adjust the splitting:
 
-```bash
-# convert back to tsv
-cargo run --release to arcs --labels=graph.nodes graph > back.tsv
-```
+- [`ParGraph`]: overrides the number of parallel parts.
+- [`ParDcfGraph`]: uses a precomputed [degree cumulative function][DCF] to
+  balance work by arcs rather than by nodes.
 
-Moreover, the `--separator` argument can be used in both `from arcs` and `to arcs`
-to change the character that separates source and target to parse other formats
-such as `csv`. For example,
+### Labeled compression
 
-```bash
-echo -e "a,b\nb,c\nc,a" > graph.csv
-# convert to bvgraph
-$ cat graph.csv | cargo run --release from arcs --labels --separator=',' graph
-# convert back to csv
-$ cargo run --release to arcs --separator=',' --labels=graph.nodes graph > back.csv
-```
+Graphs with labels can be compressed with
+[`BvCompConfig::comp_labeled_graph`] (sequential) or
+[`BvCompConfig::par_comp_labeled`] (parallel). Label storage is controlled by a
+[`StoreLabelsConfig`] implementation; [`BitStreamStoreLabelsConfig`] provides
+bitstream-based storage with optional Zstandard compression.
+
+## Graph transforms
+
+The [`transform`] module provides common graph operations, each available in
+sequential and parallel ([`SplitLabeling`]-based) variants:
+
+- [**Transpose**][transpose]: reverse all arcs
+  ([`transpose_split`] for parallel, [`transpose_labeled`] for labeled graphs).
+- [**Symmetrize**][symmetrize]: add missing reverse arcs, optionally removing
+  self-loops ([`symmetrize_split`] for parallel).
+- [**Permute**][permute]: renumber nodes according to a permutation
+  ([`permute_split`] for parallel).
+- [**Map**][map]: renumber nodes through an arbitrary function, with
+  deduplication ([`map_split`] for parallel).
+
+## Graph and data wrappers
+
+Lightweight wrappers combine or modify data without copying:
+
+- [`PermutedGraph`]: applies a node permutation lazily.
+- [`UnionGraph`]: merges arcs from two graphs.
+- [`NoSelfLoopsGraph`]: filters out self-loops.
+- [`JavaPermutation`]: reads Java WebGraph permutation files.
+- [`ArcListGraph`]: a lazy sequential graph backed by an iterator of arcs,
+  useful for feeding data directly into the compressor without materializing the
+  graph in memory.
+
+## Labels
+
+Graphs are a special case of _labelings_: a [`SequentialLabeling`] assigns a
+sequence of labels to each node, and a graph is simply a labeling whose labels
+are `usize` successors. You can attach additional labels to a graph by
+[zipping][`Zip`] it with a labeling.
+
+Bitstream-based labelings are provided by [`BitStreamLabeling`] (random access)
+and [`BitStreamLabelingSeq`] (sequential). Custom label (de)serializers
+implement the [`BitDeserializer`]/[`BitSerializer`] traits. The [`Left`] and
+[`Right`] projections extract one component from a zipped labeling.
+
+## Graph traversals
+
+The [`visits`] module provides breadth-first and depth-first traversals, both
+sequential and parallel:
+
+- **BFS**: [`breadth_first::Seq`], [`breadth_first::ParFair`] (fair division of
+  work) and [`breadth_first::ParLowMem`] (memory-efficient).
+- **DFS**: [`depth_first::SeqIter`].
+
+Visits use a callback-based API with event types ([`EventPred`]/[`EventNoPred`])
+that carry predecessor/parent information when requested.
+
+## Graph iterators
+
+[`BfsOrder`] and [`DfsOrder`] wrap the visit machinery into standard iterators
+that yield nodes in BFS or DFS order. [`BfsOrderFromRoots`] starts the visit
+from a given set of roots.
+
+## Random graphs
+
+[`ErdosRenyi`] generates Erdős–Rényi random graphs with a given number of nodes
+and edge probability, useful for testing and benchmarking.
+
+## Utilities
+
+- [`par_map_fold`]: parallel map-fold over iterators, an alternative to Rayon's
+  [`ParallelBridge`] that avoids some of its bottlenecks.
+- [`graph::eq`], [`graph::eq_labeled`], [`labels::eq_sorted`]: equality checks
+  for graphs and labelings, useful in tests.
+- [`labels::check_impl`]: verifies that the sequential and random-access
+  implementations of a labeling are consistent.
+
+## Command-line interface
+
+We provide a [command-line interface] to perform various operations on unlabeled
+graphs (compression, transformation, analysis, etc.).
 
 ## Acknowledgments
 
@@ -192,29 +276,87 @@ reflect those of the European Union or the Italian MUR. Neither the European
 Union nor the Italian MUR can be held responsible for them.
 
 [transpose]: https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose.html
-[simplify]: https://docs.rs/webgraph/latest/webgraph/transform/fn.simplify.html
+[`transpose_split`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose_split.html
+[`transpose_labeled`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose_labeled.html
+[symmetrize]: https://docs.rs/webgraph/latest/webgraph/transform/fn.symmetrize.html
+[`symmetrize_split`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.symmetrize_split.html
 [permute]: https://docs.rs/webgraph/latest/webgraph/transform/fn.permute.html
-[`with_basename`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html#method.with_basename
+[`permute_split`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.permute_split.html
+[map]: https://docs.rs/webgraph/latest/webgraph/transform/fn.map.html
+[`map_split`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.map_split.html
+[`transform`]: https://docs.rs/webgraph/latest/webgraph/transform/index.html
+[`BvGraph::with_basename`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html#method.with_basename
 [`BvGraphSeq`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/sequential/struct.BvGraphSeq.html
-[`BvGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html
 [`LoadConfig`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/load/struct.LoadConfig.html
+[`BvComp::with_basename`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvComp.html#method.with_basename
+[`BvCompConfig`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html
+[`BvCompConfig::with_bvgraphz`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html#method.with_bvgraphz
+[`BvCompConfig::comp_labeled_graph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html#method.comp_labeled_graph
+[`BvCompConfig::par_comp_labeled`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html#method.par_comp_labeled
+[`CompFlags`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.CompFlags.html
+[`store_ef`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/fn.store_ef.html
+[`IntoParLenders`]: https://docs.rs/webgraph/latest/webgraph/traits/trait.IntoParLenders.html
+[`SplitLabeling`]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SplitLabeling.html
+[`ParGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_graphs/struct.ParGraph.html
+[`ParDcfGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_graphs/struct.ParDcfGraph.html
+[DCF]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.build_dcf
+[`ParSortedGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedGraph.html
+[`ParSortedGraphConf`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedGraphConf.html
+[`MemoryUsage`]: https://docs.rs/webgraph/latest/webgraph/utils/enum.MemoryUsage.html
+[`StoreLabelsConfig`]: https://docs.rs/webgraph/latest/webgraph/traits/store/trait.StoreLabelsConfig.html
+[`BitStreamStoreLabelsConfig`]: https://docs.rs/webgraph/latest/webgraph/labels/bitstream/struct.BitStreamStoreLabelsConfig.html
+[`SequentialGraph`]: https://docs.rs/webgraph/latest/webgraph/traits/graph/trait.SequentialGraph.html
+[`SequentialLabeling`]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html
 [iterate on the whole graph]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter
-[zipping]: https://docs.rs/webgraph/latest/webgraph/labels/zip/struct.Zip.html
-[labeling]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html
 [iteration]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter
 [retrieve the successors of a node]: https://docs.rs/webgraph/latest/webgraph/traits/graph/trait.RandomAccessGraph.html#method.successors
-[LAW web site]: http://law.di.unimi.it/
-[Elias–Fano]: https://docs.rs/sux/latest/sux/dict/elias_fano/struct.EliasFano.html
-[WebGraph framework]: https://webgraph.di.unimi.it/
-[ε-serde]: https://crates.io/crates/epserde/
-[`for_`]: https://docs.rs/lender/latest/lender/macro.for_.html
+[`Zip`]: https://docs.rs/webgraph/latest/webgraph/labels/zip/struct.Zip.html
+[`BitStreamLabeling`]: https://docs.rs/webgraph/latest/webgraph/labels/bitstream/labeling/struct.BitStreamLabeling.html
+[`BitStreamLabelingSeq`]: https://docs.rs/webgraph/latest/webgraph/labels/bitstream/labeling/struct.BitStreamLabelingSeq.html
+[`BitDeserializer`]: https://docs.rs/webgraph/latest/webgraph/traits/serde/trait.BitDeserializer.html
+[`BitSerializer`]: https://docs.rs/webgraph/latest/webgraph/traits/serde/trait.BitSerializer.html
+[`PermutedGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/permuted_graph/struct.PermutedGraph.html
+[`UnionGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/union_graph/struct.UnionGraph.html
+[`NoSelfLoopsGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/no_selfloops_graph/struct.NoSelfLoopsGraph.html
+[`visits`]: https://docs.rs/webgraph/latest/webgraph/visits/index.html
+[`breadth_first::Seq`]: https://docs.rs/webgraph/latest/webgraph/visits/breadth_first/seq/struct.Seq.html
+[`breadth_first::ParFair`]: https://docs.rs/webgraph/latest/webgraph/visits/breadth_first/par_fair/struct.ParFair.html
+[`breadth_first::ParLowMem`]: https://docs.rs/webgraph/latest/webgraph/visits/breadth_first/par_low_mem/struct.ParLowMem.html
+[`depth_first::SeqIter`]: https://docs.rs/webgraph/latest/webgraph/visits/depth_first/seq/struct.SeqIter.html
+[`EventPred`]: https://docs.rs/webgraph/latest/webgraph/visits/breadth_first/enum.EventPred.html
+[`EventNoPred`]: https://docs.rs/webgraph/latest/webgraph/visits/breadth_first/enum.EventNoPred.html
+[`BfsOrder`]: https://docs.rs/webgraph/latest/webgraph/visits/breadth_first/seq/struct.BfsOrder.html
+[`BfsOrderFromRoots`]: https://docs.rs/webgraph/latest/webgraph/visits/breadth_first/seq/struct.BfsOrderFromRoots.html
+[`DfsOrder`]: https://docs.rs/webgraph/latest/webgraph/visits/depth_first/seq/struct.DfsOrder.html
+[`ErdosRenyi`]: https://docs.rs/webgraph/latest/webgraph/graphs/random/er/struct.ErdosRenyi.html
 [`VecGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/vec_graph/struct.VecGraph.html
 [`LabeledVecGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/vec_graph/struct.LabeledVecGraph.html
 [`BTreeGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.BTreeGraph.html
 [`LabeledBTreeGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.LabeledBTreeGraph.html
-[Common Crawl web site]: https://commoncrawl.org/
-[command-line interface]: https://docs.rs/webgraph-cli/latest/index.html
 [`CsrGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/csr_graph/struct.CsrGraph.html
+[`ArcListGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/arc_list_graph/struct.ArcListGraph.html
+[`BvCompConfig::comp_graph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html#method.comp_graph
+[`BvCompConfig::par_comp`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html#method.par_comp
+[`ParSortedGraph::from_pairs`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedGraph.html#method.from_pairs
+[`ParSortedGraph::par_from_pairs`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedGraph.html#method.par_from_pairs
+[`ParSortedGraph::config()`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedGraph.html#method.config
+[`ParSortedLabeledGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedLabeledGraph.html
+[`Left`]: https://docs.rs/webgraph/latest/webgraph/labels/proj/struct.Left.html
+[`Right`]: https://docs.rs/webgraph/latest/webgraph/labels/proj/struct.Right.html
+[`JavaPermutation`]: https://docs.rs/webgraph/latest/webgraph/utils/java_perm/struct.JavaPermutation.html
+[`par_map_fold`]: https://docs.rs/webgraph/latest/webgraph/traits/par_map_fold/trait.ParMapFold.html
+[`graph::eq`]: https://docs.rs/webgraph/latest/webgraph/traits/graph/fn.eq.html
+[`graph::eq_labeled`]: https://docs.rs/webgraph/latest/webgraph/traits/graph/fn.eq_labeled.html
+[`labels::eq_sorted`]: https://docs.rs/webgraph/latest/webgraph/traits/labels/fn.eq_sorted.html
+[`labels::check_impl`]: https://docs.rs/webgraph/latest/webgraph/traits/labels/fn.check_impl.html
+[`for_`]: https://docs.rs/lender/latest/lender/macro.for_.html
+[LAW web site]: http://law.di.unimi.it/
+[Common Crawl web site]: https://commoncrawl.org/
+[Elias–Fano]: https://docs.rs/sux/latest/sux/dict/elias_fano/struct.EliasFano.html
+[WebGraph framework]: https://webgraph.di.unimi.it/
+[ε-serde]: https://crates.io/crates/epserde/
+[serde]: https://crates.io/crates/serde
+[command-line interface]: https://docs.rs/webgraph-cli/latest/index.html
 [LINK]: https://ieeexplore.ieee.org/document/999950
 [our datasets]: http://law.di.unimi.it/datasets.php
 [HyperBall]: https://dl.acm.org/doi/10.5555/2606262.2606545
@@ -227,7 +369,6 @@ Union nor the Italian MUR can be held responsible for them.
 [DOI 10.1145/3589335.3651581]: https://dl.acm.org/doi/10.1145/3589335.3651581
 [The WebGraph Framework I: Compression Techniques]: http://vigna.di.unimi.it/papers.php#BoVWFI
 [DOI 10.1145/988672.988752]: https://dl.acm.org/doi/10.1145/988672.988752
-[serde]: https://crates.io/crates/serde
 [crates.io badge]: https://img.shields.io/crates/v/webgraph.svg
 [crates.io]: https://crates.io/crates/webgraph
 [docs.rs badge]: https://docs.rs/webgraph/badge.svg
@@ -240,3 +381,5 @@ Union nor the Italian MUR can be held responsible for them.
 [downloads badge]: https://img.shields.io/crates/d/webgraph
 [coveralls badge]: https://coveralls.io/repos/github/vigna/webgraph-rs/badge.svg?branch=main
 [coveralls]: https://coveralls.io/github/vigna/webgraph-rs?branch=main
+[`bvgraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/index.html
+[`ParallelBridge`]: https://docs.rs/rayon/latest/rayon/iter/trait.ParallelBridge.html

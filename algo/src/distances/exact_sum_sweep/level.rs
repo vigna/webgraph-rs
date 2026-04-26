@@ -10,6 +10,20 @@ use dsi_progress_logger::ConcurrentProgressLog;
 use sux::bits::AtomicBitVec;
 use webgraph::traits::RandomAccessGraph;
 
+macro_rules! dispatch {
+    ($method:ident($($args:expr),+ $(,)?), $use_tot:expr, $pl:expr, |$computer:ident| $body:expr) => {
+        if $use_tot {
+            let mut $computer = ExactSumSweep::<_, _, _, _, Self, true>::$method($($args),+);
+            $computer.compute($pl);
+            $body
+        } else {
+            let mut $computer = ExactSumSweep::<_, _, _, _, Self, false>::$method($($args),+);
+            $computer.compute($pl);
+            $body
+        }
+    };
+}
+
 #[doc(hidden)]
 #[derive(Debug, Clone, Copy)]
 pub struct Missing {
@@ -68,17 +82,12 @@ impl core::ops::Add for Missing {
 /// different level of computation, with decreasing cost in term of memory and
 /// execution time.
 ///
-/// The const generic parameter `USE_TOT` (default `true`) controls whether the
-/// algorithm keeps total-distance accumulators for tie-breaking when choosing
-/// the next pivot. Setting it to `false` saves 16 bytes per node but may cause
-/// the algorithm to perform more iterations.
-///
 /// # Examples
 ///
 /// See the [module documentation].
 ///
 /// [module documentation]: crate::distances::exact_sum_sweep
-pub trait Level<const USE_TOT: bool = true>: Sync {
+pub trait Level: Sync {
     /// The type of the result of [`run`].
     ///
     /// [`run`]: Self::run
@@ -102,11 +111,16 @@ pub trait Level<const USE_TOT: bool = true>: Sync {
     ///   `i` is to be considered radial vertex. If [`None`] the algorithm will
     ///   use the biggest connected component.
     ///
+    /// * `use_tot` - if true, the algorithm keeps total-distance accumulators
+    /// for tie-breaking when choosing the next pivot. This costs two `usize`
+    /// per node but usually reduces the number of iterations.
+    ///
     /// * `pl` - a progress logger.
     fn run(
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
+        use_tot: bool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output;
 
@@ -118,9 +132,14 @@ pub trait Level<const USE_TOT: bool = true>: Sync {
     ///   graph being symmetric. The result of the computation is undefined
     ///   otherwise.
     ///
+    /// * `use_tot` - if true, the algorithm keeps total-distance accumulators
+    ///   for tie-breaking when choosing the next pivot. This costs one `usize`
+    ///   per node but usually reduces the number of iterations.
+    ///
     /// * `pl` - a progress logger.
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
+        use_tot: bool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm;
 
@@ -134,7 +153,7 @@ pub trait Level<const USE_TOT: bool = true>: Sync {
 #[derive(Debug, Clone, Copy)]
 pub struct All;
 
-impl<const USE_TOT: bool> Level<USE_TOT> for All {
+impl Level for All {
     type Output = output::All;
     type OutputSymm = output_symm::All;
 
@@ -142,56 +161,56 @@ impl<const USE_TOT: bool> Level<USE_TOT> for All {
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
+        use_tot: bool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new(
-            &graph,
-            &transpose,
-            radial_vertices,
+        dispatch!(
+            new(&graph, &transpose, radial_vertices, pl),
+            use_tot,
             pl,
-        );
-        computer.compute(pl);
+            |computer| {
+                assert!(computer.all_iter.is_some());
+                assert!(computer.forward_iter.is_some());
+                assert!(computer.diameter_iterations.is_some());
+                assert!(computer.radius_iterations.is_some());
 
-        assert!(computer.all_iter.is_some());
-        assert!(computer.forward_iter.is_some());
-        assert!(computer.diameter_iterations.is_some());
-        assert!(computer.radius_iterations.is_some());
-
-        output::All {
-            forward_eccentricities: computer.forward_low,
-            backward_eccentricities: computer.backward_high,
-            diameter: computer.diameter_low,
-            radius: computer.radius_high,
-            diametral_vertex: computer.diameter_vertex,
-            radial_vertex: computer.radius_vertex,
-            radius_iterations: computer.radius_iterations.unwrap(),
-            diameter_iterations: computer.diameter_iterations.unwrap(),
-            forward_iterations: computer.forward_iter.unwrap(),
-            all_iterations: computer.all_iter.unwrap(),
-        }
+                output::All {
+                    forward_eccentricities: computer.forward_low,
+                    backward_eccentricities: computer.backward_high,
+                    diameter: computer.diameter_low,
+                    radius: computer.radius_high,
+                    diametral_vertex: computer.diameter_vertex,
+                    radial_vertex: computer.radius_vertex,
+                    radius_iterations: computer.radius_iterations.unwrap(),
+                    diameter_iterations: computer.diameter_iterations.unwrap(),
+                    forward_iterations: computer.forward_iter.unwrap(),
+                    all_iterations: computer.all_iter.unwrap(),
+                }
+            }
+        )
     }
 
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
+        use_tot: bool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new_symm(&graph, pl);
-        computer.compute(pl);
+        dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| {
+            assert!(computer.forward_iter.is_some());
+            assert!(computer.diameter_iterations.is_some());
+            assert!(computer.radius_iterations.is_some());
 
-        assert!(computer.forward_iter.is_some());
-        assert!(computer.diameter_iterations.is_some());
-        assert!(computer.radius_iterations.is_some());
-
-        output_symm::All {
-            eccentricities: computer.forward_low,
-            diameter: computer.diameter_low,
-            radius: computer.radius_high,
-            diametral_vertex: computer.diameter_vertex,
-            radial_vertex: computer.radius_vertex,
-            radius_iterations: computer.radius_iterations.unwrap(),
-            diameter_iterations: computer.diameter_iterations.unwrap(),
-            iterations: computer.forward_iter.unwrap(),
-        }
+            output_symm::All {
+                eccentricities: computer.forward_low,
+                diameter: computer.diameter_low,
+                radius: computer.radius_high,
+                diametral_vertex: computer.diameter_vertex,
+                radial_vertex: computer.radius_vertex,
+                radius_iterations: computer.radius_iterations.unwrap(),
+                diameter_iterations: computer.diameter_iterations.unwrap(),
+                iterations: computer.forward_iter.unwrap(),
+            }
+        })
     }
 
     fn missing_nodes(missing: &Missing) -> usize {
@@ -203,7 +222,7 @@ impl<const USE_TOT: bool> Level<USE_TOT> for All {
 #[derive(Debug, Clone, Copy)]
 pub struct AllForward;
 
-impl<const USE_TOT: bool> Level<USE_TOT> for AllForward {
+impl Level for AllForward {
     type Output = output::AllForward;
     type OutputSymm = output_symm::All;
 
@@ -211,38 +230,39 @@ impl<const USE_TOT: bool> Level<USE_TOT> for AllForward {
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
+        use_tot: bool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new(
-            &graph,
-            &transpose,
-            radial_vertices,
+        dispatch!(
+            new(&graph, &transpose, radial_vertices, pl),
+            use_tot,
             pl,
-        );
-        computer.compute(pl);
+            |computer| {
+                assert!(computer.forward_iter.is_some());
+                assert!(computer.diameter_iterations.is_some());
+                assert!(computer.radius_iterations.is_some());
 
-        assert!(computer.forward_iter.is_some());
-        assert!(computer.diameter_iterations.is_some());
-        assert!(computer.radius_iterations.is_some());
-
-        output::AllForward {
-            forward_eccentricities: computer.forward_low,
-            diameter: computer.diameter_low,
-            radius: computer.radius_high,
-            diametral_vertex: computer.diameter_vertex,
-            radial_vertex: computer.radius_vertex,
-            radius_iterations: computer.radius_iterations.unwrap(),
-            diameter_iterations: computer.diameter_iterations.unwrap(),
-            forward_iterations: computer.forward_iter.unwrap(),
-        }
+                output::AllForward {
+                    forward_eccentricities: computer.forward_low,
+                    diameter: computer.diameter_low,
+                    radius: computer.radius_high,
+                    diametral_vertex: computer.diameter_vertex,
+                    radial_vertex: computer.radius_vertex,
+                    radius_iterations: computer.radius_iterations.unwrap(),
+                    diameter_iterations: computer.diameter_iterations.unwrap(),
+                    forward_iterations: computer.forward_iter.unwrap(),
+                }
+            }
+        )
     }
 
     #[inline(always)]
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
+        use_tot: bool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm {
-        <All as Level<USE_TOT>>::run_symm(graph, pl)
+        All::run_symm(graph, use_tot, pl)
     }
 
     fn missing_nodes(missing: &Missing) -> usize {
@@ -254,7 +274,7 @@ impl<const USE_TOT: bool> Level<USE_TOT> for AllForward {
 #[derive(Debug, Clone, Copy)]
 pub struct RadiusDiameter;
 
-impl<const USE_TOT: bool> Level<USE_TOT> for RadiusDiameter {
+impl Level for RadiusDiameter {
     type Output = output::RadiusDiameter;
     type OutputSymm = output_symm::RadiusDiameter;
 
@@ -262,47 +282,47 @@ impl<const USE_TOT: bool> Level<USE_TOT> for RadiusDiameter {
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
+        use_tot: bool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new(
-            &graph,
-            &transpose,
-            radial_vertices,
+        dispatch!(
+            new(&graph, &transpose, radial_vertices, pl),
+            use_tot,
             pl,
-        );
-        computer.compute(pl);
+            |computer| {
+                assert!(computer.diameter_iterations.is_some());
+                assert!(computer.radius_iterations.is_some());
 
-        assert!(computer.diameter_iterations.is_some());
-        assert!(computer.radius_iterations.is_some());
-
-        output::RadiusDiameter {
-            diameter: computer.diameter_low,
-            radius: computer.radius_high,
-            diametral_vertex: computer.diameter_vertex,
-            radial_vertex: computer.radius_vertex,
-            radius_iterations: computer.radius_iterations.unwrap(),
-            diameter_iterations: computer.diameter_iterations.unwrap(),
-        }
+                output::RadiusDiameter {
+                    diameter: computer.diameter_low,
+                    radius: computer.radius_high,
+                    diametral_vertex: computer.diameter_vertex,
+                    radial_vertex: computer.radius_vertex,
+                    radius_iterations: computer.radius_iterations.unwrap(),
+                    diameter_iterations: computer.diameter_iterations.unwrap(),
+                }
+            }
+        )
     }
 
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
+        use_tot: bool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new_symm(&graph, pl);
-        computer.compute(pl);
+        dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| {
+            assert!(computer.diameter_iterations.is_some());
+            assert!(computer.radius_iterations.is_some());
 
-        assert!(computer.diameter_iterations.is_some());
-        assert!(computer.radius_iterations.is_some());
-
-        output_symm::RadiusDiameter {
-            diameter: computer.diameter_low,
-            radius: computer.radius_high,
-            diametral_vertex: computer.diameter_vertex,
-            radial_vertex: computer.radius_vertex,
-            radius_iterations: computer.radius_iterations.unwrap(),
-            diameter_iterations: computer.diameter_iterations.unwrap(),
-        }
+            output_symm::RadiusDiameter {
+                diameter: computer.diameter_low,
+                radius: computer.radius_high,
+                diametral_vertex: computer.diameter_vertex,
+                radial_vertex: computer.radius_vertex,
+                radius_iterations: computer.radius_iterations.unwrap(),
+                diameter_iterations: computer.diameter_iterations.unwrap(),
+            }
+        })
     }
 
     fn missing_nodes(missing: &Missing) -> usize {
@@ -314,7 +334,7 @@ impl<const USE_TOT: bool> Level<USE_TOT> for RadiusDiameter {
 #[derive(Debug, Clone, Copy)]
 pub struct Diameter;
 
-impl<const USE_TOT: bool> Level<USE_TOT> for Diameter {
+impl Level for Diameter {
     type Output = output::Diameter;
     type OutputSymm = output_symm::Diameter;
 
@@ -322,39 +342,39 @@ impl<const USE_TOT: bool> Level<USE_TOT> for Diameter {
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
+        use_tot: bool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new(
-            &graph,
-            &transpose,
-            radial_vertices,
+        dispatch!(
+            new(&graph, &transpose, radial_vertices, pl),
+            use_tot,
             pl,
-        );
-        computer.compute(pl);
+            |computer| {
+                assert!(computer.diameter_iterations.is_some());
 
-        assert!(computer.diameter_iterations.is_some());
-
-        output::Diameter {
-            diameter: computer.diameter_low,
-            diametral_vertex: computer.diameter_vertex,
-            diameter_iterations: computer.diameter_iterations.unwrap(),
-        }
+                output::Diameter {
+                    diameter: computer.diameter_low,
+                    diametral_vertex: computer.diameter_vertex,
+                    diameter_iterations: computer.diameter_iterations.unwrap(),
+                }
+            }
+        )
     }
 
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
+        use_tot: bool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new_symm(&graph, pl);
-        computer.compute(pl);
+        dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| {
+            assert!(computer.diameter_iterations.is_some());
 
-        assert!(computer.diameter_iterations.is_some());
-
-        output_symm::Diameter {
-            diameter: computer.diameter_low,
-            diametral_vertex: computer.diameter_vertex,
-            diameter_iterations: computer.diameter_iterations.unwrap(),
-        }
+            output_symm::Diameter {
+                diameter: computer.diameter_low,
+                diametral_vertex: computer.diameter_vertex,
+                diameter_iterations: computer.diameter_iterations.unwrap(),
+            }
+        })
     }
 
     fn missing_nodes(missing: &Missing) -> usize {
@@ -366,7 +386,7 @@ impl<const USE_TOT: bool> Level<USE_TOT> for Diameter {
 #[derive(Debug, Clone, Copy)]
 pub struct Radius;
 
-impl<const USE_TOT: bool> Level<USE_TOT> for Radius {
+impl Level for Radius {
     type Output = output::Radius;
     type OutputSymm = output_symm::Radius;
 
@@ -374,39 +394,39 @@ impl<const USE_TOT: bool> Level<USE_TOT> for Radius {
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
+        use_tot: bool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new(
-            &graph,
-            &transpose,
-            radial_vertices,
+        dispatch!(
+            new(&graph, &transpose, radial_vertices, pl),
+            use_tot,
             pl,
-        );
-        computer.compute(pl);
+            |computer| {
+                assert!(computer.radius_iterations.is_some());
 
-        assert!(computer.radius_iterations.is_some());
-
-        output::Radius {
-            radius: computer.radius_high,
-            radial_vertex: computer.radius_vertex,
-            radius_iterations: computer.radius_iterations.unwrap(),
-        }
+                output::Radius {
+                    radius: computer.radius_high,
+                    radial_vertex: computer.radius_vertex,
+                    radius_iterations: computer.radius_iterations.unwrap(),
+                }
+            }
+        )
     }
 
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
+        use_tot: bool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm {
-        let mut computer = ExactSumSweep::<_, _, _, _, Self, USE_TOT>::new_symm(&graph, pl);
-        computer.compute(pl);
+        dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| {
+            assert!(computer.radius_iterations.is_some());
 
-        assert!(computer.radius_iterations.is_some());
-
-        output_symm::Radius {
-            radius: computer.radius_high,
-            radial_vertex: computer.radius_vertex,
-            radius_iterations: computer.radius_iterations.unwrap(),
-        }
+            output_symm::Radius {
+                radius: computer.radius_high,
+                radial_vertex: computer.radius_vertex,
+                radius_iterations: computer.radius_iterations.unwrap(),
+            }
+        })
     }
 
     fn missing_nodes(missing: &Missing) -> usize {

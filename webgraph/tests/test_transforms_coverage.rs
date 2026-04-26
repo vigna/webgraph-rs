@@ -276,8 +276,7 @@ fn test_symmetrize_sorted_split() -> Result<()> {
         .into_par_lenders()
         .0
         .into_iter()
-        .map(|lender| lender.into_pairs())
-        .flatten()
+        .flat_map(|lender| lender.into_pairs())
         .sorted()
         .collect::<Vec<_>>(); // force full consumption
 
@@ -300,8 +299,7 @@ fn test_symmetrize_sorted_split_with_loops() -> Result<()> {
         .into_par_lenders()
         .0
         .into_iter()
-        .map(|lender| lender.into_pairs())
-        .flatten()
+        .flat_map(|lender| lender.into_pairs())
         .sorted()
         .collect::<Vec<_>>(); // force full consumption
 
