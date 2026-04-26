@@ -143,6 +143,7 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
     }
     let thread_pool = get_thread_pool(args.num_threads.num_threads);
 
+    log::info!("Loading graph...");
     let graph = BvGraph::with_basename(&args.basename).load()?;
 
     log::info!("Loading DCF...");
