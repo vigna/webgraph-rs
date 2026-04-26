@@ -47,7 +47,13 @@ pub fn build_ef_from_offsets(
     offsets_path: &Path,
     ef_path: &Path,
 ) -> Result<()> {
-    store_ef_with_data(num_nodes, data_path, offsets_path, ef_path, &mut no_logging![])
+    store_ef_with_data(
+        num_nodes,
+        data_path,
+        offsets_path,
+        ef_path,
+        &mut no_logging![],
+    )
 }
 
 /// Builds the Elias–Fano representation of offsets for a graph basename.

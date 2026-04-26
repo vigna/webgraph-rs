@@ -156,7 +156,8 @@ impl JobId for Job {
 
 /// Writes γ-coded delta offsets to a bitstream.
 ///
-/// TODO: This currently uses Write which requires std. To support no_std we will want to make W a WordWriter
+/// Used internally by [`BvComp`] and [`BvCompConfig`] to produce the
+/// `.offsets` file during compression.
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct OffsetsWriter<W: Write>(BufBitWriter<BigEndian, WordAdapter<usize, BufWriter<W>>>);
@@ -217,15 +218,34 @@ impl<W: Write> OffsetsWriter<W> {
 ///
 /// # Compression Methods
 ///
+/// ## Unlabeled
+///
 /// - [`comp_graph`]: compresses a [`SequentialGraph`] sequentially;
 /// - [`comp_lender`]: compresses a [`NodeLabelsLender`] sequentially;
 /// - [`par_comp`]: compresses an [`IntoParLenders`] in parallel.
 ///
-/// All methods produce the `.graph`, `.offsets`, and `.properties` files and
-/// return the total number of bits written to the graph bitstream. After
-/// generating the files, you can use [`build_ef`] (or the command `webgraph
-/// build ef`) to generate the associated `.ef` file, which is necessary
-/// for random access.
+/// ## Labeled
+///
+/// - [`comp_labeled_graph`]: compresses a [`LabeledSequentialGraph`] and
+///   its labels sequentially;
+/// - [`comp_labeled_lender`]: compresses a labeled [`NodeLabelsLender`]
+///   sequentially;
+/// - [`par_comp_labeled`]: compresses a labeled [`IntoParLenders`] in
+///   parallel.
+///
+/// The labeled variants accept a [`StoreLabelsConfig`] parameter (e.g.,
+/// [`BitStreamStoreLabelsConfig`]) that controls how labels are written.
+/// The unlabeled methods are thin wrappers that delegate to the labeled
+/// ones with `()` as label configuration.
+///
+/// All methods produce the `.graph`, `.offsets`, and `.properties` files
+/// and return the total number of bits written to the graph bitstream.
+/// Labeled methods additionally produce label files (by default under the
+/// basename `<basename>-labels`; see [`labels_basename`]).
+///
+/// After generating the files, you can use [`store_ef`] or
+/// [`store_ef_with_data`] (or the command `webgraph build ef`) to generate
+/// the `.ef` file necessary for random access.
 ///
 /// # Examples
 ///
@@ -245,6 +265,12 @@ impl<W: Write> OffsetsWriter<W> {
 /// // Parallel compression
 /// BvComp::with_basename("output").par_comp::<BE, _>(&graph)?;
 ///
+/// // Parallel compression with labels
+/// let label_config =
+///     BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+/// BvComp::with_basename("output")
+///     .par_comp_labeled::<BE, _, _>(&labeled_graph, label_config)?;
+///
 /// // Zuckerli-based compression
 /// BvCompZ::with_basename("output").comp_graph::<BE>(&graph)?;
 /// ```
@@ -256,9 +282,14 @@ impl<W: Write> OffsetsWriter<W> {
 /// [`with_tmp_dir`]: Self::with_tmp_dir
 /// [`comp_graph`]: Self::comp_graph
 /// [`comp_lender`]: Self::comp_lender
+/// [`comp_labeled_graph`]: Self::comp_labeled_graph
+/// [`comp_labeled_lender`]: Self::comp_labeled_lender
 /// [`NodeLabelsLender`]: crate::traits::NodeLabelsLender
 /// [`par_comp`]: Self::par_comp
-/// [`build_ef`]: crate::graphs::bvgraph::build_ef
+/// [`par_comp_labeled`]: Self::par_comp_labeled
+/// [`store_ef`]: crate::graphs::bvgraph::store_ef
+/// [`store_ef_with_data`]: crate::graphs::bvgraph::store_ef_with_data
+/// [`BitStreamStoreLabelsConfig`]: crate::labels::BitStreamStoreLabelsConfig
 #[derive(Debug)]
 pub struct BvCompConfig {
     /// The basename of the output files.
@@ -356,6 +387,11 @@ impl BvCompConfig {
 
     /// Compresses sequentially a [`SequentialGraph`] and returns
     /// the number of bits written to the graph bitstream.
+    ///
+    /// This is a convenience wrapper around [`comp_labeled_graph`] with no
+    /// label storage.
+    ///
+    /// [`comp_labeled_graph`]: Self::comp_labeled_graph
     pub fn comp_graph<E: Endianness>(&mut self, graph: impl SequentialGraph) -> Result<u64>
     where
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
@@ -366,8 +402,11 @@ impl BvCompConfig {
     /// Compresses sequentially a [`NodeLabelsLender`] and returns
     /// the number of bits written to the graph bitstream.
     ///
-    /// The optional `expected_num_nodes` parameter will be used to provide
-    /// forecasts on the progress logger.
+    /// This is a convenience wrapper around [`comp_labeled_lender`] with no
+    /// label storage. The optional `expected_num_nodes` parameter will be
+    /// used to provide forecasts on the progress logger.
+    ///
+    /// [`comp_labeled_lender`]: Self::comp_labeled_lender
     pub fn comp_lender<E, L>(&mut self, iter: L, expected_num_nodes: Option<usize>) -> Result<u64>
     where
         E: Endianness,
@@ -386,7 +425,10 @@ impl BvCompConfig {
     /// the number of bits written to the graph bitstream.
     ///
     /// The `store_labels_config` parameter provides the factory for creating
-    /// label storage instances alongside graph compression.
+    /// label storage instances alongside graph compression (e.g.,
+    /// [`BitStreamStoreLabelsConfig`]).
+    ///
+    /// [`BitStreamStoreLabelsConfig`]: crate::labels::BitStreamStoreLabelsConfig
     pub fn comp_labeled_graph<E: Endianness, L, SLC: StoreLabelsConfig>(
         &mut self,
         graph: impl LabeledSequentialGraph<L>,
@@ -529,17 +571,11 @@ impl BvCompConfig {
     /// Compresses an [`IntoParLenders`] in parallel and returns the length
     /// in bits of the graph bitstream.
     ///
-    /// The method calls [`into_par_iters`] to obtain lenders and boundaries,
-    /// then compresses each lender in a separate thread and concatenates
-    /// the resulting bitstreams.
+    /// This is a convenience wrapper around [`par_comp_labeled`] with no
+    /// label storage. See [`par_comp_labeled`] for details on the parallel
+    /// compression strategy.
     ///
-    /// Note that the number of parallel compression threads will be
-    /// [`current_num_threads`]. It is your responsibility to ensure that the
-    /// number of threads is appropriate for the number of lenders returned
-    /// by [`into_par_iters`], possibly using [`install`].
-    ///
-    /// [`into_par_iters`]: IntoParLenders::into_par_lenders
-    /// [`install`]: rayon::ThreadPool::install
+    /// [`par_comp_labeled`]: Self::par_comp_labeled
     pub fn par_comp<E: Endianness, G>(&mut self, graph: G) -> Result<u64>
     where
         G: for<'a> IntoParLenders<ParLender: NodeLabelsLender<'a, Label = usize>>,
@@ -552,16 +588,30 @@ impl BvCompConfig {
     /// Compresses a labeled [`IntoParLenders`] in parallel and returns the
     /// length in bits of the graph bitstream.
     ///
-    /// This method is the labeled counterpart of [`par_comp`]. Each worker
-    /// thread writes per-chunk label and label-offset files via a
-    /// [`StoreLabels`] instance obtained from `store_labels_config`. After
-    /// all threads finish, the main thread concatenates the chunk files
-    /// using [`StoreLabelsConfig::concat_part`].
+    /// The method calls [`into_par_lenders`] to obtain lenders and
+    /// boundaries, then compresses each lender in a separate thread. Each
+    /// worker thread also writes per-chunk label and label-offset files via
+    /// a [`StoreLabels`] instance obtained from `store_labels_config` (use
+    /// `()` for unlabeled graphs). After all threads finish, the main thread
+    /// concatenates the chunk files using
+    /// [`StoreLabelsConfig::concat_part`].
+    ///
+    /// The number of parallel compression threads will be
+    /// [`current_num_threads`]. It is your responsibility to ensure that the
+    /// number of threads is appropriate for the number of lenders returned
+    /// by [`into_par_lenders`], possibly using [`install`].
+    ///
+    /// A concrete implementation of [`StoreLabelsConfig`] for
+    /// bitstream-based labels is [`BitStreamStoreLabelsConfig`].
     ///
     /// # Examples
     ///
     /// Compresses a labeled graph in parallel, then loads and verifies the
     /// result using [`BitStreamLabelingSeq::load`]:
+    ///
+    /// [`into_par_lenders`]: IntoParLenders::into_par_lenders
+    /// [`install`]: rayon::ThreadPool::install
+    /// [`BitStreamStoreLabelsConfig`]: crate::labels::BitStreamStoreLabelsConfig
     ///
     /// ```
     /// # use anyhow::Result;

@@ -31,6 +31,9 @@ use crate::prelude::{
 /// which does not perform length checks. For extra safety, consider using
 /// [`Zip::verify`] to perform a complete scan of the two labelings.
 ///
+/// See also [`Left`](super::Left) and [`Right`](super::Right) for
+/// projecting a zipped labeling back to one of its components.
+///
 /// [sequential]: SequentialLabeling
 /// [random-access]: RandomAccessLabeling
 

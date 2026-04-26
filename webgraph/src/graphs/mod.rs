@@ -6,7 +6,22 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Implementations of graphs.
+//! Graph implementations.
+//!
+//! - [`bvgraph`]: the compressed BV graph format ([`BvGraph`] for random
+//!   access, [`BvGraphSeq`] for sequential access, [`BvCompConfig`] for
+//!   compression);
+//! - [`vec_graph`] / [`btree_graph`]: mutable in-memory graphs;
+//! - [`csr_graph`]: classical CSR representation;
+//! - [`arc_list_graph`]: sequential graph from an iterator of arcs;
+//! - [`permuted_graph`]: applies a node permutation to an existing graph;
+//! - [`union_graph`]: merges the arcs of two graphs;
+//! - [`no_selfloops_graph`]: filters out self-loops;
+//! - [`par_sorted_graph`]: adapter for parallel iteration.
+//!
+//! [`BvGraph`]: bvgraph::BvGraph
+//! [`BvGraphSeq`]: bvgraph::BvGraphSeq
+//! [`BvCompConfig`]: bvgraph::BvCompConfig
 
 pub mod arc_list_graph;
 pub mod btree_graph;

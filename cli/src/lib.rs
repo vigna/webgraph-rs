@@ -882,8 +882,8 @@ pub fn cutpoints(
     use_dcf: bool,
 ) -> Result<Vec<usize>> {
     use epserde::prelude::*;
-    use value_traits::slices::SliceByValue;
     use sux::utils::FairChunks;
+    use value_traits::slices::SliceByValue;
     use webgraph::prelude::{DCF, DEG_CUMUL_EXTENSION};
 
     if use_dcf {

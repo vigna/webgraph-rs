@@ -99,13 +99,21 @@ fn test_build_dcf_cross_check() -> Result<()> {
 
     for i in 0..EXPECTED_DCF.len() {
         let v = dcf_vec.index_value(i);
-        assert_eq!(v, dcf_csr.index_value(i), "VecGraph vs CsrGraph at index {i}");
+        assert_eq!(
+            v,
+            dcf_csr.index_value(i),
+            "VecGraph vs CsrGraph at index {i}"
+        );
         assert_eq!(
             v,
             dcf_csr_sorted.index_value(i),
             "VecGraph vs CsrSortedGraph at index {i}"
         );
-        assert_eq!(v, dcf_bv_seq.index_value(i), "VecGraph vs BvGraphSeq at index {i}");
+        assert_eq!(
+            v,
+            dcf_bv_seq.index_value(i),
+            "VecGraph vs BvGraphSeq at index {i}"
+        );
     }
     Ok(())
 }
@@ -130,7 +138,11 @@ fn test_build_dcf_cnr_2000() -> Result<()> {
     while let Some((_node, succs)) = lender.next() {
         cumul += succs.into_iter().count() as u64;
         node_idx += 1;
-        assert_eq!(dcf.index_value(node_idx), cumul, "DCF mismatch at node {node_idx}");
+        assert_eq!(
+            dcf.index_value(node_idx),
+            cumul,
+            "DCF mismatch at node {node_idx}"
+        );
     }
     assert_eq!(node_idx, n);
     assert_eq!(cumul, seq.num_arcs_hint().unwrap());

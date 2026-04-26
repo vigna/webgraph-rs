@@ -21,16 +21,22 @@ use sux::traits::TryIntoUnaligned;
 /// A sequential graph in the BV format.
 ///
 /// The graph depends on a [`SequentialDecoderFactory`] that can be used to
-/// create decoders for the graph. This makes it possible to decouple the graph from the
-/// underlying storage format, and to use different storage formats for the same
-/// graph. For example, one can use a memory-mapped file for the graph, or load
-/// it in memory, or even generate it on the fly.
+/// create decoders for the graph. This makes it possible to decouple the graph
+/// from the underlying storage format, and to use different storage formats for
+/// the same graph. For example, one can use a memory-mapped file for the graph,
+/// or load it in memory, or even generate it on the fly.
 ///
 /// Note that the knowledge of the codes used by the graph is in the factory,
 /// which provides methods to read each component of the BV format (outdegree,
 /// reference offset, block count, etc.), whereas the knowledge of the
 /// compression parameters (compression window and minimum interval length) is
 /// in this structure.
+///
+/// To load an existing compressed graph, use [`BvGraphSeq::with_basename`]. To
+/// create one, compress a graph with [`BvCompConfig`] (e.g., via
+/// [`BvComp::with_basename`]).
+///
+/// See also [`BvGraph`] for the random-access variant.
 #[derive(Debug, Clone)]
 pub struct BvGraphSeq<F> {
     factory: F,

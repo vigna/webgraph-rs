@@ -6,6 +6,16 @@
  */
 
 //! Traits for bit serialization and deserialization of graph labels.
+//!
+//! The main implementation is [`FixedWidth`], which serializes primitive
+//! integers using a fixed number of bits. Serializers and deserializers are
+//! used by [`BitStreamStoreLabelsConfig`] to compress labels alongside a
+//! graph, and by [`BitStreamLabeling`] / [`BitStreamLabelingSeq`] to read
+//! them back.
+//!
+//! [`BitStreamStoreLabelsConfig`]: crate::labels::BitStreamStoreLabelsConfig
+//! [`BitStreamLabeling`]: crate::labels::BitStreamLabeling
+//! [`BitStreamLabelingSeq`]: crate::labels::BitStreamLabelingSeq
 
 use dsi_bitstream::prelude::*;
 use num_primitive::PrimitiveInteger;

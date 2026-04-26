@@ -25,6 +25,8 @@ use lender::{
 };
 
 /// The projection onto the first component of a pair.
+///
+/// See also [`Right`] and [`Zip`](crate::labels::Zip).
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Left<S: SequentialLabeling>(pub S)
 where
@@ -283,6 +285,8 @@ where
 unsafe impl<I: SortedIterator> SortedIterator for LeftSucc<I> where I::Item: Pair {}
 
 /// The projection onto the second component of a pair.
+///
+/// See also [`Left`] and [`Zip`](crate::labels::Zip).
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Right<S: SequentialLabeling>(pub S)
 where

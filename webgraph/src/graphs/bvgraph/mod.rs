@@ -21,8 +21,9 @@
 //!   the bit offsets of each successor list in the graph file.
 //!
 //! Additionally, an [Elias–Fano] representation of the offsets
-//! (`BASENAME.ef`), necessary for random access, can be built using the
-//! `webgraph build ef` command.
+//! (`BASENAME.ef`), necessary for random access, can be built
+//! programmatically with [`store_ef_with_data`] / [`build_ef_with_data`] or
+//! using the `webgraph build ef` command.
 //!
 //! The implementation is compatible with the [Java implementation], but it
 //! provides also a little-endian version.
@@ -203,7 +204,13 @@ pub const LOG2_ONES_PER_INVENTORY: usize = 11;
 /// [`EliasFano`]: sux::dict::EliasFano
 pub const LOG2_WORDS_PER_SUBINVENTORY: usize = 3;
 
-/// The default version of EliasFano we use for the CLI.
+/// The default [Elias–Fano] representation used for bit offsets.
+///
+/// Instances are built from a γ-coded offsets file with [`build_ef`] /
+/// [`build_ef_with_data`], or built and serialized in one step with
+/// [`store_ef`] / [`store_ef_with_data`].
+///
+/// [Elias–Fano]: sux::dict::EliasFano
 pub type EF = Unaligned<
     sux::dict::EliasFano<
         u64,
@@ -322,13 +329,12 @@ pub fn store_ef_with_data(
 pub trait Offsets: for<'a> DeserInner<DeserType<'a>: SliceByValue<Value = u64>> {}
 impl<T: for<'a> DeserInner<DeserType<'a>: SliceByValue<Value = u64>>> Offsets for T {}
 
-/// The default type we use for the cumulative function of degrees.
+/// The default type for the cumulative function of degrees.
 ///
 /// It provides an [indexed dictionary] with [successor] and [predecessor]
 /// support.
 ///
-/// This is the type returned by
-/// [`crate::traits::labels::SequentialLabeling::build_dcf`].
+/// Instances are built by [`SequentialLabeling::build_dcf`].
 ///
 /// [indexed dictionary]: sux::traits::indexed_dict::IndexedDict
 /// [successor]: sux::traits::indexed_dict::Succ

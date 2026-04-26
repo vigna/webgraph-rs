@@ -18,8 +18,12 @@
 //!   of the offsets file of a [`BvGraph`].
 //!
 //! Additionally, an [Elias–Fano] representation of the offsets
-//! (`BASENAME.ef`), necessary for random access, can be built using the
-//! `webgraph build ef` command.
+//! (`BASENAME.ef`), necessary for random access, can be built
+//! programmatically with [`store_ef_with_data`] / [`build_ef_with_data`] or
+//! using the `webgraph build ef` command.
+//!
+//! [`store_ef_with_data`]: crate::graphs::bvgraph::store_ef_with_data
+//! [`build_ef_with_data`]: crate::graphs::bvgraph::build_ef_with_data
 //!
 //! The main access points to the implementation are [`BitStreamLabeling::load`]
 //! and [`BitStreamLabelingSeq::load`], which memory-map the files given a label
@@ -129,6 +133,13 @@ use value_traits::slices::SliceByValue;
 /// Use [`load`](BitStreamLabelingSeq::load) to memory-map a labeling from a
 /// label basename, or [`new`](BitStreamLabelingSeq::new) for custom setups.
 ///
+/// The label files read by this struct are produced by
+/// [`BvCompConfig::comp_labeled_graph`] or [`BvCompConfig::par_comp_labeled`]
+/// using a [`BitStreamStoreLabelsConfig`].
+///
+/// [`BvCompConfig::comp_labeled_graph`]: crate::graphs::bvgraph::BvCompConfig::comp_labeled_graph
+/// [`BvCompConfig::par_comp_labeled`]: crate::graphs::bvgraph::BvCompConfig::par_comp_labeled
+/// [`BitStreamStoreLabelsConfig`]: crate::labels::BitStreamStoreLabelsConfig
 /// [`BitStreamLabeling`]: super::BitStreamLabeling
 pub struct BitStreamLabelingSeq<E: Endianness, S: CodesReaderFactory<E>, D>
 where
@@ -302,7 +313,19 @@ where
 /// associated [Elias–Fano] structure representing pointers from a label
 /// basename, or [`new`](BitStreamLabeling::new) for custom setups.
 ///
+/// The label files read by this struct are produced by
+/// [`BvCompConfig::comp_labeled_graph`] or [`BvCompConfig::par_comp_labeled`]
+/// using a [`BitStreamStoreLabelsConfig`]. The `.ef` file can be built with
+/// [`store_ef_with_data`].
+///
+/// See also [`BitStreamLabelingSeq`] for the sequential-only counterpart
+/// (no `.ef` needed).
+///
 /// [Elias–Fano]: crate::graphs::bvgraph::EF
+/// [`BvCompConfig::comp_labeled_graph`]: crate::graphs::bvgraph::BvCompConfig::comp_labeled_graph
+/// [`BvCompConfig::par_comp_labeled`]: crate::graphs::bvgraph::BvCompConfig::par_comp_labeled
+/// [`BitStreamStoreLabelsConfig`]: crate::labels::BitStreamStoreLabelsConfig
+/// [`store_ef_with_data`]: crate::graphs::bvgraph::store_ef_with_data
 pub struct BitStreamLabeling<E: Endianness, S: CodesReaderFactory<E>, D, O: Offsets>
 where
     for<'a> S::CodesReader<'a>: BitRead<E> + BitSeek,
