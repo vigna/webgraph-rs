@@ -89,9 +89,9 @@ pub struct CliArgs {
     pub log2m: u32,
 
     #[clap(short, long)]
-    /// Uses an external (spill-to-disk) output store, keeping only one counter
-    /// array in RAM instead of two; halves the counter memory at the cost
-    /// of extra I/O after each iteration.​
+    /// Uses an external (spill-to-disk) output store in TMPDIR, keeping only
+    /// one counter array in RAM instead of two; halves the counter memory at
+    /// the cost of extra I/O after each iteration.​
     pub external: bool,
 
     #[clap(short = '8', long)]

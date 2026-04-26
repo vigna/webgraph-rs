@@ -239,9 +239,9 @@ impl<L: SliceEstimationLogic<W> + Clone + Sync, W: Word, S: AsRef<[W]> + AsMut<[
     }
 }
 
-/// An [`OutputStore`] that spills `(node, backend)` records to an anonymous
-/// memory-mapped region instead of keeping a second full estimator array in
-/// RAM.
+/// An [`OutputStore`] that spills `(node, backend)` records to a
+/// memory-mapped temporary file instead of keeping a second full estimator
+/// array in RAM.
 ///
 /// During the parallel phase, each call to [`SyncOutputStore::set`] atomically
 /// reserves space in the mmap and writes the node index followed by the
@@ -249,6 +249,7 @@ impl<L: SliceEstimationLogic<W> + Clone + Sync, W: Word, S: AsRef<[W]> + AsMut<[
 /// scattered back into the current estimator array in parallel, and the write
 /// cursor is reset.
 pub struct SpillStore<W: Word> {
+    _file: std::fs::File,
     mmap: mmap_rs::MmapMut,
     offset: CachePadded<AtomicUsize>,
     backend_len: usize,
@@ -266,14 +267,21 @@ impl<W: Word> SpillStore<W> {
     pub fn new(num_nodes: usize, backend_len: usize) -> Self {
         let record_size = std::mem::size_of::<usize>() + backend_len * std::mem::size_of::<W>();
         let total = num_nodes * record_size;
-        // Round up to page size.
         let page = mmap_rs::MmapOptions::page_size();
         let total = total.next_multiple_of(page);
-        let mmap = mmap_rs::MmapOptions::new(total)
-            .expect("mmap size should be valid")
-            .map_mut()
-            .expect("anonymous mmap should succeed");
+
+        let file = tempfile::tempfile().expect("could not create temporary file for spill store");
+        file.set_len(total as u64)
+            .expect("could not size temporary file for spill store");
+        let mmap = unsafe {
+            mmap_rs::MmapOptions::new(total)
+                .expect("mmap size should be valid")
+                .with_file(&file, 0)
+                .map_mut()
+                .expect("file-backed mmap should succeed")
+        };
         Self {
+            _file: file,
             mmap,
             offset: CachePadded::new(AtomicUsize::new(0)),
             backend_len,
