@@ -746,7 +746,7 @@ fn test_bvcomp_labeled_roundtrip() -> Result<()> {
 
     BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, label_config)?;
 
-    let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
+    let labels_basename = BvCompConfig::default_labels_basename(&basename);
 
     // Verify the label properties file
     let label_props = webgraph::graphs::bvgraph::parse_label_properties::<BE>(&labels_basename)?;
@@ -790,7 +790,7 @@ fn test_par_comp_labeled_roundtrip() -> Result<()> {
 
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 
-    let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
+    let labels_basename = BvCompConfig::default_labels_basename(&basename);
     common::build_ef_from_offsets(
         graph.num_nodes(),
         &labels_basename.with_extension("labels"),
@@ -827,7 +827,7 @@ fn test_par_comp_labeled_seq_roundtrip() -> Result<()> {
 
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 
-    let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
+    let labels_basename = BvCompConfig::default_labels_basename(&basename);
 
     // No EF needed — BitStreamLabelingSeq reads offsets from the .offsets file
     let seq = BvGraphSeq::with_basename(&basename)
@@ -860,7 +860,7 @@ fn test_par_comp_labeled_roundtrip_zstd() -> Result<()> {
 
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 
-    let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
+    let labels_basename = BvCompConfig::default_labels_basename(&basename);
     common::build_ef_from_offsets(
         graph.num_nodes(),
         &labels_basename.with_extension("labels"),
@@ -916,7 +916,7 @@ fn test_comp_labeled_cnr2000() -> Result<()> {
 
     BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, label_config)?;
 
-    let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
+    let labels_basename = BvCompConfig::default_labels_basename(&basename);
     common::build_ef_from_offsets(
         graph.num_nodes(),
         &labels_basename.with_extension("labels"),
@@ -954,7 +954,7 @@ fn test_par_comp_labeled_cnr2000() -> Result<()> {
 
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 
-    let labels_basename = webgraph::graphs::bvgraph::labels_basename(&basename);
+    let labels_basename = BvCompConfig::default_labels_basename(&basename);
     common::build_ef_from_offsets(
         graph.num_nodes(),
         &labels_basename.with_extension("labels"),

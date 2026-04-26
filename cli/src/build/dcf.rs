@@ -82,7 +82,6 @@ fn build_and_serialize(efb: EliasFanoBuilder<u64>, ef_path: &std::path::Path) ->
         File::create(ef_path).with_context(|| format!("Could not create {}", ef_path.display()))?,
     );
 
-    // SAFETY: the type is ε-serde serializable.
     unsafe {
         ef.serialize(&mut ef_file).with_context(|| {
             format!(

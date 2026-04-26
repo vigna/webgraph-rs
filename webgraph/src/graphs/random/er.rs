@@ -71,9 +71,7 @@ impl SequentialLabeling for ErdosRenyi {
     }
 }
 
-// SAFETY: Erdős–Rényi successors are generated in sorted order.
 unsafe impl SortedLender for NodeLabels {}
-// SAFETY: Erdős–Rényi successors are generated in sorted order.
 unsafe impl SortedIterator for Succ {}
 
 #[derive(Debug, Clone)]

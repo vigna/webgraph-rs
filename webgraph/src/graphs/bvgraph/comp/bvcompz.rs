@@ -539,6 +539,7 @@ mod test {
     use tempfile::Builder;
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_writer_window_zero() -> anyhow::Result<()> {
         test_compression(0, 0)?;
         test_compression(0, 1)?;
@@ -547,6 +548,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_writer_window_one() -> anyhow::Result<()> {
         test_compression(1, 0)?;
         test_compression(1, 1)?;
@@ -555,6 +557,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_writer_window_two() -> anyhow::Result<()> {
         test_compression(2, 0)?;
         test_compression(2, 1)?;
@@ -563,6 +566,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_writer_cnr() -> anyhow::Result<()> {
         let cnr_2000 = BvGraphSeq::with_basename("../data/cnr-2000")
             .endianness::<BE>()

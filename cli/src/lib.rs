@@ -307,7 +307,7 @@ impl FloatSliceFormat {
         match self {
             FloatSliceFormat::Epserde => {
                 log::info!("Storing in ε-serde format at {}", path_display);
-                // SAFETY: the type is ε-serde serializable.
+
                 unsafe {
                     values
                         .serialize(&mut file)
@@ -569,7 +569,7 @@ impl IntSliceFormat {
         match self {
             IntSliceFormat::Epserde => {
                 log::info!("Storing in ε-serde format at {}", path.as_ref().display());
-                // SAFETY: the type is ε-serde serializable.
+
                 unsafe {
                     data.serialize(&mut buf).with_context(|| {
                         format!("Could not write slice to {}", path.as_ref().display())
@@ -591,7 +591,7 @@ impl IntSliceFormat {
                 log::info!("Using {} bits per element", bit_width);
                 let mut bit_field_vec = BitFieldVec::with_capacity(bit_width, data.len());
                 bit_field_vec.extend(data.iter().copied());
-                // SAFETY: the type is ε-serde serializable.
+
                 unsafe {
                     bit_field_vec.store(&path).with_context(|| {
                         format!("Could not write slice to {}", path.as_ref().display())

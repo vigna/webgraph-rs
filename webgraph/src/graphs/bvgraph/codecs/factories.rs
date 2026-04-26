@@ -177,16 +177,16 @@ impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
         let mut data = Vec::<u32>::with_capacity(vec_len);
         *data.spare_capacity_mut().last_mut().unwrap() = MaybeUninit::zeroed();
 
-        // SAFETY: it's necessarily aligned (because it's a slice of bytes), and not out of bound
-        // by construction
+        // SAFETY: it's necessarily aligned (because it's a slice of bytes), and
+        // not out of bound by construction.
         let bytes =
             unsafe { std::slice::from_raw_parts_mut(data.as_mut_ptr() as *mut u8, file_len) };
 
         file.read_exact(bytes)
             .with_context(|| format!("Could not read {}", path.display()))?;
 
-        // SAFETY: the entire vector but the last item was filled with bytes from disk;
-        // and the last item was pre-initialized with zeros.
+        // SAFETY: the entire vector but the last item was filled with bytes
+        // from disk; and the last item was pre-initialized with zeros.
         unsafe { data.set_len(vec_len) };
 
         Ok(Self {

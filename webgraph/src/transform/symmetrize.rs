@@ -144,7 +144,7 @@ pub fn symmetrize_sorted_split<'g, const NO_LOOPS: bool, S>(
     graph: &'g S,
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
-) -> Result<ParSortedGraph<impl Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync + 'g>>
+) -> Result<ParSortedGraph<impl Iterator<Item = ((usize, usize), ())> + Send + Sync + 'g>>
 where
     S: SequentialGraph + SplitLabeling,
     for<'a> S::Lender<'a>: SortedLender,

@@ -18,6 +18,8 @@
   as `ParGraph` and `ParDcfGraph` can alter the default `IntoParLenders` splitting.
   Parallel compression methods take a `IntoParLenders` implementation.
 
+- New labeled compression API based on the `StoreLabelsConfig` trait.
+
 - New free functions to build the Elias–Fano representation of offsets.
 
 ### Fixed
@@ -78,6 +80,9 @@
 
 - The trait required for offsets is no longer `IndexedSeq`, but rather
   `SliceByValue`, which is simpler and more appropriate.
+
+- `IntoPairs`/`IntoLabeledPairs` no longer implement `Clone`, as the
+  implementation was unsound.
 
 ### Improved
 

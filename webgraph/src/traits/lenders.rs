@@ -20,7 +20,9 @@
 
 use std::marker::PhantomData;
 
+use aliasable::boxed::AliasableBox;
 use lender::{DoubleEndedLender, Lend, Lender, Lending};
+use maybe_dangling::MaybeDangling;
 
 use crate::traits::Pair;
 
@@ -148,10 +150,14 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
 /// yields `(usize, IntoIterator)` pairs into a flat iterator of `((src, dst), label)`
 /// labeled pairs, where each `(dst, label)` comes from the inner iterator.
 pub struct IntoLabeledPairs<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>> + 'a> {
-    lender: Box<L>,
     current_node: usize,
-    current_iter: Option<LenderIntoIter<'a, L>>,
-    _marker: PhantomData<&'a L>, // That is, L: 'a
+    // MaybeDangling wraps the iterator to indicate it may reference data from
+    // the lender. AliasableBox eliminates noalias retagging that would
+    // invalidate the iterator reference when the struct is moved.
+    // Field order ensures the lender drops last.
+    current_iter: MaybeDangling<Option<LenderIntoIter<'a, L>>>,
+    lender: AliasableBox<L>,
+    _marker: PhantomData<&'a L>,
 }
 
 impl<L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>> std::fmt::Debug
@@ -179,20 +185,21 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>
         <<L as NodeLabelsLender<'a>>::Label as Pair>::Right,
     )> {
         loop {
-            if let Some(inner) = &mut self.current_iter {
+            if let Some(inner) = &mut *self.current_iter {
                 if let Some((dst, label)) = inner.next().map(Pair::into_pair) {
                     return Some(((self.current_node, dst), label));
                 }
             }
-            // SAFETY: We use transmute to extend the lifetime of the iterator from the
-            // temporary borrow of `self.lender` to `'a`. This is sound because:
-            // 1. The previous iterator in `current_iter` is dropped before we create a new one
-            // 2. We only call `lender.next()` after the previous iterator is fully consumed
-            // 3. Therefore, at most one iterator borrowed from `lender` exists at any time
-            // 4. The iterator will be dropped before `lender` is dropped (it's in `current_iter`)
-            //
-            // This pattern is necessary because Rust's borrow checker cannot express the
-            // "only one lend alive at a time" invariant that the lending iterator pattern maintains.
+            // SAFETY: We use transmute to extend the lifetime of the iterator
+            // from the temporary borrow of `self.lender` to `'a`. This is sound
+            // because:
+            // 1. We only call `lender.next()` after the previous iterator is
+            //    fully consumed
+            // 2. Therefore, at most one iterator borrowed from `lender` is live
+            //    at any time
+            // 3. `current_iter` is declared before `lender` in the struct, so it
+            //    is dropped first (Rust drops fields in declaration order),
+            //    ensuring the iterator cannot outlive the lender
             if let Some((next_node, next_iter)) = self.lender.next().map(|(x, it)| {
                 (x, unsafe {
                     std::mem::transmute::<LenderIntoIter<'_, L>, LenderIntoIter<'_, L>>(
@@ -201,7 +208,7 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>
                 })
             }) {
                 self.current_node = next_node;
-                self.current_iter = Some(next_iter);
+                *self.current_iter = Some(next_iter);
             } else {
                 return None;
             }
@@ -215,9 +222,9 @@ where
 {
     fn from(lender: L) -> Self {
         IntoLabeledPairs {
-            lender: Box::new(lender),
+            lender: AliasableBox::from_unique(Box::new(lender)),
             current_node: 0,
-            current_iter: None,
+            current_iter: MaybeDangling::new(None),
             _marker: PhantomData,
         }
     }
@@ -230,46 +237,51 @@ where
 /// yields `(usize, IntoIterator)` pairs into a flat iterator of `(src, dst)`
 /// pairs, where each `dst` comes from the inner iterator.
 pub struct IntoPairs<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> {
-    lender: Box<L>,
     current_node: usize,
-    current_iter: Option<LenderIntoIter<'a, L>>,
-    _marker: PhantomData<&'a L>, // That is, L: 'a
+    // MaybeDangling wraps the iterator to indicate it may reference data from
+    // the lender. AliasableBox eliminates noalias retagging that would
+    // invalidate the iterator reference when the struct is moved.
+    // Field order ensures the lender drops last.
+    current_iter: MaybeDangling<Option<LenderIntoIter<'a, L>>>,
+    lender: AliasableBox<L>,
+    _marker: PhantomData<&'a L>,
 }
 
-impl<'a, L> Clone for IntoPairs<'a, L>
+/*impl<'a, L> Clone for IntoPairs<'a, L>
 where
     L: for<'b> NodeLabelsLender<'b, Label = usize> + Clone,
     LenderIntoIter<'a, L>: Clone,
 {
     fn clone(&self) -> Self {
         Self {
-            lender: self.lender.clone(),
+            lender: AliasableBox::from_unique(Box::new(L::clone(&self.lender))),
             current_node: self.current_node,
-            current_iter: self.current_iter.clone(),
+            current_iter: MaybeDangling::new((*self.current_iter).clone()),
             _marker: PhantomData,
         }
     }
-}
+}*/
 
 impl<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> Iterator for IntoPairs<'a, L> {
     type Item = (usize, usize);
 
     fn next(&mut self) -> Option<(usize, usize)> {
         loop {
-            if let Some(inner) = &mut self.current_iter {
+            if let Some(inner) = &mut *self.current_iter {
                 if let Some(dst) = inner.next() {
                     return Some((self.current_node, dst));
                 }
             }
-            // SAFETY: We use transmute to extend the lifetime of the iterator from the
-            // temporary borrow of `self.lender` to `'a`. This is sound because:
-            // 1. The previous iterator in `current_iter` is dropped before we create a new one
-            // 2. We only call `lender.next()` after the previous iterator is fully consumed
-            // 3. Therefore, at most one iterator borrowed from `lender` exists at any time
-            // 4. The iterator will be dropped before `lender` is dropped (it's in `current_iter`)
-            //
-            // This pattern is necessary because Rust's borrow checker cannot express the
-            // "only one lend alive at a time" invariant that the lending iterator pattern maintains.
+            // SAFETY: We use transmute to extend the lifetime of the iterator
+            // from the temporary borrow of `self.lender` to `'a`. This is sound
+            // because:
+            // 1. We only call `lender.next()` after the previous iterator is
+            //    fully consumed
+            // 2. Therefore, at most one iterator borrowed from `lender` is live
+            //    at any time
+            // 3. `current_iter` is declared before `lender` in the struct, so it
+            //    is dropped first (Rust drops fields in declaration order),
+            //    ensuring the iterator cannot outlive the lender
             if let Some((next_node, next_iter)) = self.lender.next().map(|(x, it)| {
                 (x, unsafe {
                     std::mem::transmute::<LenderIntoIter<'_, L>, LenderIntoIter<'_, L>>(
@@ -278,7 +290,7 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> Iterator for IntoPairs<
                 })
             }) {
                 self.current_node = next_node;
-                self.current_iter = Some(next_iter);
+                *self.current_iter = Some(next_iter);
             } else {
                 return None;
             }
@@ -292,9 +304,9 @@ where
 {
     fn from(lender: L) -> Self {
         IntoPairs {
-            lender: Box::new(lender),
+            lender: AliasableBox::from_unique(Box::new(lender)),
             current_node: 0,
-            current_iter: None,
+            current_iter: MaybeDangling::new(None),
             _marker: PhantomData,
         }
     }

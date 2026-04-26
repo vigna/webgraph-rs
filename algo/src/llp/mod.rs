@@ -452,7 +452,6 @@ pub fn layered_label_propagation_labels_only<
 
         let labels_path = labels_path(gamma_index);
 
-        // SAFETY: any value is valid
         unsafe {
             labels_store
                 .store(&labels_path)
@@ -483,7 +482,6 @@ pub fn layered_label_propagation_labels_only<
         info!("Log-gap cost: {}", gap_cost);
         costs.push(gap_cost);
 
-        // SAFETY: any value is valid
         unsafe {
             gap_cost
                 .store(labels_path.with_extension(GAP_COST_EXTENSION))
@@ -677,7 +675,7 @@ pub fn invert_permutation(perm: &[usize], inv_perm: &mut [usize]) {
         .with_min_len(RAYON_MIN_LEN)
         .enumerate()
         .for_each(|(i, &x)| {
-            // SAFETY: each element x is accessed exactly once, so there are no data races.
+            // SAFETY: each element is accessed exactly once.
             unsafe { sync_slice[x].set(i) };
         });
 }

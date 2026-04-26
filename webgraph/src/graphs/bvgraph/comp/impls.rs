@@ -213,6 +213,8 @@ impl<W: Write> OffsetsWriter<W> {
 ///   reference-selection algorithm;
 /// - [`with_chunk_size`]: sets the chunk size for [`BvCompZ`] (implies
 ///   `with_bvgraphz`);
+/// - [`with_labels_basename`]: overrides the default label-file basename
+///   (e.g., to write labels to a different disk);
 /// - [`with_tmp_dir`]: sets the temporary directory for parallel
 ///   compression.
 ///
@@ -241,7 +243,7 @@ impl<W: Write> OffsetsWriter<W> {
 /// All methods produce the `.graph`, `.offsets`, and `.properties` files
 /// and return the total number of bits written to the graph bitstream.
 /// Labeled methods additionally produce label files (by default under the
-/// basename `<basename>-labels`; see [`labels_basename`]).
+/// basename `<basename>-labels`; see [`default_labels_basename`]).
 ///
 /// After generating the files, you can use [`store_ef`] or
 /// [`store_ef_with_data`] (or the command `webgraph build ef`) to generate
@@ -279,6 +281,8 @@ impl<W: Write> OffsetsWriter<W> {
 /// [`with_comp_flags`]: Self::with_comp_flags
 /// [`with_bvgraphz`]: Self::with_bvgraphz
 /// [`with_chunk_size`]: Self::with_chunk_size
+/// [`with_labels_basename`]: Self::with_labels_basename
+/// [`default_labels_basename`]: Self::default_labels_basename
 /// [`with_tmp_dir`]: Self::with_tmp_dir
 /// [`comp_graph`]: Self::comp_graph
 /// [`comp_lender`]: Self::comp_lender
@@ -300,6 +304,8 @@ pub struct BvCompConfig {
     bvgraphz: bool,
     /// The chunk size for the Zuckerli-based compressor
     chunk_size: usize,
+    /// Custom basename for label files, overriding the default derivation.
+    labels_basename: Option<PathBuf>,
     /// Temporary directory for all operations.
     tmp_dir: Option<PathBuf>,
     /// Owns the TempDir that [`Self::tmp_dir`] refers to, if it was created by default.
@@ -322,6 +328,7 @@ impl BvCompConfig {
             comp_flags: CompFlags::default(),
             bvgraphz: false,
             chunk_size: 10_000,
+            labels_basename: None,
             tmp_dir: None,
             owned_tmp_dir: None,
         }
@@ -366,6 +373,33 @@ impl BvCompConfig {
         self.bvgraphz = true;
         self.chunk_size = chunk_size;
         self
+    }
+
+    /// Returns the default basename for label files given a graph basename.
+    ///
+    /// By convention, label files use a basename derived from the graph
+    /// basename by appending [`LABELS_BASENAME_SUFFIX`] (e.g., `graph-labels`
+    /// for a graph with basename `graph`). The label files then use standard
+    /// extensions: `.labels`, `.offsets`, `.properties`, `.ef`.
+    pub fn default_labels_basename(basename: impl AsRef<Path>) -> PathBuf {
+        let mut name = basename.as_ref().as_os_str().to_owned();
+        name.push(LABELS_BASENAME_SUFFIX);
+        PathBuf::from(name)
+    }
+
+    /// Sets a custom basename for label files, overriding the
+    /// [`default_labels_basename`](Self::default_labels_basename) convention.
+    ///
+    /// This is useful, for example, to write labels to a different disk.
+    pub fn with_labels_basename(mut self, labels_basename: impl AsRef<Path>) -> Self {
+        self.labels_basename = Some(labels_basename.as_ref().into());
+        self
+    }
+
+    fn labels_basename(&self) -> PathBuf {
+        self.labels_basename
+            .clone()
+            .unwrap_or_else(|| Self::default_labels_basename(&self.basename))
     }
 
     fn tmp_dir(&mut self) -> Result<PathBuf> {
@@ -469,9 +503,9 @@ impl BvCompConfig {
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
-        let label_base = labels_basename(&self.basename);
-        let labels_path = label_base.with_extension(LABELS_EXTENSION);
-        let label_offsets_path = label_base.with_extension(OFFSETS_EXTENSION);
+        let labels_basename = self.labels_basename();
+        let labels_path = labels_basename.with_extension(LABELS_EXTENSION);
+        let label_offsets_path = labels_basename.with_extension(OFFSETS_EXTENSION);
 
         // Compress the graph
         let bit_write = buf_bit_writer::from_path::<E, usize>(&graph_path)
@@ -557,7 +591,7 @@ impl BvCompConfig {
         let label_ser_name = store_labels_config.label_serializer_name();
         if label_ser_name != "()" {
             write_label_properties::<E>(
-                &label_base,
+                &labels_basename,
                 &label_ser_name,
                 comp_stats.num_nodes,
                 comp_stats.num_arcs,
@@ -639,7 +673,7 @@ impl BvCompConfig {
     /// BvComp::with_basename(&basename)
     ///     .par_comp_labeled::<BE, _, _>(&graph, label_config)?;
     ///
-    /// let labels_basename = labels_basename(&basename);
+    /// let labels_basename = BvCompConfig::default_labels_basename(&basename);
     ///
     /// // Load the compressed graph and labeling, then verify
     /// let seq = BvGraphSeq::with_basename(&basename)
@@ -680,7 +714,7 @@ impl BvCompConfig {
 
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
         let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
-        let label_base = labels_basename(&self.basename);
+        let label_base = self.labels_basename();
         let labels_path = label_base.with_extension(LABELS_EXTENSION);
         let label_offsets_path = label_base.with_extension(OFFSETS_EXTENSION);
 

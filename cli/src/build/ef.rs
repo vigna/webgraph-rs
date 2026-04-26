@@ -152,7 +152,7 @@ where
         File::create(&ef_path)
             .with_context(|| format!("Could not create {}", ef_path.display()))?,
     );
-    // SAFETY: the type is ε-serde serializable.
+
     unsafe {
         ef.serialize(&mut ef_file)
             .with_context(|| format!("Could not serialize Elias–Fano to {}", ef_path.display()))

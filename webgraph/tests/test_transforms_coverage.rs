@@ -8,6 +8,7 @@ mod common;
 
 use anyhow::Result;
 use dsi_bitstream::prelude::BE;
+use itertools::Itertools;
 use lender::*;
 use webgraph::{graphs::vec_graph::VecGraph, prelude::*, transform};
 
@@ -271,13 +272,15 @@ fn test_symmetrize_sorted_split() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let sorted = symmetrize_sorted_split::<true, _>(&seq, MemoryUsage::BatchSize(2), None)?;
-    let mut arcs = vec![];
-    for_!((node, succs) in sorted.iter() {
-        for succ in succs {
-            arcs.push((node, succ));
-        }
-    });
-    arcs.sort();
+    let arcs: Vec<_> = sorted
+        .into_par_lenders()
+        .0
+        .into_iter()
+        .map(|lender| lender.into_pairs())
+        .flatten()
+        .sorted()
+        .collect::<Vec<_>>(); // force full consumption
+
     assert_eq!(arcs, vec![(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)]);
     Ok(())
 }
@@ -293,13 +296,15 @@ fn test_symmetrize_sorted_split_with_loops() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let sorted = symmetrize_sorted_split::<false, _>(&seq, MemoryUsage::BatchSize(2), None)?;
-    let mut arcs = vec![];
-    for_!((node, succs) in sorted.iter() {
-        for succ in succs {
-            arcs.push((node, succ));
-        }
-    });
-    arcs.sort();
+    let arcs: Vec<_> = sorted
+        .into_par_lenders()
+        .0
+        .into_iter()
+        .map(|lender| lender.into_pairs())
+        .flatten()
+        .sorted()
+        .collect::<Vec<_>>(); // force full consumption
+
     // Self-loop preserved, all edges bidirectional
     assert_eq!(arcs, vec![(0, 1), (1, 0), (1, 2), (2, 1), (2, 2)]);
     Ok(())

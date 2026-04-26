@@ -423,7 +423,8 @@ impl<L> AssumeSortedLender<L> {
     }
 }
 
-// SAFETY: the caller guarantees that the underlying lender yields items in sorted order.
+// SAFETY: the caller guarantees that the underlying lender yields items in
+// sorted order.
 unsafe impl<L: Lender> SortedLender for AssumeSortedLender<L> {}
 
 impl<'succ, L: Lender> Lending<'succ> for AssumeSortedLender<L> {
@@ -512,7 +513,8 @@ impl<I> AssumeSortedIterator<I> {
     }
 }
 
-// SAFETY: the caller guarantees that the underlying iterator yields items in sorted order.
+// SAFETY: the caller guarantees that the underlying iterator yields items in
+// sorted order.
 unsafe impl<I: Iterator> SortedIterator for AssumeSortedIterator<I> {}
 
 impl<I: Iterator> Iterator for AssumeSortedIterator<I> {
@@ -805,8 +807,8 @@ impl<'succ, G: RandomAccessLabeling> Lending<'succ> for LenderImpl<'_, G> {
 }
 
 impl<G: RandomAccessLabeling> Lender for LenderImpl<'_, G> {
-    // SAFETY: the lend is covariant as it returns labels from a RandomAccessLabeling,
-    // which are expected to be covariant in the lifetime.
+    // SAFETY: the lend is covariant as it returns labels from a
+    // RandomAccessLabeling, which are expected to be covariant in the lifetime.
     unsafe_assume_covariance!();
 
     #[inline(always)]

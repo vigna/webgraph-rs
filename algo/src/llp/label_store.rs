@@ -66,18 +66,18 @@ impl LabelStore {
     /// main usage is temporary reuse as support arrays of the space used by the
     /// label store.
     pub(crate) fn labels_and_volumes(&mut self) -> (&mut [usize], &mut [usize]) {
-        // SAFETY: Cell<usize> and usize have the same layout, so the transmutes are valid.
+        // SAFETY: Cell<usize> and usize have the same layout, and transmuting
+        // &mut from atomic to non-atomic is sound.
         unsafe {
             (
-                // This is just a transparent wrapper
                 std::mem::transmute::<&mut [Cell<usize>], &mut [usize]>(&mut self.labels),
-                // Transmuting &mut from atomic to non-atomic is sound
                 std::mem::transmute::<&mut [AtomicUsize], &mut [usize]>(&mut self.volumes),
             )
         }
     }
 }
 
-// SAFETY: LabelStore uses Cell for interior mutability but access is controlled externally.
+// SAFETY: LabelStore uses Cell for interior mutability but access is controlled
+// externally.
 unsafe impl Send for LabelStore {}
 unsafe impl Sync for LabelStore {}

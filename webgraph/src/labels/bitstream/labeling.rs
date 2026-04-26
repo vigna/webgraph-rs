@@ -65,7 +65,7 @@
 //! BvComp::with_basename(&basename)
 //!     .par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 //!
-//! let labels_basename = labels_basename(&basename);
+//! let labels_basename = BvCompConfig::default_labels_basename(&basename);
 //!
 //! // --- Sequential access (no .ef needed) ---
 //! let seq = BvGraphSeq::with_basename(&basename)
@@ -188,11 +188,20 @@ where
     /// Loads a sequential labeling from the given label basename by memory
     /// mapping the bitstream and the offset files.
     ///
-    /// The properties file is parsed to obtain the number of nodes and arcs and
-    /// to check that the endianness matches `E`.
+    /// The properties file is parsed to obtain the number of nodes and arcs,
+    /// to check that the endianness matches `E`, and to check that the
+    /// provided deserializer is compatible with the one used to write the
+    /// labeling.
     pub fn load(label_basename: impl AsRef<Path>, bit_deser: D) -> anyhow::Result<Self> {
         let label_basename = label_basename.as_ref();
         let label_props = parse_label_properties::<E>(label_basename)?;
+        anyhow::ensure!(
+            label_props.serializer == bit_deser.name(),
+            "Deserializer mismatch for {}: properties say \"{}\", but the provided deserializer is \"{}\"",
+            label_basename.display(),
+            label_props.serializer,
+            bit_deser.name(),
+        );
         let labels_path = label_basename.with_extension("labels");
         let offsets_path = label_basename.with_extension("offsets");
         Ok(Self::new(
@@ -364,20 +373,27 @@ where
     /// Loads a labeling from the given label basename by memory mapping
     /// the bitstream and the [Elias–Fano] pointer list.
     ///
-    /// The `.properties` file is parsed to obtain the number of arcs and
-    /// to check that the endianness matches `E`.
+    /// The properties file is parsed to obtain the number of arcs, to check
+    /// that the endianness matches `E`, and to check that the provided
+    /// deserializer is compatible with the one used to write the labeling.
     ///
     /// [Elias–Fano]: crate::graphs::bvgraph::EF
     pub fn load(label_basename: impl AsRef<Path>, bit_deser: D) -> anyhow::Result<Self> {
         let label_basename = label_basename.as_ref();
         let label_props = parse_label_properties::<E>(label_basename)?;
+        anyhow::ensure!(
+            label_props.serializer == bit_deser.name(),
+            "Deserializer mismatch for {}: properties say \"{}\", but the provided deserializer is \"{}\"",
+            label_basename.display(),
+            label_props.serializer,
+            bit_deser.name(),
+        );
         let labels_path = label_basename.with_extension("labels");
         let ef_path = label_basename.with_extension("ef");
         Ok(Self::new(
             MmapHelper::<u32>::mmap(&labels_path, MmapFlags::empty())
                 .with_context(|| format!("Could not mmap {}", labels_path.display()))?,
             bit_deser,
-            // SAFETY: the file was written by a compatible version of ε-serde.
             unsafe {
                 EF::mmap(&ef_path, Flags::empty())
                     .with_context(|| format!("Could not mmap {}", ef_path.display()))
@@ -464,7 +480,7 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> FusedIt
 {
 }
 
-// SAFETY: nodes are visited in order 0, 1, 2, …
+// SAFETY: nodes are visited in order.
 unsafe impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets>
     SortedLender for NodeLabels<'_, '_, E, BR, D, O>
 {
