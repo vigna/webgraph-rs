@@ -14,15 +14,16 @@
 - New declarative API for parallel compression and graph sorting in general.
   The trait `IntoParLenders` provides parallel lenders on consecutive chunks of
   nodes. The types `ParSortedGraph`/`ParSortedLabeledGraph` can be built from a graph or
-  an iterator on pairs and implements `IntoParLenders`. Transparent wrappers such
+  an iterator on pairs and implement `IntoParLenders`. Transparent wrappers such
   as `ParGraph` and `ParDcfGraph` can alter the default `IntoParLenders` splitting.
-  Parallel compression methods take a `IntoParLenders` implementation.
+  Parallel compression methods take an `IntoParLenders` implementation.
 
-- New labeled compression API based on the `StoreLabelsConfig` trait.
+- New labeled compression API based on the `StoreLabelsConfig` trait. A number of
+  basic (de)serializers (fixed width, ɣ, etc.) are provided.
 
 - New free functions to build the Elias–Fano representation of offsets.
 
-- `PairSortIters`/`ParSortPairs` have programmable logging.
+- `ParSortIters`/`ParSortPairs` have programmable logging.
 
 ### Fixed
 
@@ -32,10 +33,12 @@
 - Replaced a number of wrong `num_cpus::get` calls with
   `rayon::current_num_threads`.
 
+- `MmapHelper::new` did not correctly set the file length.
+
 ### Changed
 
 - Upgraded to `sux` 0.14.0. This is a major release in which the structure
-  of types has changed significantly, so the `EF` abd `DCF` types are no
+  of types has changed significantly, so the `EF` and `DCF` types are no
   longer compatible (in particular, their serializations).
 
 - Upgraded to `dsi-bitstream` 0.9.0.
@@ -69,12 +72,12 @@
   by a `par_comp_lenders!` macro in the `webgraph-cli` crate. Consequently,
   the features `le_bins` and `be_bins` have been removed.
 
-- `PermutationGraph` has now a proper constructor that checks at least
+- `PermutedGraph` has now a proper constructor that checks at least
   for the length of the permutation, and has `into_parts`, too.
 
 - `SortPairs` is gone, replaced by `*_seq` equivalent methods in `ParSortPairs`
   which can additionally partition the output. Thus it is possible, say, to
-  transpose a graph that cannot be split sequentially but the compress it in
+  transpose a graph that cannot be split sequentially but then compress it in
   parallel.
 
 - `UnitLender` has been renamed `UnitLabelLender`, and `UnitSucc` has
@@ -86,12 +89,17 @@
 - `IntoPairs`/`IntoLabeledPairs` no longer implement `Clone`, as the
   implementation was unsound.
 
+- `MemoryUsage::default` has now a more sensible, nonlinear growth strategy.
+
 ### Improved
 
 - `SortPairs`, `ParSortPairs`, `ParSortIters`, and `KMergeIters` now have a
   `const DEDUP: bool` type parameter that enables deduplication at compile time.
 
 - Added `FusedIterator` implementations to `BfsOrder` and `DfsOrder`.
+
+- In the symmetric case, the ExactSumSweep implementation computes the
+  connected components using a parallel visit.
 
 ## [0.6.1] - 2026-02-23
 
@@ -231,7 +239,7 @@
 ### New
 
 - Four new mutable structures: `LabeledVecGraph`, `VecGraph`, `LabeledBTreeGraph`
-  and `BTreeGraph`. The latter two structures implements the functionality of the
+  and `BTreeGraph`. The latter two structures implement the functionality of the
   old `VecGraph` structure. Migration from the old `VecGraph` requires usually
   just dropping the `Left` projector. The main source of incompatibility is that
   in the new `VecGraph` arcs can be added only in increasing successor order.
@@ -256,7 +264,7 @@
 
 ### Improved
 
-- Argument specifying a thread pool are now simply references.
+- Arguments specifying a thread pool are now simply references.
 
 ## [0.1.4] - 2024-08-09
 

@@ -18,7 +18,7 @@
 ### Improved
 
 - The space occupancy of `ExactSumSweep` has been reduced by a factor of two for
-  symmetric graphs, and in generall by 1/3 if you give up on the "total"
+  symmetric graphs, and in general by 1/3 if you give up on the "total"
   heuristics tie-breaker.
 
 ### New

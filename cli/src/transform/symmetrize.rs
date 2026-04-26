@@ -159,9 +159,7 @@ where
                 let cp = crate::cutpoints(&src, num_nodes, graph.num_arcs_hint(), use_dcf)?;
 
                 thread_pool.install(|| {
-                    let conf = ParSortedGraph::config()
-                        .dedup()
-                        .memory_usage(memory_usage);
+                    let conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
 
                     let pairs: Vec<_> = graph
                         .split_iter_at(cp)

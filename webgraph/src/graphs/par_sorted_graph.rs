@@ -1089,7 +1089,10 @@ impl<PL, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
     /// Only the [`item_name`](ProgressLog::item_name) is set by the sort
     /// methods; all other properties (e.g., expected updates, display
     /// options) should be configured by the caller.
-    pub fn progress_logger<PL2: ProgressLog>(self, pl: PL2) -> ParSortedLabeledGraphConf<PL2, DEDUP> {
+    pub fn progress_logger<PL2: ProgressLog>(
+        self,
+        pl: PL2,
+    ) -> ParSortedLabeledGraphConf<PL2, DEDUP> {
         ParSortedLabeledGraphConf {
             num_partitions: self.num_partitions,
             memory_usage: self.memory_usage,
@@ -1187,7 +1190,9 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
     {
         let par_sort = self.make_par_sort_iters(num_nodes)?;
         let codec = LabeledCodec::new(sd);
-        Ok(par_sort.sort_labeled_seq(codec, pairs, &mut self.pl)?.into())
+        Ok(par_sort
+            .sort_labeled_seq(codec, pairs, &mut self.pl)?
+            .into())
     }
 
     /// Sorts labeled pairs from multiple iterators in parallel,

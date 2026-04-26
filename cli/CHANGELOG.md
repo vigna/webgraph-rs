@@ -15,13 +15,18 @@
   instances as alternatives. Note that some commands previously defaulting to
   the Java format now default to ASCII.
 
-- All commands descriptions now have a zero-width space after the final period,
+- All command descriptions now have a zero-width space after the final period,
   to prevent Clap from stripping it.
 
 - New `seq` subcommand providing bidirectional conversion between all
   available formats for sequences.
 
 - Parallel DCF construction (by default) using `par_map_fold_ord`.
+
+- New `webgraph analyze stats` command computes common statistics on the
+  graph, similarly to the analogous Java command.
+
+- Support for `HyperLogLog8` from the CLI.
 
 ### Changed
 
@@ -63,6 +68,9 @@
 - A new macro `par_comp_lenders!` replaces the methods `par_comp_endianness*`
   from the `webgraph` crate.
 
+- New `--no-perm` option to the LLP command that uses the identity instead
+  of a random permutation for updates.
+
 ### Fixed
 
 - Sequential transposition was using big-endian format regardless of the
@@ -74,13 +82,12 @@
 - `to ascii` was never calling `ProgressLog::update`.
 
 - `to endianness` was using an additional `length` property that is not
-  part of the properties emitted by Java code, making impossible to change endianness
+  part of the properties emitted by Java code, making it impossible to change endianness
   of graphs compressed in Java.
 
 ### Improved
 
-- All transformation use directly pair-sorting techniques, rather than graph
-  wrappers, when beneficial.
+- All transformations use the new declarative framework for parallelization.
 
 ## [0.4.1] - 2026-02-23
 
