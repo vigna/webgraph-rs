@@ -73,81 +73,106 @@ fn build_kmerge_heap<T, I: Iterator<Item = ((usize, usize), T)>>(
 ///
 /// [quaternary heap]: dary_heap::QuaternaryHeap
 ///
-/// The iterators must be sorted by the pair of nodes, and the structure will return the labeled pairs
-/// sorted by lexicographical order of the pairs of nodes.
+/// The iterators must be sorted by the pair of nodes, and the structure will
+/// return the labeled pairs sorted by lexicographical order of the pairs of
+/// nodes.
 ///
-/// The structure implements [`Iterator`] and returns labeled pairs of the form `((src, dst), label)`.
+/// The structure implements [`Iterator`] and returns labeled pairs of the form
+/// `((src, dst), label)`.
 ///
 /// If `DEDUP` is `true`, the iterator will skip consecutive elements sharing
-/// the same pair of nodes, keeping only the first occurrence. Use
-/// [`new_dedup`] to enable deduplication.
+/// the same pair of nodes, keeping only the first occurrence.
 ///
-/// [`new_dedup`]: KMergeIters::new_dedup
+/// Finally, the type parameter `A` can be used to include an *anchor*, which is
+/// usually `Arc<TempDir>`. The purpose of the ancor is to keep alive some value
+/// whose destructor would cause the iterators to become invalid, such as a
+/// temporary directory containing memory-mapped files. The anchor is ignored by
+/// the logic of the structure, and is only kept alive as long as the structure
+/// is. The default value `()` makes the anchor disappear.
 ///
-/// The structure implements [`Default`], [`core::iter::Sum`],
-/// [`core::ops::AddAssign`], [`Extend`], and [`core::iter::FromIterator`]
-/// so you can compute different KMergeIters / Iterators / IntoIterators in
-/// parallel and then merge them using either `+=`, `sum()` or `collect()`:
-/// ```rust
-/// use webgraph::utils::sort_pairs::KMergeIters;
+/// The structure also implements [`Default`], [`core::iter::Sum`],
+/// [`core::ops::AddAssign`], [`Extend`], and [`core::iter::FromIterator`],
+/// so `KMergeIters` instances can be merged using `+=`, `sum()`, or
+/// `collect()`.
 ///
-/// let (tx, rx) = std::sync::mpsc::channel();
-///
-/// std::thread::scope(|s| {
-///     for _ in 0..10 {
-///         let tx = tx.clone();
-///         s.spawn(move || {
-///             // create a dummy KMergeIters
-///             tx.send(KMergeIters::new(vec![(0..10).map(|j| ((j, j), j + j))])).unwrap()
-///         });
-///     }
-/// });
-/// drop(tx);
-/// // merge the KMergeIters
-/// let merged = rx.iter().sum::<KMergeIters<core::iter::Map<core::ops::Range<usize>, _>, usize>>();
-/// ```
-/// or with plain iterators:
 /// ```rust
 /// use webgraph::utils::sort_pairs::KMergeIters;
 ///
 /// let iter = vec![vec![((0, 0), 0), ((0, 1), 1)], vec![((1, 0), 1), ((1, 1), 2)]];
-/// let merged = iter.into_iter().collect::<KMergeIters<_, usize>>();
+/// let merged: KMergeIters<_, i32> =
+///     KMergeIters::new(iter.into_iter().map(|v| v.into_iter()));
 /// ```
-#[derive(Clone, Debug)]
-pub struct KMergeIters<I: Iterator<Item = ((usize, usize), T)>, T = (), const DEDUP: bool = false> {
+#[derive(Debug)]
+pub struct KMergeIters<
+    I: Iterator<Item = ((usize, usize), T)>,
+    T = (),
+    const DEDUP: bool = false,
+    A: Send + Sync = (),
+> {
     heap: dary_heap::QuaternaryHeap<HeadTail<T, I>>,
     /// The last pair returned, used for deduplication.
     last_pair: Option<(usize, usize)>,
+    _anchor: A,
 }
 
-impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> KMergeIters<I, T, DEDUP> {
-    pub fn new(iters: impl IntoIterator<Item = I>) -> Self {
-        KMergeIters {
-            heap: build_kmerge_heap(iters),
-            last_pair: None,
+impl<
+    T: Clone,
+    I: Clone + Iterator<Item = ((usize, usize), T)>,
+    const DEDUP: bool,
+    A: Clone + Send + Sync,
+> Clone for KMergeIters<I, T, DEDUP, A>
+{
+    fn clone(&self) -> Self {
+        Self {
+            heap: self.heap.clone(),
+            last_pair: self.last_pair,
+            _anchor: self._anchor.clone(),
         }
     }
 }
 
-impl<T, I: Iterator<Item = ((usize, usize), T)>> KMergeIters<I, T> {
-    /// Creates a new `KMergeIters` that deduplicates consecutive elements
-    /// sharing the same pair of nodes.
-    pub fn new_dedup(iters: impl IntoIterator<Item = I>) -> KMergeIters<I, T, true> {
+impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> KMergeIters<I, T, DEDUP, ()> {
+    pub fn new(iters: impl IntoIterator<Item = I>) -> Self {
         KMergeIters {
             heap: build_kmerge_heap(iters),
             last_pair: None,
+            _anchor: (),
+        }
+    }
+}
+
+impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool, A: Send + Sync>
+    KMergeIters<I, T, DEDUP, A>
+{
+    /// Creates a new `KMergeIters` with the given anchor.
+    ///
+    /// The anchor is kept alive as long as this iterator (or any of its
+    /// clones) exists. This is typically used to prevent a [`TempDir`] from
+    /// being deleted while the iterators still read from memory-mapped files
+    /// inside it. The typical anchor type is `Arc<TempDir>`.
+    ///
+    /// [`TempDir`]: tempfile::TempDir
+    pub fn with_anchor(iters: impl IntoIterator<Item = I>, anchor: A) -> Self {
+        KMergeIters {
+            heap: build_kmerge_heap(iters),
+            last_pair: None,
+            _anchor: anchor,
         }
     }
 }
 
 // SAFETY: the merge of sorted iterators is itself sorted.
-unsafe impl<T, I: Iterator<Item = ((usize, usize), T)> + SortedIterator, const DEDUP: bool>
-    SortedIterator for KMergeIters<I, T, DEDUP>
+unsafe impl<
+    T,
+    I: Iterator<Item = ((usize, usize), T)> + SortedIterator,
+    const DEDUP: bool,
+    A: Send + Sync,
+> SortedIterator for KMergeIters<I, T, DEDUP, A>
 {
 }
 
-impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> Iterator
-    for KMergeIters<I, T, DEDUP>
+impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool, A: Send + Sync> Iterator
+    for KMergeIters<I, T, DEDUP, A>
 {
     type Item = ((usize, usize), T);
 
@@ -183,8 +208,8 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> Iterator
     }
 }
 
-impl<T, I: Iterator<Item = ((usize, usize), T)> + ExactSizeIterator> ExactSizeIterator
-    for KMergeIters<I, T>
+impl<T, I: Iterator<Item = ((usize, usize), T)> + ExactSizeIterator, A: Send + Sync>
+    ExactSizeIterator for KMergeIters<I, T, false, A>
 {
     fn len(&self) -> usize {
         self.heap
@@ -197,8 +222,8 @@ impl<T, I: Iterator<Item = ((usize, usize), T)> + ExactSizeIterator> ExactSizeIt
     }
 }
 
-impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> core::iter::FusedIterator
-    for KMergeIters<I, T, DEDUP>
+impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool, A: Send + Sync>
+    core::iter::FusedIterator for KMergeIters<I, T, DEDUP, A>
 {
 }
 
@@ -209,6 +234,7 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> core::defaul
         KMergeIters {
             heap: dary_heap::QuaternaryHeap::default(),
             last_pair: None,
+            _anchor: (),
         }
     }
 }
@@ -224,6 +250,7 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> core::iter::
         KMergeIters {
             heap,
             last_pair: None,
+            _anchor: (),
         }
     }
 }

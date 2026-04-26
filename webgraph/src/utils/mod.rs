@@ -8,7 +8,7 @@
 //! Miscellaneous utilities.
 
 use rand::RngExt;
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 /// Creates a new random dir inside the given folder
 pub fn temp_dir<P: AsRef<std::path::Path>>(base: P) -> anyhow::Result<PathBuf> {
@@ -55,7 +55,7 @@ pub use granularity::*;
 pub mod matrix;
 pub use matrix::Matrix;
 
-pub mod sort_pairs;
+pub mod kmerge_iters;
 
 pub mod par_sort_pairs;
 pub use par_sort_pairs::ParSortPairs;
@@ -324,16 +324,22 @@ impl<I> SplitIters<I> {
 /// [`ParSortIters::sort`] and [`ParSortPairs::sort`].
 ///
 /// Note that `SortedPairIter` strips the `()` label from the underlying
-/// [`KMergeIters`](sort_pairs::KMergeIters) via [`Map`](std::iter::Map);
-/// the transform functions (e.g., [`transpose_split`]) use
-/// [`KMergeIters`](sort_pairs::KMergeIters) directly and return a
+/// [`KMergeIters`] via [`Map`]; the transform functions (e.g.,
+/// [`transpose_split`]) use [`KMergeIters`] directly and return a
 /// [`ParSortedGraph`] instead.
 ///
 /// [`ParSortIters::sort`]: par_sort_iters::ParSortIters::sort
 /// [`ParSortPairs::sort`]: par_sort_pairs::ParSortPairs::sort
 /// [`transpose_split`]: crate::transform::transpose_split
+/// [`Map`]: std::iter::Map
+/// [`KMergeIters`]: kmerge_iters::KMergeIters
 pub type SortedPairIter<const DEDUP: bool = false> = std::iter::Map<
-    sort_pairs::KMergeIters<CodecIter<DefaultBatchCodec<DEDUP>>, (), DEDUP>,
+    kmerge_iters::KMergeIters<
+        CodecIter<DefaultBatchCodec<DEDUP>>,
+        (),
+        DEDUP,
+        Arc<tempfile::TempDir>,
+    >,
     fn(((usize, usize), ())) -> (usize, usize),
 >;
 

@@ -184,15 +184,16 @@ use crate::labels::proj::LeftIterator;
 use crate::prelude::*;
 use crate::traits::{BitDeserializer, BitSerializer};
 use crate::utils::grouped_gaps;
+use crate::utils::kmerge_iters::KMergeIters;
 use crate::utils::par_sort_iters::ParSortIters;
 use crate::utils::par_sort_pairs::ParSortPairs;
-use crate::utils::sort_pairs::KMergeIters;
 use crate::utils::{BitReader, BitWriter, CodecIter, DefaultBatchCodec, MemoryUsage};
 use anyhow::Result;
 use dsi_bitstream::prelude::NE;
 use dsi_progress_logger::{ProgressLog, ProgressLogger};
 use lender::*;
 use std::iter::Flatten;
+use std::sync::Arc;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ParSortedLabeledGraph
@@ -281,6 +282,7 @@ pub type SortedLabeledIter<SD, const DEDUP: bool = false> = KMergeIters<
     >,
     <SD as BitSerializer<NE, BitWriter<NE>>>::SerType,
     DEDUP,
+    Arc<tempfile::TempDir>,
 >;
 
 impl<I> ParSortedLabeledGraph<I> {
@@ -631,7 +633,7 @@ pub struct ParSortedGraph<I>(pub ParSortedLabeledGraph<I>);
 /// When `DEDUP` is `true`, consecutive duplicate pairs are suppressed during
 /// decoding.
 pub type SortedPairIter<const DEDUP: bool = false> =
-    KMergeIters<CodecIter<DefaultBatchCodec<DEDUP>>, (), DEDUP>;
+    KMergeIters<CodecIter<DefaultBatchCodec<DEDUP>>, (), DEDUP, Arc<tempfile::TempDir>>;
 
 impl ParSortedGraph<SortedPairIter> {
     /// Creates a [`ParSortedGraph`] from pre-sorted partition boundaries and

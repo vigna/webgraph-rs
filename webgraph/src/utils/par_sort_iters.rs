@@ -47,12 +47,15 @@
 //! [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
 //! [`ParSortedLabeledGraph`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraph
 
+use std::sync::Arc;
+
 use anyhow::{Context, Result, ensure};
 use dsi_progress_logger::ProgressLog;
 use rayon::prelude::*;
+use tempfile::TempDir;
 
 use super::MemoryUsage;
-use super::sort_pairs::KMergeIters;
+use super::kmerge_iters::KMergeIters;
 use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec};
 use crate::utils::{SortedPairIter, SplitIters};
 
@@ -303,7 +306,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         batch_codec: C,
         pairs: P,
         pl: &mut impl ProgressLog,
-    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP>>> {
+    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>>> {
         let unsorted_pairs = pairs;
 
         let num_partitions = self.num_partitions;
@@ -328,9 +331,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         ));
 
         let presort_tmp_dir =
-            tempfile::tempdir().context("Could not create temporary directory")?;
-
-        let presort_tmp_dir = &presort_tmp_dir;
+            Arc::new(tempfile::tempdir().context("Could not create temporary directory")?);
 
         let partitioned_presorted_pairs = unsorted_pairs
             .into_iter()
@@ -423,15 +424,16 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
             .collect();
 
         // Build iterators array
-        let iters: Vec<KMergeIters<CodecIter<C>, C::Label, DEDUP>> = partitioned_presorted_pairs
-            .into_iter()
-            .map(|partition| {
-                // 'partition' contains N iterators that are not sorted with
-                // respect to each other. We merge them and turn them into a
-                // single sorted iterator.
-                KMergeIters::new(partition)
-            })
-            .collect();
+        let iters: Vec<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>> =
+            partitioned_presorted_pairs
+                .into_iter()
+                .map(|partition| {
+                    // 'partition' contains N iterators that are not sorted with
+                    // respect to each other. We merge them and turn them into a
+                    // single sorted iterator.
+                    KMergeIters::with_anchor(partition, Arc::clone(&presort_tmp_dir))
+                })
+                .collect();
 
         Ok(SplitIters::new(
             boundaries.into_boxed_slice(),
@@ -449,7 +451,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         batch_codec: C,
         pairs: P,
         pl: &mut impl ProgressLog,
-    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP>>> {
+    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>>> {
         self.try_sort_labeled_seq::<C, std::convert::Infallible, _>(
             batch_codec,
             pairs.into_iter().map(Ok),
@@ -479,7 +481,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         batch_codec: C,
         pairs: P,
         pl: &mut impl ProgressLog,
-    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP>>> {
+    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>>> {
         let num_partitions = self.num_partitions;
         let batch_size = self
             .memory_usage
@@ -499,7 +501,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         ));
 
         let presort_tmp_dir =
-            tempfile::tempdir().context("Could not create temporary directory")?;
+            Arc::new(tempfile::tempdir().context("Could not create temporary directory")?);
 
         let mut unsorted_buffers: Vec<_> = (0..num_partitions)
             .map(|_| Vec::with_capacity(batch_size))
@@ -559,8 +561,10 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
             .collect();
 
         // Build iterators array
-        let iters: Vec<KMergeIters<CodecIter<C>, C::Label, DEDUP>> =
-            sorted_pairs.into_iter().map(KMergeIters::new).collect();
+        let iters: Vec<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>> = sorted_pairs
+            .into_iter()
+            .map(|partition| KMergeIters::with_anchor(partition, Arc::clone(&presort_tmp_dir)))
+            .collect();
 
         Ok(SplitIters::new(
             boundaries.into_boxed_slice(),

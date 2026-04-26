@@ -15,7 +15,7 @@ use webgraph::prelude::*;
 
 #[test]
 fn test_kmerge_iters_sum() {
-    use webgraph::utils::sort_pairs::KMergeIters;
+    use webgraph::utils::kmerge_iters::KMergeIters;
     let a = KMergeIters::new(vec![vec![((0, 1), ()), ((2, 3), ())].into_iter()]);
     let b = KMergeIters::new(vec![vec![((1, 2), ()), ((3, 4), ())].into_iter()]);
     let merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> =
@@ -29,7 +29,7 @@ fn test_kmerge_iters_sum() {
 
 #[test]
 fn test_kmerge_iters_collect() {
-    use webgraph::utils::sort_pairs::KMergeIters;
+    use webgraph::utils::kmerge_iters::KMergeIters;
     let iters: Vec<Vec<((usize, usize), ())>> = vec![
         vec![((0, 0), ()), ((1, 1), ())],
         vec![((0, 1), ()), ((2, 0), ())],
@@ -44,7 +44,7 @@ fn test_kmerge_iters_collect() {
 
 #[test]
 fn test_kmerge_iters_default_and_extend() {
-    use webgraph::utils::sort_pairs::KMergeIters;
+    use webgraph::utils::kmerge_iters::KMergeIters;
     let mut merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> = KMergeIters::default();
     // Extend with new iterators
     merged.extend(vec![
@@ -57,7 +57,7 @@ fn test_kmerge_iters_default_and_extend() {
 
 #[test]
 fn test_kmerge_iters_add_assign() {
-    use webgraph::utils::sort_pairs::KMergeIters;
+    use webgraph::utils::kmerge_iters::KMergeIters;
     let mut a: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> =
         KMergeIters::new(vec![vec![((0, 0), ()), ((2, 2), ())].into_iter()]);
     let b = KMergeIters::new(vec![vec![((1, 1), ())].into_iter()]);
@@ -232,14 +232,14 @@ fn test_par_sort_pairs_labeled() -> Result<()> {
 
 #[test]
 fn test_kmerge_iters_default() {
-    use webgraph::utils::sort_pairs::KMergeIters;
+    use webgraph::utils::kmerge_iters::KMergeIters;
     let kmerge: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> = KMergeIters::default();
     assert_eq!(kmerge.count(), 0);
 }
 
 #[test]
 fn test_kmerge_iters_sum_of_into_iterators() {
-    use webgraph::utils::sort_pairs::KMergeIters;
+    use webgraph::utils::kmerge_iters::KMergeIters;
     let iters: Vec<Vec<((usize, usize), usize)>> = vec![
         vec![((0, 1), 10), ((2, 3), 30)],
         vec![((1, 2), 20), ((3, 4), 40)],
@@ -254,7 +254,7 @@ fn test_kmerge_iters_sum_of_into_iterators() {
 
 #[test]
 fn test_kmerge_iters_from_iterator_of_self() {
-    use webgraph::utils::sort_pairs::KMergeIters;
+    use webgraph::utils::kmerge_iters::KMergeIters;
     let km1: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> =
         KMergeIters::new(vec![vec![((0, 0), ())].into_iter()]);
     let km2 = KMergeIters::new(vec![vec![((1, 0), ())].into_iter()]);
@@ -266,7 +266,7 @@ fn test_kmerge_iters_from_iterator_of_self() {
 
 #[test]
 fn test_kmerge_iters_add_assign_into_iter() {
-    use webgraph::utils::sort_pairs::KMergeIters;
+    use webgraph::utils::kmerge_iters::KMergeIters;
     let mut merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> = KMergeIters::default();
     let items = vec![((0, 1), ()), ((2, 3), ())];
     merged += items;
@@ -276,7 +276,7 @@ fn test_kmerge_iters_add_assign_into_iter() {
 
 #[test]
 fn test_kmerge_iters_extend_with_kmerge() {
-    use webgraph::utils::sort_pairs::KMergeIters;
+    use webgraph::utils::kmerge_iters::KMergeIters;
     let mut merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> =
         KMergeIters::new(vec![vec![((0, 0), ())].into_iter()]);
     let other1 = KMergeIters::new(vec![vec![((1, 0), ())].into_iter()]);
@@ -288,7 +288,7 @@ fn test_kmerge_iters_extend_with_kmerge() {
 
 #[test]
 fn test_kmerge_iters_extend_with_into_iters() {
-    use webgraph::utils::sort_pairs::KMergeIters;
+    use webgraph::utils::kmerge_iters::KMergeIters;
     let mut merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> = KMergeIters::default();
     let iters: Vec<Vec<((usize, usize), ())>> =
         vec![vec![((0, 0), ()), ((2, 0), ())], vec![((1, 0), ())]];
@@ -299,7 +299,7 @@ fn test_kmerge_iters_extend_with_into_iters() {
 
 #[test]
 fn test_kmerge_iters_exact_size_iterator() {
-    use webgraph::utils::sort_pairs::KMergeIters;
+    use webgraph::utils::kmerge_iters::KMergeIters;
     let iter1 = vec![((0, 0), ()), ((1, 0), ())].into_iter();
     let iter2 = vec![((2, 0), ()), ((3, 0), ()), ((4, 0), ())].into_iter();
     let merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> =
@@ -383,8 +383,8 @@ fn test_par_sort_iters() -> Result<()> {
 
 #[test]
 fn test_kmerge_iters_dedup() {
-    use webgraph::utils::sort_pairs::KMergeIters;
-    let merged = KMergeIters::new_dedup(vec![
+    use webgraph::utils::kmerge_iters::KMergeIters;
+    let merged = KMergeIters::<_, _, true, _>::new(vec![
         vec![((0, 1), ()), ((0, 1), ()), ((2, 3), ())].into_iter(),
         vec![((0, 1), ()), ((1, 2), ()), ((2, 3), ())].into_iter(),
     ]);
@@ -394,8 +394,8 @@ fn test_kmerge_iters_dedup() {
 
 #[test]
 fn test_kmerge_iters_dedup_count() {
-    use webgraph::utils::sort_pairs::KMergeIters;
-    let merged = KMergeIters::new_dedup(vec![
+    use webgraph::utils::kmerge_iters::KMergeIters;
+    let merged = KMergeIters::<_, _, true, _>::new(vec![
         vec![((0, 1), ()), ((0, 1), ()), ((2, 3), ())].into_iter(),
         vec![((0, 1), ()), ((1, 2), ()), ((2, 3), ())].into_iter(),
     ]);
@@ -404,11 +404,11 @@ fn test_kmerge_iters_dedup_count() {
 
 #[test]
 fn test_kmerge_iters_dedup_sum() {
-    use webgraph::utils::sort_pairs::KMergeIters;
+    use webgraph::utils::kmerge_iters::KMergeIters;
     let a: KMergeIters<std::vec::IntoIter<((usize, usize), ())>, (), true> =
-        KMergeIters::new_dedup(vec![vec![((0, 1), ()), ((0, 1), ())].into_iter()]);
+        KMergeIters::<_, _, true, _>::new(vec![vec![((0, 1), ()), ((0, 1), ())].into_iter()]);
     let b: KMergeIters<std::vec::IntoIter<((usize, usize), ())>, (), true> =
-        KMergeIters::new_dedup(vec![vec![((0, 1), ()), ((1, 2), ())].into_iter()]);
+        KMergeIters::<_, _, true, _>::new(vec![vec![((0, 1), ()), ((1, 2), ())].into_iter()]);
     let merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>, (), true> =
         vec![a, b].into_iter().sum();
     let result: Vec<_> = merged.map(|(k, _)| k).collect();
