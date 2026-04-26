@@ -39,7 +39,7 @@ to have completions in the current shell session.
 ## Subcommands
 
 - `analyze`: computes statistics on graphs;
-- `bench`: benchmark graph operations;
+- `bench`: benchmarks graph operations;
 - `build`: builds accessory graph data structures;
 - `check`: checks coherence of graph files;
 - `from`: ingests data into graphs;

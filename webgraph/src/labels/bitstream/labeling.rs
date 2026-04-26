@@ -205,7 +205,7 @@ where
         let labels_path = label_basename.with_extension("labels");
         let offsets_path = label_basename.with_extension("offsets");
         Ok(Self::new(
-            MmapHelper::<u32>::mmap(&labels_path, MmapFlags::empty())
+            MmapHelper::<u32>::mmap(&labels_path, MmapFlags::SEQUENTIAL)
                 .with_context(|| format!("Could not mmap {}", labels_path.display()))?,
             bit_deser,
             MmapHelper::<u32>::mmap(&offsets_path, MmapFlags::SEQUENTIAL)
@@ -391,11 +391,11 @@ where
         let labels_path = label_basename.with_extension("labels");
         let ef_path = label_basename.with_extension("ef");
         Ok(Self::new(
-            MmapHelper::<u32>::mmap(&labels_path, MmapFlags::empty())
+            MmapHelper::<u32>::mmap(&labels_path, MmapFlags::RANDOM_ACCESS)
                 .with_context(|| format!("Could not mmap {}", labels_path.display()))?,
             bit_deser,
             unsafe {
-                EF::mmap(&ef_path, Flags::empty())
+                EF::mmap(&ef_path, Flags::RANDOM_ACCESS)
                     .with_context(|| format!("Could not mmap {}", ef_path.display()))
             }?,
             label_props.num_arcs,
