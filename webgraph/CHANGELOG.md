@@ -22,6 +22,8 @@
 
 - New free functions to build the Elias–Fano representation of offsets.
 
+- `PairSortIters`/`ParSortPairs` have programmable logging.
+
 ### Fixed
 
 - `NonZeroUsize` has been replaced everywhere by `usize`, as there were no niche

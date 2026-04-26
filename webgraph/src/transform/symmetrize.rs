@@ -13,6 +13,7 @@ use crate::traits::{
 use crate::utils::par_sort_iters::ParSortIters;
 use crate::utils::{MemoryUsage, SplitIters};
 use anyhow::Result;
+use dsi_progress_logger::no_logging;
 
 /// Merges two sorted iterators of node pairs, deduplicating consecutive
 /// equal elements. When `NO_LOOPS` is true, self-loops (pairs where
@@ -97,10 +98,7 @@ pub fn symmetrize_sorted<const NO_LOOPS: bool, G: SequentialGraph>(
 ) -> Result<ParSortedGraph<SortedPairIter<true>>> {
     let num_nodes = graph.num_nodes();
 
-    let mut conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
-    if let Some(num_arcs) = graph.num_arcs_hint() {
-        conf = conf.expected_num_pairs(2 * num_arcs as usize);
-    }
+    let conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
 
     conf.sort_pairs(
         num_nodes,
@@ -153,10 +151,7 @@ where
         NodeLabelsLender<'a, IntoIterator: IntoIterator<IntoIter: Clone + Send + Sync>> + Clone,
 {
     // Sort only the reverse arcs in parallel
-    let mut par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
-    if let Some(num_arcs) = graph.num_arcs_hint() {
-        par_sort_iters = par_sort_iters.expected_num_pairs(num_arcs as usize);
-    }
+    let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
 
     let reverse_pairs: Vec<_> = match cutpoints {
         Some(cp) => graph.split_iter_at(cp),
@@ -169,7 +164,7 @@ where
     .map(|iter| iter.into_pairs().map(|(src, dst)| (dst, src)))
     .collect();
 
-    let SplitIters { boundaries, iters } = par_sort_iters.sort(reverse_pairs)?;
+    let SplitIters { boundaries, iters } = par_sort_iters.sort(reverse_pairs, no_logging![])?;
 
     // Split the original graph at the same boundaries used by ParSortIters,
     // then lazily merge forward and reverse pairs per partition.
@@ -203,10 +198,7 @@ pub fn symmetrize<const NO_LOOPS: bool>(
 ) -> Result<ParSortedGraph<SortedPairIter<true>>> {
     let num_nodes = graph.num_nodes();
 
-    let mut conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
-    if let Some(num_arcs) = graph.num_arcs_hint() {
-        conf = conf.expected_num_pairs(2 * num_arcs as usize);
-    }
+    let conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
 
     conf.sort_pairs(
         num_nodes,
@@ -254,11 +246,7 @@ where
         >,
 {
     let num_nodes = graph.num_nodes();
-    let num_arcs_hint = graph.num_arcs_hint();
-    let mut conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
-    if let Some(n) = num_arcs_hint {
-        conf = conf.expected_num_pairs(2 * n as usize);
-    }
+    let conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
     let (lenders, _boundaries) = graph.into_par_lenders();
     let iters = lenders.into_vec().into_iter().map(|lender| {
         lender.into_pairs().flat_map(move |(src, dst)| {

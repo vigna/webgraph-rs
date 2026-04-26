@@ -85,7 +85,7 @@ where
         pl.log_interval(duration);
     }
 
-    pl.start("Reading BvGraph");
+    pl.start("Reading BvGraph...");
 
     if let Some(labels) = labels {
         anyhow::ensure!(

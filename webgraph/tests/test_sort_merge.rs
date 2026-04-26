@@ -10,6 +10,7 @@
 
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
+use dsi_progress_logger::no_logging;
 use webgraph::prelude::*;
 
 #[test]
@@ -85,11 +86,9 @@ fn test_par_sort_pairs_basic() -> Result<()> {
     use webgraph::utils::par_sort_pairs::ParSortPairs;
 
     let pairs = vec![(1, 3), (3, 2), (2, 1), (1, 0), (0, 4)];
-    let sorter = ParSortPairs::new(5)?
-        .expected_num_pairs(pairs.len())
-        .num_partitions(2);
+    let sorter = ParSortPairs::new(5)?.num_partitions(2);
 
-    let split = sorter.sort(pairs.par_iter().copied())?;
+    let split = sorter.sort(pairs.par_iter().copied(), no_logging![])?;
     assert_eq!(split.boundaries[0], 0);
     assert_eq!(*split.boundaries.last().unwrap(), 5);
 
@@ -116,7 +115,7 @@ fn test_par_sort_pairs_single_partition() -> Result<()> {
     let pairs = vec![(2, 0), (0, 1), (1, 2)];
     let sorter = ParSortPairs::new(3)?.num_partitions(1);
 
-    let split = sorter.sort(pairs.par_iter().copied())?;
+    let split = sorter.sort(pairs.par_iter().copied(), no_logging![])?;
     assert_eq!(split.boundaries.len(), 2); // [0, 3]
     assert_eq!(split.iters.len(), 1);
     let result: Vec<_> = split.iters.into_vec().pop().unwrap().collect();
@@ -135,11 +134,10 @@ fn test_par_sort_pairs_with_memory_usage() -> Result<()> {
     expected.sort();
     expected.dedup();
     let sorter = ParSortPairs::new(10)?
-        .expected_num_pairs(pairs.len())
         .num_partitions(3)
         .memory_usage(MemoryUsage::BatchSize(20));
 
-    let split = sorter.sort(pairs.par_iter().copied())?;
+    let split = sorter.sort(pairs.par_iter().copied(), no_logging![])?;
     assert_eq!(split.boundaries[0], 0);
     assert_eq!(*split.boundaries.last().unwrap(), 10);
 
@@ -164,11 +162,10 @@ fn test_par_sort_iters_basic() -> Result<()> {
     let iter1 = vec![(1, 3), (0, 2)];
     let iter2 = vec![(2, 0), (3, 1)];
     let sorter = ParSortIters::new(4)?
-        .expected_num_pairs(4)
         .num_partitions(2)
         .memory_usage(webgraph::utils::MemoryUsage::BatchSize(10));
 
-    let split = sorter.sort(vec![iter1, iter2])?;
+    let split = sorter.sort(vec![iter1, iter2], no_logging![])?;
     assert_eq!(split.boundaries[0], 0);
     assert_eq!(*split.boundaries.last().unwrap(), 4);
 
@@ -194,7 +191,7 @@ fn test_par_sort_iters_single_partition() -> Result<()> {
     let iter2 = vec![(1, 2)];
     let sorter = ParSortIters::new(3)?.num_partitions(1);
 
-    let split = sorter.sort(vec![iter1, iter2])?;
+    let split = sorter.sort(vec![iter1, iter2], no_logging![])?;
     assert_eq!(split.boundaries.len(), 2);
     let result: Vec<_> = split.iters.into_vec().pop().unwrap().collect();
     assert_eq!(result, vec![(0, 1), (1, 2), (2, 0)]);
@@ -209,13 +206,13 @@ fn test_par_sort_pairs_labeled() -> Result<()> {
 
     let pairs = vec![((1, 3), ()), ((0, 2), ()), ((2, 1), ())];
     let sorter = ParSortPairs::new(4)?
-        .expected_num_pairs(pairs.len())
         .num_partitions(2)
         .memory_usage(MemoryUsage::BatchSize(20));
 
     let split = sorter.sort_labeled(
         &<webgraph::utils::DefaultBatchCodec>::default(),
         pairs.par_iter().copied(),
+        no_logging![],
     )?;
     assert_eq!(split.boundaries[0], 0);
     assert_eq!(*split.boundaries.last().unwrap(), 4);
@@ -329,7 +326,7 @@ fn test_par_sort_pairs_sort_labeled() -> Result<()> {
         .memory_usage(MemoryUsage::BatchSize(100));
     let codec = GroupedGapsCodec::<BE, ()>::default();
     use rayon::prelude::*;
-    let split = sorter.sort_labeled(&codec, pairs.into_par_iter())?;
+    let split = sorter.sort_labeled(&codec, pairs.into_par_iter(), no_logging![])?;
 
     assert_eq!(*split.boundaries.first().unwrap(), 0);
     assert_eq!(*split.boundaries.last().unwrap(), num_nodes);
@@ -364,7 +361,7 @@ fn test_par_sort_iters() -> Result<()> {
     let sorter = ParSortIters::new(num_nodes)?
         .num_partitions(2)
         .memory_usage(MemoryUsage::BatchSize(100));
-    let split = sorter.sort(pairs)?;
+    let split = sorter.sort(pairs, no_logging![])?;
 
     assert_eq!(*split.boundaries.first().unwrap(), 0);
     assert_eq!(*split.boundaries.last().unwrap(), num_nodes);
@@ -426,7 +423,7 @@ fn test_par_sort_pairs_dedup() -> Result<()> {
     let pairs = vec![(0, 1), (0, 1), (1, 2), (1, 2), (2, 3), (0, 1)];
     let sorter = ParSortPairs::new_dedup(4)?.num_partitions(2);
 
-    let split = sorter.sort(pairs.par_iter().copied())?;
+    let split = sorter.sort(pairs.par_iter().copied(), no_logging![])?;
 
     let mut all_pairs = Vec::new();
     for iter in split.iters.into_vec() {
@@ -449,6 +446,7 @@ fn test_par_sort_iters_dedup() -> Result<()> {
     let split = sorter.sort_labeled(
         <webgraph::utils::DefaultBatchCodec<true>>::default(),
         vec![iter1, iter2],
+        no_logging![],
     )?;
 
     let mut all_pairs = Vec::new();

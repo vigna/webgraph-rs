@@ -149,7 +149,7 @@ where
 
     let num_threads = args.num_threads.num_threads;
     pl.start(format!(
-        "Building the degree cumulative function in parallel using {} threads",
+        "Building the degree cumulative function in parallel using {} threads...",
         num_threads
     ));
 

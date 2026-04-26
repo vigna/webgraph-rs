@@ -60,7 +60,7 @@ fn test_sorted_graph_from_permuted() -> Result<()> {
     let pairs: Vec<(usize, usize)> = pg.iter().into_pairs().collect();
 
     let par_sort = ParSortIters::new(num_nodes)?.num_partitions(2);
-    let split = par_sort.sort(vec![pairs])?;
+    let split = par_sort.sort(vec![pairs], dsi_progress_logger::no_logging![])?;
     let sorted = ParSortedGraph::from_parts(split.boundaries, split.iters);
 
     graph::eq(&g, &sorted)?;
@@ -103,7 +103,7 @@ fn test_sorted_graph_from_parts() -> Result<()> {
     let pairs: Vec<_> = g.split_iter(2).map(|lender| lender.into_pairs()).collect();
 
     let par_sort = ParSortIters::new(num_nodes)?.num_partitions(2);
-    let split = par_sort.sort(pairs)?;
+    let split = par_sort.sort(pairs, dsi_progress_logger::no_logging![])?;
 
     let sorted = ParSortedGraph::from_parts(split.boundaries, split.iters);
     assert_eq!(sorted.num_nodes(), num_nodes);

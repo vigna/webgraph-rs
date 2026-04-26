@@ -161,8 +161,7 @@ where
                 thread_pool.install(|| {
                     let conf = ParSortedGraph::config()
                         .dedup()
-                        .memory_usage(memory_usage)
-                        .expected_num_pairs(2 * graph.num_arcs() as usize);
+                        .memory_usage(memory_usage);
 
                     let pairs: Vec<_> = graph
                         .split_iter_at(cp)

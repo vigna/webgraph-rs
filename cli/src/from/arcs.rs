@@ -166,12 +166,9 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
     });
 
     // Sort and partition arcs for parallel compression
-    let mut conf = ParSortedGraph::config()
+    let conf = ParSortedGraph::config()
         .dedup()
         .memory_usage(args.memory_usage.memory_usage);
-    if let Some(n) = args.num_arcs {
-        conf = conf.expected_num_pairs(n);
-    }
     let sorted = conf.sort_pairs(num_nodes, pairs)?;
 
     if let Some(e) = parse_error {
@@ -224,7 +221,7 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
         let mut buf = std::io::BufWriter::new(&mut file);
         let mut nodes = nodes.into_iter().collect::<Vec<_>>();
         nodes.par_sort_by(|(_, a), (_, b)| a.cmp(b));
-        pl.start(format!("Storing the nodes to {}", nodes_file.display()));
+        pl.start(format!("Storing the nodes to {}...", nodes_file.display()));
         for (node, _) in nodes {
             buf.write_all(node.as_bytes()).unwrap();
             buf.write_all(b"\n").unwrap();

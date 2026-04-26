@@ -1157,7 +1157,7 @@ where
         let mut arc_pl = pl.dup();
         arc_pl.item_name("arc");
         arc_pl.expected_updates(if ic.local { None } else { Some(num_arcs as _) });
-        arc_pl.start("Scanning arcs");
+        arc_pl.start("Scanning arcs...");
         {
             let next_state_sync = self.next_state.as_sync_array();
             let sum_of_dists = self.sum_of_dists.as_mut().map(|x| x.as_sync_slice());
@@ -1544,7 +1544,7 @@ where
         mut rng: impl rand::RngExt,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
-        pl.start("Initializing estimators");
+        pl.start("Initializing estimators...");
         pl.info(format_args!("Clearing all registers"));
 
         self.curr_state.clear();

@@ -642,7 +642,7 @@ fn test_par_comp_from_parts() -> Result<()> {
         .num_partitions(2)
         .memory_usage(MemoryUsage::BatchSize(100));
     use rayon::prelude::*;
-    let split = sorter.sort(pairs.into_par_iter())?;
+    let split = sorter.sort(pairs.into_par_iter(), dsi_progress_logger::no_logging![])?;
 
     // Wrap in SortedGraph and compress with par_comp
     let sorted = ParSortedGraph::from_parts(split.boundaries, split.iters);

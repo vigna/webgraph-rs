@@ -52,7 +52,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{Context, Result, ensure};
 use crossbeam_queue::SegQueue;
-use dsi_progress_logger::{ProgressLog, concurrent_progress_logger};
+use dsi_progress_logger::ProgressLog;
 use rayon::prelude::*;
 
 use crate::utils::DefaultBatchCodec;
@@ -82,6 +82,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 ///
 /// ```
 /// # use dsi_bitstream::traits::BE;
+/// # use dsi_progress_logger::no_logging;
 /// # use lender::Lender;
 /// # use rayon::prelude::*;
 /// # use webgraph::traits::SequentialLabeling;
@@ -94,11 +95,11 @@ use crate::utils::{SortedPairIter, SplitIters};
 /// let unsorted_pairs = vec![(1, 3), (3, 2), (2, 1), (1, 0), (0, 4)];
 ///
 /// let pair_sorter = ParSortPairs::new(num_nodes)?
-///     .expected_num_pairs(unsorted_pairs.len())
 ///     .num_partitions(num_partitions);
 ///
 /// let split_iters = pair_sorter.sort(
-///     unsorted_pairs.par_iter().copied()
+///     unsorted_pairs.par_iter().copied(),
+///     no_logging![],
 /// )?;
 ///
 /// assert_eq!(split_iters.boundaries.len(), num_partitions + 1);
@@ -124,7 +125,8 @@ use crate::utils::{SortedPairIter, SplitIters};
 ///
 /// // Convert pairs to labeled form and compress
 /// let split_iters = pair_sorter.sort(
-///     unsorted_pairs.par_iter().copied()
+///     unsorted_pairs.par_iter().copied(),
+///     no_logging![],
 /// )?;
 ///
 /// // Wrap in ParSortedGraph and compress
@@ -135,7 +137,6 @@ use crate::utils::{SortedPairIter, SplitIters};
 /// ```
 pub struct ParSortPairs<const DEDUP: bool = false> {
     num_nodes: usize,
-    expected_num_pairs: Option<usize>,
     num_partitions: usize,
     memory_usage: MemoryUsage,
 }
@@ -147,8 +148,9 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
     pub fn sort(
         &self,
         pairs: impl ParallelIterator<Item = (usize, usize)>,
+        pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
-        self.try_sort::<std::convert::Infallible>(pairs.map(Ok))
+        self.try_sort::<std::convert::Infallible>(pairs.map(Ok), pl)
     }
 
     /// Sorts the output of the provided parallel iterator, returning a
@@ -159,6 +161,7 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
     pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
         pairs: impl ParallelIterator<Item = Result<(usize, usize), E>>,
+        pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
         let split = self.try_sort_labeled(
             &<DefaultBatchCodec<DEDUP>>::default(),
@@ -166,6 +169,7 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
                 let (src, dst) = pair.map_err(Into::into)?;
                 Ok(((src, dst), ()))
             }),
+            pl,
         )?;
 
         let strip: fn(((usize, usize), ())) -> (usize, usize) = |(pair, _)| pair;
@@ -188,7 +192,6 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
     pub(crate) fn create(num_nodes: usize) -> Result<Self> {
         Ok(Self {
             num_nodes,
-            expected_num_pairs: None,
             num_partitions: rayon::current_num_threads(),
             memory_usage: MemoryUsage::default(),
         })
@@ -199,15 +202,14 @@ impl ParSortPairs {
     /// Creates a new [`ParSortPairs`] instance.
     ///
     /// The methods [`num_partitions`] (which sets the number of iterators in
-    /// the resulting [`SplitIters`]), [`memory_usage`], and
-    /// [`expected_num_pairs`] can be used to customize the instance.
+    /// the resulting [`SplitIters`]) and [`memory_usage`] can be used to
+    /// customize the instance.
     ///
     /// This method will return an error if [`rayon::current_num_threads`]
     /// returns zero.
     ///
     /// [`num_partitions`]: ParSortPairs::num_partitions
     /// [`memory_usage`]: ParSortPairs::memory_usage
-    /// [`expected_num_pairs`]: ParSortPairs::expected_num_pairs
     pub fn new(num_nodes: usize) -> Result<Self> {
         Self::create(num_nodes)
     }
@@ -227,16 +229,6 @@ impl ParSortPairs {
 }
 
 impl<const DEDUP: bool> ParSortPairs<DEDUP> {
-    /// Approximate number of pairs to be sorted.
-    ///
-    /// Used only for progress reporting.
-    pub const fn expected_num_pairs(self, expected_num_pairs: usize) -> Self {
-        Self {
-            expected_num_pairs: Some(expected_num_pairs),
-            ..self
-        }
-    }
-
     /// How many partitions to split the nodes into.
     ///
     /// This is the number of iterators in the resulting [`SplitIters`].
@@ -271,8 +263,9 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
         &self,
         batch_codec: &C,
         pairs: P,
+        pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP>>> {
-        self.try_sort_labeled::<C, std::convert::Infallible, _>(batch_codec, pairs.map(Ok))
+        self.try_sort_labeled::<C, std::convert::Infallible, _>(batch_codec, pairs.map(Ok), pl)
     }
 
     /// Sorts the output of the provided parallel iterator,
@@ -296,6 +289,7 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
         &self,
         batch_codec: &C,
         pairs: P,
+        pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP>>> {
         let unsorted_pairs = pairs;
 
@@ -307,13 +301,9 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
             .div_ceil(num_buffers);
         let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
 
-        let mut pl = concurrent_progress_logger!(
-            display_memory = true,
-            item_name = "pair",
-            local_speed = true,
-            expected_updates = self.expected_num_pairs,
-        );
-        pl.start("Reading and sorting pairs");
+        let mut pl = pl.concurrent();
+        pl.item_name("pair");
+        pl.start("Reading and sorting pairs...");
         let total_memory =
             batch_size * num_buffers * std::mem::size_of::<((usize, usize), C::Label)>();
         pl.info(format_args!(

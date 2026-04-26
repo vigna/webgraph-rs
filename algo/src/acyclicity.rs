@@ -21,7 +21,7 @@ pub fn is_acyclic(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> b
     let num_nodes = graph.num_nodes();
     pl.item_name("node");
     pl.expected_updates(num_nodes);
-    pl.start("Checking acyclicity");
+    pl.start("Checking acyclicity...");
 
     let mut visit = SeqPath::new(&graph);
 

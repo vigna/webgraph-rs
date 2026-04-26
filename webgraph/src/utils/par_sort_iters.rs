@@ -48,8 +48,7 @@
 //! [`ParSortedLabeledGraph`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraph
 
 use anyhow::{Context, Result, ensure};
-use dsi_progress_logger::prelude::*;
-use dsi_progress_logger::{ProgressLog, concurrent_progress_logger};
+use dsi_progress_logger::ProgressLog;
 use rayon::prelude::*;
 
 use super::MemoryUsage;
@@ -82,6 +81,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 ///
 /// ```
 /// # use dsi_bitstream::traits::BE;
+/// # use dsi_progress_logger::no_logging;
 /// # use rayon::prelude::*;
 /// # use webgraph::prelude::*;
 /// # use webgraph::graphs::bvgraph::{BvComp, CompFlags};
@@ -111,7 +111,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 /// let pair_sorter = ParSortIters::new(num_nodes)?
 ///     .num_partitions(num_partitions);
 ///
-/// let sorted = pair_sorter.sort(pairs)?;
+/// let sorted = pair_sorter.sort(pairs, no_logging![])?;
 ///
 /// // Wrap in ParSortedGraph and compress in parallel
 /// let sorted_graph = ParSortedGraph::from_parts(sorted.boundaries, sorted.iters);
@@ -123,7 +123,6 @@ use crate::utils::{SortedPairIter, SplitIters};
 /// ```
 pub struct ParSortIters<const DEDUP: bool = false> {
     num_nodes: usize,
-    expected_num_pairs: Option<usize>,
     num_partitions: usize,
     memory_usage: MemoryUsage,
 }
@@ -140,12 +139,14 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
             Item: IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + Send + Sync,
             IntoIter: ExactSizeIterator + Send + Sync,
         >,
+        pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
         let split = self.sort_labeled::<DefaultBatchCodec<DEDUP>, _>(
             <DefaultBatchCodec<DEDUP>>::default(),
             pairs
                 .into_iter()
                 .map(|iter| iter.into_iter().map(|pair| (pair, ()))),
+            pl,
         )?;
 
         let strip: fn(((usize, usize), ())) -> (usize, usize) = |(pair, _)| pair;
@@ -170,8 +171,9 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
     pub fn sort_seq(
         &self,
         pairs: impl IntoIterator<Item = (usize, usize)>,
+        pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
-        self.try_sort_seq::<std::convert::Infallible>(pairs.into_iter().map(Ok))
+        self.try_sort_seq::<std::convert::Infallible>(pairs.into_iter().map(Ok), pl)
     }
 
     /// Sorts the output of the provided iterator sequentially, returning a
@@ -185,11 +187,13 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
     pub fn try_sort_seq<E: Into<anyhow::Error>>(
         &self,
         pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
+        pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
         let split = <ParSortIters<DEDUP>>::try_sort_labeled_seq::<DefaultBatchCodec<DEDUP>, E, _>(
             self,
             <DefaultBatchCodec<DEDUP>>::default(),
             pairs.into_iter().map(|r| r.map(|pair| (pair, ()))),
+            pl,
         )?;
 
         let strip: fn(((usize, usize), ())) -> (usize, usize) = |(pair, _)| pair;
@@ -212,7 +216,6 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
     pub(crate) fn create(num_nodes: usize) -> Result<Self> {
         Ok(Self {
             num_nodes,
-            expected_num_pairs: None,
             num_partitions: rayon::current_num_threads(),
             memory_usage: MemoryUsage::default(),
         })
@@ -223,15 +226,14 @@ impl ParSortIters {
     /// Creates a new [`ParSortIters`] instance.
     ///
     /// The methods [`num_partitions`] (which sets the number of iterators in
-    /// the resulting [`SplitIters`]), [`memory_usage`], and
-    /// [`expected_num_pairs`] can be used to customize the instance.
+    /// the resulting [`SplitIters`]) and [`memory_usage`] can be used to
+    /// customize the instance.
     ///
     /// This method will return an error if [`rayon::current_num_threads`]
     /// returns zero.
     ///
     /// [`num_partitions`]: ParSortIters::num_partitions
     /// [`memory_usage`]: ParSortIters::memory_usage
-    /// [`expected_num_pairs`]: ParSortIters::expected_num_pairs
     pub fn new(num_nodes: usize) -> Result<Self> {
         Self::create(num_nodes)
     }
@@ -251,16 +253,6 @@ impl ParSortIters {
 }
 
 impl<const DEDUP: bool> ParSortIters<DEDUP> {
-    /// Approximate number of pairs to be sorted.
-    ///
-    /// Used only for progress reporting.
-    pub const fn expected_num_pairs(self, expected_num_pairs: usize) -> Self {
-        Self {
-            expected_num_pairs: Some(expected_num_pairs),
-            ..self
-        }
-    }
-
     /// How many partitions to split the nodes into.
     ///
     /// This is the number of iterators in the resulting [`SplitIters`].
@@ -310,6 +302,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         &self,
         batch_codec: C,
         pairs: P,
+        pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP>>> {
         let unsorted_pairs = pairs;
 
@@ -321,13 +314,9 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
             .div_ceil(num_buffers);
         let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
 
-        let mut pl = concurrent_progress_logger!(
-            display_memory = true,
-            item_name = "pair",
-            local_speed = true,
-            expected_updates = self.expected_num_pairs,
-        );
-        pl.start("Reading and sorting pairs");
+        let mut pl = pl.concurrent();
+        pl.item_name("pair");
+        pl.start("Reading and sorting pairs...");
         let total_memory =
             batch_size * num_buffers * std::mem::size_of::<((usize, usize), C::Label)>();
         pl.info(format_args!(
@@ -459,10 +448,12 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         &self,
         batch_codec: C,
         pairs: P,
+        pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP>>> {
         self.try_sort_labeled_seq::<C, std::convert::Infallible, _>(
             batch_codec,
             pairs.into_iter().map(Ok),
+            pl,
         )
     }
 
@@ -487,6 +478,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         &self,
         batch_codec: C,
         pairs: P,
+        pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP>>> {
         let num_partitions = self.num_partitions;
         let batch_size = self
@@ -495,12 +487,8 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
             .div_ceil(num_partitions);
         let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
 
-        let mut pl = progress_logger![
-            display_memory = true,
-            item_name = "pair",
-            expected_updates = self.expected_num_pairs,
-        ];
-        pl.start("Reading and sorting pairs (sequential)");
+        pl.item_name("pair");
+        pl.start("Reading and sorting pairs (sequential)...");
         let total_memory =
             batch_size * num_partitions * std::mem::size_of::<((usize, usize), C::Label)>();
         pl.info(format_args!(

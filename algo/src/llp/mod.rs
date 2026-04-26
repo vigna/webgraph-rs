@@ -261,8 +261,10 @@ pub fn layered_label_propagation_labels_only<
 
     let mut costs = Vec::with_capacity(gammas.len());
 
-    gamma_pl.start(format!("Running {} threads", num_threads));
-    info!("Stopping criterion: {predicate}");
+    gamma_pl.start("Starting Layered Label Propagation...");
+    gamma_pl.info(format_args!(
+        "Running {num_threads} threads; stopping criterion: {predicate}"
+    ));
 
     for (gamma_index, gamma) in gammas.iter().enumerate() {
         // Reset mutable state for the next gamma

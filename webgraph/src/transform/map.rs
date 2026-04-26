@@ -94,11 +94,7 @@ where
         graph.num_nodes(),
     );
 
-    let num_arcs_hint = graph.num_arcs_hint();
-    let mut conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
-    if let Some(n) = num_arcs_hint {
-        conf = conf.expected_num_pairs(n as usize);
-    }
+    let conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
     let (lenders, _boundaries) = graph.into_par_lenders();
     let iters = lenders.into_vec().into_iter().map(|lender| {
         lender
