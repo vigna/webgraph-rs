@@ -2118,28 +2118,18 @@ mod test {
             .log2_num_regs(6)
             .build::<usize>()?;
         let seq_logic = logic.clone();
-        let hb = HyperBallBuilder::with_hyper_log_log_external(
-            graph,
-            Some(transpose),
-            dcf,
-            6,
-            None,
-        )?
-        .build(no_logging![]);
+        let hb =
+            HyperBallBuilder::with_hyper_log_log_external(graph, Some(transpose), dcf, 6, None)?
+                .build(no_logging![]);
         Ok::<_, anyhow::Error>((hb, seq_logic))
     });
 
     cnr_2000_external_test!(test_cnr_2000_hll8_external, |graph, transpose, dcf, _n| {
         let logic = HyperLogLog8Builder::new().log2_num_regs(6).build::<usize>();
         let seq_logic = logic.clone();
-        let hb = HyperBallBuilder::with_hyper_log_log8_external(
-            graph,
-            Some(transpose),
-            dcf,
-            6,
-            None,
-        )?
-        .build(no_logging![]);
+        let hb =
+            HyperBallBuilder::with_hyper_log_log8_external(graph, Some(transpose), dcf, 6, None)?
+                .build(no_logging![]);
         Ok::<_, anyhow::Error>((hb, seq_logic))
     });
 
