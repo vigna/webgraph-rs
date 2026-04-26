@@ -84,13 +84,16 @@ pub struct CliArgs {
     #[clap(short, long)]
     pub transpose: Option<PathBuf>,
 
-    #[clap(flatten)]
-    pub centralities: Centralities,
-
     #[clap(short = 'm', long, default_value_t = 8)]
     /// The base-2 logarithm of the number of registers for the HyperLogLog
     /// cardinality estimators.​
     pub log2m: u32,
+
+    #[clap(long)]
+    /// Uses an external (spill-to-disk) output store, keeping only one counter
+    /// array in RAM instead of two; halves the counter memory at the cost
+    /// of extra I/O after each iteration.​
+    pub external: bool,
 
     #[clap(short = '8', long)]
     /// Use HyperLogLog8 (byte-sized registers with SIMD-accelerated merges);
@@ -106,6 +109,9 @@ pub struct CliArgs {
     /// if the neighborhood function is being computed. Otherwise, the
     /// computation will stop when all estimators do not change their values.​
     pub threshold: Option<f64>,
+
+    #[clap(flatten)]
+    pub centralities: Centralities,
 
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
@@ -211,32 +217,48 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
         }};
     }
 
-    if args.hll8 {
-        let hb = HyperBallBuilder::with_hyper_log_log8(
+    macro_rules! configure_and_run {
+        ($builder:expr) => {{
+            let hb = $builder
+                .granularity(args.granularity.into_granularity())
+                .sum_of_distances(args.centralities.should_compute_sum_of_distances())
+                .sum_of_inverse_distances(
+                    args.centralities.should_compute_sum_of_inverse_distances(),
+                )
+                .build(&mut pl);
+            run_and_store!(hb);
+        }};
+    }
+
+    match (args.hll8, args.external) {
+        (false, false) => configure_and_run!(HyperBallBuilder::with_hyper_log_log(
             &graph,
             transpose,
             deg_cumul.uncase(),
             args.log2m,
             None,
-        )?
-        .granularity(args.granularity.into_granularity())
-        .sum_of_distances(args.centralities.should_compute_sum_of_distances())
-        .sum_of_inverse_distances(args.centralities.should_compute_sum_of_inverse_distances())
-        .build(&mut pl);
-        run_and_store!(hb);
-    } else {
-        let hb = HyperBallBuilder::with_hyper_log_log(
+        )?),
+        (false, true) => configure_and_run!(HyperBallBuilder::with_hyper_log_log_external(
             &graph,
             transpose,
             deg_cumul.uncase(),
             args.log2m,
             None,
-        )?
-        .granularity(args.granularity.into_granularity())
-        .sum_of_distances(args.centralities.should_compute_sum_of_distances())
-        .sum_of_inverse_distances(args.centralities.should_compute_sum_of_inverse_distances())
-        .build(&mut pl);
-        run_and_store!(hb);
+        )?),
+        (true, false) => configure_and_run!(HyperBallBuilder::with_hyper_log_log8(
+            &graph,
+            transpose,
+            deg_cumul.uncase(),
+            args.log2m,
+            None,
+        )?),
+        (true, true) => configure_and_run!(HyperBallBuilder::with_hyper_log_log8_external(
+            &graph,
+            transpose,
+            deg_cumul.uncase(),
+            args.log2m,
+            None,
+        )?),
     }
 
     Ok(())

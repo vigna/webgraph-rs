@@ -112,8 +112,8 @@ pub trait Level: Sync {
     ///   use the biggest connected component.
     ///
     /// * `use_tot` - if true, the algorithm keeps total-distance accumulators
-    /// for tie-breaking when choosing the next pivot. This costs two `usize`
-    /// per node but usually reduces the number of iterations.
+    ///   for tie-breaking when choosing the next pivot. This costs two `usize`
+    ///   per node but usually reduces the number of iterations.
     ///
     /// * `pl` - a progress logger.
     fn run(

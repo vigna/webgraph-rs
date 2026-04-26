@@ -107,6 +107,17 @@
 //! is a power of two, so your latitude in adjusting the memory used for
 //! registers is somewhat limited.
 //!
+//! By default, two full arrays of counters are kept in RAM (the "ping-pong"
+//! pattern). If memory is tight, you can use the _external_ mode (see
+//! [`HyperBallBuilder::with_hyper_log_log_external`] and
+//! [`HyperBallBuilder::with_hyper_log_log8_external`]), which keeps only one
+//! array in RAM and writes modified counters to an anonymous memory-mapped
+//! region during each iteration. After the iteration, the modified counters are
+//! scattered back into the in-memory array. This halves the counter memory
+//! at the cost of additional I/O after each iteration. In practice, after the
+//! first few iterations only a small fraction of counters change, so the
+//! overhead is modest.
+//!
 //! If there are several available cores, the iterations will be _decomposed_
 //! into relatively small tasks (small blocks of nodes) and each task will be
 //! assigned to the first available core. Since all tasks are completely
@@ -126,10 +137,11 @@
 use anyhow::{Context, Result, bail, ensure};
 use card_est_array::impls::{
     HyperLogLog, HyperLogLog8, HyperLogLog8Builder, HyperLogLogBuilder, SliceEstimatorArray,
+    SyncSliceEstimatorArray,
 };
 use card_est_array::traits::{
     AsSyncArray, EstimationLogic, EstimatorArray, EstimatorArrayMut, EstimatorMut,
-    MergeEstimationLogic, SyncEstimatorArray,
+    MergeEstimationLogic, SliceEstimationLogic, SyncEstimatorArray, Word,
 };
 use crossbeam_utils::CachePadded;
 use dsi_progress_logger::{ConcurrentProgressLog, ProgressLog};
@@ -143,6 +155,217 @@ use sux::{bits::AtomicBitVec, traits::Succ};
 use sync_cell_slice::{SyncCell, SyncSlice};
 use webgraph::traits::{RandomAccessGraph, SequentialLabeling};
 use webgraph::utils::Granularity;
+
+/// Write-only view of an [`OutputStore`], used during parallel iterations.
+///
+/// # Safety
+///
+/// Implementations must ensure that concurrent calls to [`set`](Self::set)
+/// with distinct indices do not cause data races.
+pub unsafe trait SyncOutputStore<L: EstimationLogic + ?Sized>: Sync {
+    /// Stores `content` as the backend of node `index`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must guarantee that no two threads call `set` with the
+    /// same `index` concurrently.
+    unsafe fn set(&self, index: usize, content: &L::Backend);
+}
+
+unsafe impl<L: SliceEstimationLogic<W> + Sync, W: Word, S: AsRef<[SyncCell<W>]> + Sync>
+    SyncOutputStore<L> for SyncSliceEstimatorArray<L, W, S>
+{
+    #[inline(always)]
+    unsafe fn set(&self, index: usize, content: &L::Backend) {
+        // SAFETY: forwarded from caller's safety guarantee (no concurrent
+        // access to the same index).
+        unsafe { SyncEstimatorArray::set(self, index, content) };
+    }
+}
+
+/// Stores iteration results and commutes them back into the current state.
+///
+/// Two implementations are provided:
+///
+/// - An in-memory implementation on [`SliceEstimatorArray`] that uses
+///   the existing ping-pong pattern (O(1) swap).
+/// - A spill-to-disk implementation ([`SpillStore`]) that writes `(node,
+///   backend)` records to an mmap'd log and scatters them back in
+///   [`commute`](Self::commute).
+pub trait OutputStore<L: EstimationLogic + ?Sized, A> {
+    /// The thread-safe view used during parallel iterations.
+    type OutputStore<'a>: SyncOutputStore<L>
+    where
+        Self: 'a;
+
+    /// Returns a thread-safe view for use inside `rayon::broadcast`.
+    fn as_sync(&mut self) -> Self::OutputStore<'_>;
+
+    /// Moves the results of the last iteration into `curr`.
+    fn commute(&mut self, curr: &mut A);
+
+    /// Resets this store to a clean state.
+    fn clear(&mut self);
+
+    /// Returns the number of bytes of RAM used by this store.
+    fn mem_usage(&self) -> usize;
+}
+
+impl<L: SliceEstimationLogic<W> + Clone + Sync, W: Word, S: AsRef<[W]> + AsMut<[W]>>
+    OutputStore<L, Self> for SliceEstimatorArray<L, W, S>
+{
+    type OutputStore<'a>
+        = SyncSliceEstimatorArray<L, W, &'a [SyncCell<W>]>
+    where
+        Self: 'a;
+
+    #[inline(always)]
+    fn as_sync(&mut self) -> Self::OutputStore<'_> {
+        AsSyncArray::as_sync_array(self)
+    }
+
+    #[inline(always)]
+    fn commute(&mut self, curr: &mut Self) {
+        std::mem::swap(self, curr);
+    }
+
+    #[inline(always)]
+    fn clear(&mut self) {
+        EstimatorArrayMut::clear(self);
+    }
+
+    fn mem_usage(&self) -> usize {
+        std::mem::size_of_val(self.as_ref())
+    }
+}
+
+/// An [`OutputStore`] that spills `(node, backend)` records to an anonymous
+/// memory-mapped region instead of keeping a second full estimator array in
+/// RAM.
+///
+/// During the parallel phase, each call to [`SyncOutputStore::set`] atomically
+/// reserves space in the mmap and writes the node index followed by the
+/// backend words. During [`commute`](OutputStore::commute), the log is
+/// scattered back into the current estimator array in parallel, and the write
+/// cursor is reset.
+pub struct SpillStore<W: Word> {
+    mmap: mmap_rs::MmapMut,
+    offset: CachePadded<AtomicUsize>,
+    backend_len: usize,
+    record_size: usize,
+    _marker: std::marker::PhantomData<W>,
+}
+
+// SAFETY: concurrent access is coordinated through the atomic `offset`
+// field; each record is written to a disjoint region of the mmap.
+unsafe impl<W: Word> Sync for SpillStore<W> {}
+
+impl<W: Word> SpillStore<W> {
+    /// Creates a new spill store sized for `num_nodes` estimators, each
+    /// with a backend of `backend_len` words of type `W`.
+    pub fn new(num_nodes: usize, backend_len: usize) -> Self {
+        let record_size = std::mem::size_of::<usize>() + backend_len * std::mem::size_of::<W>();
+        let total = num_nodes * record_size;
+        // Round up to page size.
+        let page = mmap_rs::MmapOptions::page_size();
+        let total = total.next_multiple_of(page);
+        let mmap = mmap_rs::MmapOptions::new(total)
+            .expect("mmap size should be valid")
+            .map_mut()
+            .expect("anonymous mmap should succeed");
+        Self {
+            mmap,
+            offset: CachePadded::new(AtomicUsize::new(0)),
+            backend_len,
+            record_size,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+/// Thread-safe view into a [`SpillStore`], returned by
+/// [`OutputStore::as_sync`].
+pub struct SyncSpillView<'a, W: Word> {
+    store: &'a SpillStore<W>,
+}
+
+unsafe impl<W: Word> Sync for SyncSpillView<'_, W> {}
+
+unsafe impl<L: SliceEstimationLogic<W> + Sync, W: Word> SyncOutputStore<L>
+    for SyncSpillView<'_, W>
+{
+    unsafe fn set(&self, index: usize, content: &L::Backend) {
+        debug_assert_eq!(content.len(), self.store.backend_len);
+        let pos = self
+            .store
+            .offset
+            .fetch_add(self.store.record_size, Ordering::Relaxed);
+        // SAFETY: the caller guarantees no two threads write the same
+        // index, and each fetch_add reserves a disjoint region.
+        unsafe {
+            let dst = self.store.mmap.as_ptr().add(pos) as *mut u8;
+            std::ptr::copy_nonoverlapping(
+                std::ptr::from_ref(&index) as *const u8,
+                dst,
+                std::mem::size_of::<usize>(),
+            );
+            std::ptr::copy_nonoverlapping(
+                content.as_ptr() as *const u8,
+                dst.add(std::mem::size_of::<usize>()),
+                self.store.backend_len * std::mem::size_of::<W>(),
+            );
+        }
+    }
+}
+
+impl<L: SliceEstimationLogic<W> + Clone + Sync, W: Word, S: AsRef<[W]> + AsMut<[W]>>
+    OutputStore<L, SliceEstimatorArray<L, W, S>> for SpillStore<W>
+{
+    type OutputStore<'a>
+        = SyncSpillView<'a, W>
+    where
+        Self: 'a;
+
+    fn as_sync(&mut self) -> SyncSpillView<'_, W> {
+        SyncSpillView { store: self }
+    }
+
+    fn commute(&mut self, curr: &mut SliceEstimatorArray<L, W, S>) {
+        let num_records = self.offset.load(Ordering::Relaxed) / self.record_size;
+        if num_records == 0 {
+            return;
+        }
+        let record_size = self.record_size;
+        let backend_len = self.backend_len;
+        let log = &self.mmap[..num_records * record_size];
+        let curr_sync = curr.as_sync_array();
+        let chunk_size = 1024 * record_size;
+        log.par_chunks(chunk_size).for_each(|chunk| {
+            for record in chunk.chunks_exact(record_size) {
+                let node = usize::from_ne_bytes(
+                    record[..std::mem::size_of::<usize>()].try_into().unwrap(),
+                );
+                let backend_bytes = &record[std::mem::size_of::<usize>()..];
+                // SAFETY: each node appears at most once in the log, so
+                // there are no data races across parallel chunks.
+                unsafe {
+                    let backend =
+                        std::slice::from_raw_parts(backend_bytes.as_ptr() as *const W, backend_len);
+                    SyncEstimatorArray::set(&curr_sync, node, backend);
+                }
+            }
+        });
+        self.offset.store(0, Ordering::Relaxed);
+    }
+
+    fn clear(&mut self) {
+        self.offset.store(0, Ordering::Relaxed);
+    }
+
+    fn mem_usage(&self) -> usize {
+        0
+    }
+}
 
 /// A builder for [`HyperBall`].
 ///
@@ -242,6 +465,7 @@ pub struct HyperBallBuilder<
     D: for<'b> Succ<Input = u64, Output<'b> = u64>,
     L: MergeEstimationLogic<Item = G1::Label>,
     A: EstimatorArrayMut<L>,
+    N: OutputStore<L, A> = A,
 > {
     /// A graph.
     graph: &'a G1,
@@ -259,11 +483,10 @@ pub struct HyperBallBuilder<
     granularity: Granularity,
     /// Integer weights for the nodes, if any.
     weights: Option<&'a [usize]>,
-    /// A first array of estimators.
+    /// The estimator array (read side).
     array_0: A,
-    /// A second array of estimators of the same length and with the same logic of
-    /// `array_0`.
-    array_1: A,
+    /// The output store (write side).
+    array_1: N,
     _marker: std::marker::PhantomData<L>,
 }
 
@@ -300,36 +523,13 @@ impl<
         log2m: u32,
         weights: Option<&'a [usize]>,
     ) -> Result<Self> {
-        let num_elements = if let Some(w) = weights {
-            ensure!(
-                w.len() == graph.num_nodes(),
-                "weights should have length equal to the graph's number of nodes"
-            );
-            w.iter().sum()
-        } else {
-            graph.num_nodes()
-        };
-
+        let num_elements = weights.map_or(graph.num_nodes(), |w| w.iter().sum());
         let logic = HyperLogLogBuilder::new(num_elements)
             .log2_num_regs(log2m)
             .build()?;
-
         let array_0 = SliceEstimatorArray::new(logic.clone(), graph.num_nodes());
         let array_1 = SliceEstimatorArray::new(logic, graph.num_nodes());
-
-        Ok(Self {
-            graph,
-            transpose: transposed,
-            cumul_outdegree: cumul_outdeg,
-            do_sum_of_dists: false,
-            do_sum_of_inv_dists: false,
-            discount_functions: Vec::new(),
-            granularity: Self::DEFAULT_GRANULARITY,
-            weights,
-            array_0,
-            array_1,
-            _marker: std::marker::PhantomData,
-        })
+        Self::from_parts(graph, transposed, cumul_outdeg, weights, array_0, array_1)
     }
 }
 
@@ -372,33 +572,103 @@ impl<
         log2m: u32,
         weights: Option<&'a [usize]>,
     ) -> Result<Self> {
-        if let Some(w) = weights {
-            ensure!(
-                w.len() == graph.num_nodes(),
-                "weights should have length equal to the graph's number of nodes"
-            );
-        }
-
         let logic = HyperLogLog8Builder::new()
             .log2_num_regs(log2m)
             .build::<usize>();
-
         let array_0 = SliceEstimatorArray::new(logic.clone(), graph.num_nodes());
         let array_1 = SliceEstimatorArray::new(logic, graph.num_nodes());
+        Self::from_parts(graph, transposed, cumul_outdeg, weights, array_0, array_1)
+    }
+}
 
-        Ok(Self {
-            graph,
-            transpose: transposed,
-            cumul_outdegree: cumul_outdeg,
-            do_sum_of_dists: false,
-            do_sum_of_inv_dists: false,
-            discount_functions: Vec::new(),
-            granularity: Self::DEFAULT_GRANULARITY,
-            weights,
-            array_0,
-            array_1,
-            _marker: std::marker::PhantomData,
-        })
+impl<
+    'a,
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    D: for<'b> Succ<Input = u64, Output<'b> = u64>,
+>
+    HyperBallBuilder<
+        'a,
+        G1,
+        G2,
+        D,
+        HyperLogLog<usize, BuildHasherDefault<DefaultHasher>>,
+        SliceEstimatorArray<HyperLogLog<usize, BuildHasherDefault<DefaultHasher>>>,
+        SpillStore<usize>,
+    >
+{
+    /// Creates a builder for [`HyperBall`] using [`HyperLogLog`] counters
+    /// with an external (spill-to-disk) output store.
+    ///
+    /// Only one estimator array is kept in RAM; iteration results are
+    /// written to an anonymous memory-mapped region and scattered back
+    /// after each iteration.
+    ///
+    /// # Arguments
+    /// * `graph` - the graph to analyze.
+    /// * `transpose` - optionally, the transpose of `graph`.
+    /// * `cumul_outdeg` - the outdegree cumulative function of the graph.
+    /// * `log2m` - the base-2 logarithm of the number of registers per
+    ///   HyperLogLog counter.
+    /// * `weights` - optional nonnegative integer node weights.
+    pub fn with_hyper_log_log_external(
+        graph: &'a G1,
+        transposed: Option<&'a G2>,
+        cumul_outdeg: &'a D,
+        log2m: u32,
+        weights: Option<&'a [usize]>,
+    ) -> Result<Self> {
+        let num_elements = weights.map_or(graph.num_nodes(), |w| w.iter().sum());
+        let logic = HyperLogLogBuilder::new(num_elements)
+            .log2_num_regs(log2m)
+            .build()?;
+        let backend_len = logic.backend_len();
+        let array_0 = SliceEstimatorArray::new(logic, graph.num_nodes());
+        let array_1 = SpillStore::new(graph.num_nodes(), backend_len);
+        Self::from_parts(graph, transposed, cumul_outdeg, weights, array_0, array_1)
+    }
+}
+
+impl<
+    'a,
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    D: for<'b> Succ<Input = u64, Output<'b> = u64>,
+>
+    HyperBallBuilder<
+        'a,
+        G1,
+        G2,
+        D,
+        HyperLogLog8<usize, BuildHasherDefault<DefaultHasher>>,
+        SliceEstimatorArray<HyperLogLog8<usize, BuildHasherDefault<DefaultHasher>>, u8>,
+        SpillStore<u8>,
+    >
+{
+    /// Creates a builder for [`HyperBall`] using [`HyperLogLog8`] counters
+    /// with an external (spill-to-disk) output store.
+    ///
+    /// # Arguments
+    /// * `graph` - the graph to analyze.
+    /// * `transpose` - optionally, the transpose of `graph`.
+    /// * `cumul_outdeg` - the outdegree cumulative function of the graph.
+    /// * `log2m` - the base-2 logarithm of the number of registers per
+    ///   HyperLogLog counter.
+    /// * `weights` - optional nonnegative integer node weights.
+    pub fn with_hyper_log_log8_external(
+        graph: &'a G1,
+        transposed: Option<&'a G2>,
+        cumul_outdeg: &'a D,
+        log2m: u32,
+        weights: Option<&'a [usize]>,
+    ) -> Result<Self> {
+        let logic = HyperLogLog8Builder::new()
+            .log2_num_regs(log2m)
+            .build::<usize>();
+        let backend_len = logic.backend_len();
+        let array_0 = SliceEstimatorArray::new(logic, graph.num_nodes());
+        let array_1 = SpillStore::new(graph.num_nodes(), backend_len);
+        Self::from_parts(graph, transposed, cumul_outdeg, weights, array_0, array_1)
     }
 }
 
@@ -407,7 +677,7 @@ impl<
     D: for<'b> Succ<Input = u64, Output<'b> = u64>,
     G: RandomAccessGraph + Sync,
     L: MergeEstimationLogic<Item = G::Label> + PartialEq,
-    A: EstimatorArrayMut<L>,
+    A: EstimatorArrayMut<L> + OutputStore<L, A>,
 > HyperBallBuilder<'a, G, G, D, L, A>
 {
     /// Creates a new builder with default parameters.
@@ -456,20 +726,18 @@ impl<
     G2: RandomAccessGraph + Sync,
     D: for<'b> Succ<Input = u64, Output<'b> = u64>,
     L: MergeEstimationLogic<Item = G1::Label>,
-    A: EstimatorArrayMut<L>,
+    A: EstimatorArrayMut<L> + OutputStore<L, A>,
 > HyperBallBuilder<'a, G1, G2, D, L, A>
 {
-    const DEFAULT_GRANULARITY: Granularity = Granularity::Nodes(16 * 1024);
-
     /// Creates a new builder with default parameters using also the transpose.
     ///
+    /// # Arguments
     /// * `graph` - the graph to analyze.
-    /// * `transpose` - optionally, the transpose of `graph`. If [`None`], no
-    ///   systolic iterations will be performed by the resulting [`HyperBall`].
+    /// * `transpose` - the transpose of `graph`.
     /// * `cumul_outdeg` - the outdegree cumulative function of the graph.
     /// * `array_0` - a first array of estimators.
-    /// * `array_1` - A second array of estimators of the same length and with the same logic of
-    ///   `array_0`.
+    /// * `array_1` - a second array of estimators of the same length and with
+    ///   the same logic of `array_0`.
     pub fn with_transpose(
         graph: &'a G1,
         transpose: &'a G2,
@@ -518,6 +786,48 @@ impl<
             array_1,
             _marker: std::marker::PhantomData,
         }
+    }
+}
+
+impl<
+    'a,
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    D: for<'b> Succ<Input = u64, Output<'b> = u64>,
+    L: MergeEstimationLogic<Item = G1::Label>,
+    A: EstimatorArrayMut<L>,
+    N: OutputStore<L, A>,
+> HyperBallBuilder<'a, G1, G2, D, L, A, N>
+{
+    const DEFAULT_GRANULARITY: Granularity = Granularity::Nodes(16 * 1024);
+
+    fn from_parts(
+        graph: &'a G1,
+        transposed: Option<&'a G2>,
+        cumul_outdeg: &'a D,
+        weights: Option<&'a [usize]>,
+        array_0: A,
+        array_1: N,
+    ) -> Result<Self> {
+        if let Some(w) = weights {
+            ensure!(
+                w.len() == graph.num_nodes(),
+                "weights should have length equal to the graph's number of nodes"
+            );
+        }
+        Ok(Self {
+            graph,
+            transpose: transposed,
+            cumul_outdegree: cumul_outdeg,
+            do_sum_of_dists: false,
+            do_sum_of_inv_dists: false,
+            discount_functions: Vec::new(),
+            granularity: Self::DEFAULT_GRANULARITY,
+            weights,
+            array_0,
+            array_1,
+            _marker: std::marker::PhantomData,
+        })
     }
 
     /// Sets whether to compute the sum of distances.
@@ -575,14 +885,15 @@ impl<
     D: for<'b> Succ<Input = u64, Output<'b> = u64>,
     L: MergeEstimationLogic<Item = G1::Label> + Sync + std::fmt::Display,
     A: EstimatorArrayMut<L>,
-> HyperBallBuilder<'a, G1, G2, D, L, A>
+    N: OutputStore<L, A>,
+> HyperBallBuilder<'a, G1, G2, D, L, A, N>
 {
     /// Builds a [`HyperBall`] instance.
     ///
     /// # Arguments
     ///
     /// * `pl` - A progress logger.
-    pub fn build(self, pl: &mut impl ConcurrentProgressLog) -> HyperBall<'a, G1, G2, D, L, A> {
+    pub fn build(self, pl: &mut impl ConcurrentProgressLog) -> HyperBall<'a, G1, G2, D, L, A, N> {
         let num_nodes = self.graph.num_nodes();
 
         let sum_of_distances = if self.do_sum_of_dists {
@@ -626,7 +937,8 @@ impl<
         ));
 
         // Compute memory usage (not counting the graph itself)
-        let estimator_bytes = std::mem::size_of_val(self.array_0.get_backend(0)) * num_nodes * 2;
+        let estimator_bytes = std::mem::size_of_val(self.array_0.get_backend(0)) * num_nodes
+            + self.array_1.mem_usage();
         let mut total_bytes = estimator_bytes;
         if sum_of_distances.is_some() {
             total_bytes += num_nodes * std::mem::size_of::<f32>();
@@ -759,6 +1071,7 @@ pub struct HyperBall<
     D: for<'b> Succ<Input = u64, Output<'b> = u64>,
     L: MergeEstimationLogic<Item = G1::Label> + Sync,
     A: EstimatorArrayMut<L>,
+    N: OutputStore<L, A> = A,
 > {
     /// The graph to analyze.
     graph: &'a G1,
@@ -768,10 +1081,10 @@ pub struct HyperBall<
     weight: Option<&'a [usize]>,
     /// The granularity of parallel tasks.
     granularity: Granularity,
-    /// The previous state.
+    /// The current state (read side).
     curr_state: A,
-    /// The next state.
-    next_state: A,
+    /// The output store (write side).
+    next_state: N,
     /// `true` if the computation is over.
     completed: bool,
     /// The neighborhood function.
@@ -797,8 +1110,9 @@ impl<
     G2: RandomAccessGraph + Sync,
     D: for<'b> Succ<Input = u64, Output<'b> = u64> + Sync,
     L: MergeEstimationLogic<Item = usize> + Sync,
-    A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
-> HyperBall<'_, G1, G2, D, L, A>
+    A: EstimatorArrayMut<L> + Sync,
+    N: OutputStore<L, A>,
+> HyperBall<'_, G1, G2, D, L, A, N>
 where
     L::Backend: PartialEq,
 {
@@ -1043,8 +1357,9 @@ impl<
     G2: RandomAccessGraph + Sync,
     D: for<'b> Succ<Input = u64, Output<'b> = u64> + Sync,
     L: EstimationLogic<Item = usize> + MergeEstimationLogic + Sync,
-    A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
-> HyperBall<'_, G1, G2, D, L, A>
+    A: EstimatorArrayMut<L> + Sync,
+    N: OutputStore<L, A>,
+> HyperBall<'_, G1, G2, D, L, A, N>
 where
     L::Backend: PartialEq,
 {
@@ -1159,7 +1474,7 @@ where
         arc_pl.expected_updates(if ic.local { None } else { Some(num_arcs as _) });
         arc_pl.start("Scanning arcs...");
         {
-            let next_state_sync = self.next_state.as_sync_array();
+            let next_state_sync = self.next_state.as_sync();
             let sum_of_dists = self.sum_of_dists.as_mut().map(|x| x.as_sync_slice());
             let sum_of_inv_dists = self.sum_of_inv_dists.as_mut().map(|x| x.as_sync_slice());
 
@@ -1195,7 +1510,7 @@ where
             (modified_estimators as f64 / self.graph.num_nodes() as f64) * 100.0
         ));
 
-        std::mem::swap(&mut self.curr_state, &mut self.next_state);
+        self.next_state.commute(&mut self.curr_state);
         std::mem::swap(&mut ic.curr_modified, &mut ic.next_modified);
 
         if ic.systolic {
@@ -1252,7 +1567,7 @@ where
         successors: I,
         transpose: Option<&(impl RandomAccessGraph + Sync)>,
         curr_state: &impl EstimatorArray<L>,
-        next_state: &impl SyncEstimatorArray<L>,
+        next_state: &impl SyncOutputStore<L>,
         ic: &IterationContext<'_, G1, D>,
         sum_of_dists: Option<&[SyncCell<f32>]>,
         sum_of_inv_dists: Option<&[SyncCell<f32>]>,
@@ -1419,7 +1734,7 @@ where
         graph: &(impl RandomAccessGraph + Sync),
         transpose: Option<&(impl RandomAccessGraph + Sync)>,
         curr_state: &impl EstimatorArray<L>,
-        next_state: &impl SyncEstimatorArray<L>,
+        next_state: &impl SyncOutputStore<L>,
         ic: &IterationContext<'_, G1, D>,
         sum_of_dists: Option<&[SyncCell<f32>]>,
         sum_of_inv_dists: Option<&[SyncCell<f32>]>,
@@ -1545,7 +1860,7 @@ where
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
         pl.start("Initializing estimators...");
-        pl.info(format_args!("Clearing all registers"));
+        pl.info(format_args!("Clearing all registers..."));
 
         self.curr_state.clear();
         self.next_state.clear();
@@ -1721,4 +2036,90 @@ mod test {
     cnr_2000_test!(test_cnr_2000_hll8, |_| Ok::<_, anyhow::Error>(
         HyperLogLog8Builder::new().log2_num_regs(6).build::<usize>()
     ));
+
+    #[test]
+    fn test_spill_store_vs_in_memory() -> Result<()> {
+        use webgraph::graphs::vec_graph::VecGraph;
+        let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
+        let dcf = graph.build_dcf();
+
+        let mut rng_mem = rand::rngs::SmallRng::seed_from_u64(0);
+        let mut rng_ext = rand::rngs::SmallRng::seed_from_u64(0);
+
+        let mut hb_mem =
+            HyperBallBuilder::with_hyper_log_log(&graph, None::<&VecGraph>, &dcf, 6, None)?
+                .build(no_logging![]);
+
+        let mut hb_ext = HyperBallBuilder::with_hyper_log_log_external(
+            &graph,
+            None::<&VecGraph>,
+            &dcf,
+            6,
+            None,
+        )?
+        .build(no_logging![]);
+
+        hb_mem.run_until_done(&mut rng_mem, no_logging![])?;
+        hb_ext.run_until_done(&mut rng_ext, no_logging![])?;
+
+        let nf_mem = hb_mem.neighborhood_function()?;
+        let nf_ext = hb_ext.neighborhood_function()?;
+
+        assert_eq!(nf_mem.len(), nf_ext.len());
+        for (m, e) in nf_mem.iter().zip(nf_ext.iter()) {
+            assert!(
+                (m - e).abs() < 1e-6,
+                "neighborhood function mismatch: {m} vs {e}"
+            );
+        }
+
+        for i in 0..graph.num_nodes() {
+            assert_eq!(
+                hb_mem.curr_state.get_backend(i),
+                hb_ext.curr_state.get_backend(i),
+                "backend mismatch at node {i}"
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_spill_store_hll8() -> Result<()> {
+        use webgraph::graphs::vec_graph::VecGraph;
+        let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
+        let dcf = graph.build_dcf();
+
+        let mut rng_mem = rand::rngs::SmallRng::seed_from_u64(42);
+        let mut rng_ext = rand::rngs::SmallRng::seed_from_u64(42);
+
+        let mut hb_mem =
+            HyperBallBuilder::with_hyper_log_log8(&graph, None::<&VecGraph>, &dcf, 6, None)?
+                .build(no_logging![]);
+
+        let mut hb_ext = HyperBallBuilder::with_hyper_log_log8_external(
+            &graph,
+            None::<&VecGraph>,
+            &dcf,
+            6,
+            None,
+        )?
+        .build(no_logging![]);
+
+        hb_mem.run_until_done(&mut rng_mem, no_logging![])?;
+        hb_ext.run_until_done(&mut rng_ext, no_logging![])?;
+
+        let nf_mem = hb_mem.neighborhood_function()?;
+        let nf_ext = hb_ext.neighborhood_function()?;
+
+        assert_eq!(nf_mem.len(), nf_ext.len());
+        for (m, e) in nf_mem.iter().zip(nf_ext.iter()) {
+            assert!(
+                (m - e).abs() < 1e-6,
+                "neighborhood function mismatch: {m} vs {e}"
+            );
+        }
+
+        Ok(())
+    }
 }
