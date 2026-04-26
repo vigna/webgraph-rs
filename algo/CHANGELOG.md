@@ -21,6 +21,9 @@
   symmetric graphs, and in general by 1/3 if you give up on the "total"
   heuristics tie-breaker.
 
+- `HyperBall` has now an external version (as in Java) using half the memory.
+  Moreover, counter initialization has been parallelized.
+
 ### New
 
 - New `BiRank` implementation.

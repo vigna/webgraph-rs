@@ -948,7 +948,7 @@ impl<
             discounted_centralities.push(vec![0.0; num_nodes]);
         }
 
-        pl.info(format_args!("Initializing bit vectors"));
+        pl.info(format_args!("Allocating bit vectors..."));
         let estimator_modified = AtomicBitVec::new(num_nodes);
         let modified_result_estimator = AtomicBitVec::new(num_nodes);
         let must_be_checked = AtomicBitVec::new(num_nodes);
@@ -1138,7 +1138,7 @@ impl<
     G2: RandomAccessGraph + Sync,
     D: for<'b> Succ<Input = u64, Output<'b> = u64> + Sync,
     L: MergeEstimationLogic<Item = usize> + Sync,
-    A: EstimatorArrayMut<L> + Sync,
+    A: EstimatorArrayMut<L> + AsSyncArray<L> + Sync,
     N: OutputStore<L, A>,
 > HyperBall<'_, G1, G2, D, L, A, N>
 where
@@ -1385,7 +1385,7 @@ impl<
     G2: RandomAccessGraph + Sync,
     D: for<'b> Succ<Input = u64, Output<'b> = u64> + Sync,
     L: EstimationLogic<Item = usize> + MergeEstimationLogic + Sync,
-    A: EstimatorArrayMut<L> + Sync,
+    A: EstimatorArrayMut<L> + AsSyncArray<L> + Sync,
     N: OutputStore<L, A>,
 > HyperBall<'_, G1, G2, D, L, A, N>
 where
@@ -1892,23 +1892,34 @@ where
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
         pl.start("Initializing estimators...");
-        pl.info(format_args!("Clearing all registers..."));
 
-        self.curr_state.clear();
-        self.next_state.clear();
+        let num_nodes = self.graph.num_nodes();
 
-        pl.info(format_args!("Initializing registers"));
         if let Some(w) = &self.weight {
-            pl.info(format_args!("Loading weights"));
+            pl.info(format_args!("Loading weights (sequential)"));
             for (i, &node_weight) in w.iter().enumerate() {
                 let mut estimator = self.curr_state.get_estimator_mut(i);
+                estimator.clear();
                 for _ in 0..node_weight {
                     estimator.add(&(rng.random::<u64>() as usize));
                 }
             }
         } else {
-            (0..self.graph.num_nodes()).for_each(|i| {
-                self.curr_state.get_estimator_mut(i).add(i);
+            pl.info(format_args!("Initializing registers (parallel)"));
+            let sync_array = self.curr_state.as_sync_array();
+            let logic = sync_array.logic();
+            rayon::broadcast(|ctx| {
+                let mut estimator = logic.new_estimator();
+                let num_threads = rayon::current_num_threads();
+                let chunk_size = num_nodes.div_ceil(num_threads);
+                let start = ctx.index() * chunk_size;
+                let end = (start + chunk_size).min(num_nodes);
+                for i in start..end {
+                    estimator.clear();
+                    estimator.add(i);
+                    // SAFETY: each thread writes to a disjoint set of nodes.
+                    unsafe { sync_array.set(i, estimator.as_ref()) };
+                }
             });
         }
 
