@@ -111,8 +111,8 @@
 //! pattern). If memory is tight, you can use the _external_ mode (see
 //! [`HyperBallBuilder::with_hyper_log_log_external`] and
 //! [`HyperBallBuilder::with_hyper_log_log8_external`]), which keeps only one
-//! array in RAM and writes modified counters to an anonymous memory-mapped
-//! region during each iteration. After the iteration, the modified counters are
+//! array in RAM and writes modified counters to a memory-mapped temporary
+//! file during each iteration. After the iteration, the modified counters are
 //! scattered back into the in-memory array. This halves the counter memory
 //! at the cost of additional I/O after each iteration. In practice, after the
 //! first few iterations only a small fraction of counters change, so the
@@ -163,6 +163,11 @@ use webgraph::utils::Granularity;
 /// Implementations must ensure that concurrent calls to [`set`](Self::set)
 /// with distinct indices do not cause data races.
 pub unsafe trait SyncOutputStore<L: EstimationLogic + ?Sized>: Sync {
+    /// When `true`, only modified nodes need to be written (the store
+    /// starts clean each iteration). When `false`, nodes modified in the
+    /// previous iteration must also be propagated (ping-pong stores).
+    const EXTERNAL: bool;
+
     /// Stores `content` as the backend of node `index`.
     ///
     /// # Safety
@@ -175,6 +180,8 @@ pub unsafe trait SyncOutputStore<L: EstimationLogic + ?Sized>: Sync {
 unsafe impl<L: SliceEstimationLogic<W> + Sync, W: Word, S: AsRef<[SyncCell<W>]> + Sync>
     SyncOutputStore<L> for SyncSliceEstimatorArray<L, W, S>
 {
+    const EXTERNAL: bool = false;
+
     #[inline(always)]
     unsafe fn set(&self, index: usize, content: &L::Backend) {
         // SAFETY: forwarded from caller's safety guarantee (no concurrent
@@ -302,6 +309,8 @@ unsafe impl<W: Word> Sync for SyncSpillView<'_, W> {}
 unsafe impl<L: SliceEstimationLogic<W> + Sync, W: Word> SyncOutputStore<L>
     for SyncSpillView<'_, W>
 {
+    const EXTERNAL: bool = true;
+
     unsafe fn set(&self, index: usize, content: &L::Backend) {
         debug_assert_eq!(content.len(), self.store.backend_len);
         let pos = self
@@ -379,18 +388,26 @@ impl<L: SliceEstimationLogic<W> + Clone + Sync, W: Word, S: AsRef<[W]> + AsMut<[
 ///
 /// # Creating a Builder
 ///
-/// There are three constructors, depending on the type of graph and
-/// cardinality estimator:
+/// The most common entry points create the estimator arrays internally,
+/// requiring only `log2m` (the base-2 logarithm of the number of registers
+/// per counter). Higher values of `log2m` give more precise estimates at the
+/// cost of more memory.
 ///
-/// - [`with_hyper_log_log`]: the most common entry
-///   point—it creates a builder using [`HyperLogLog`] counters, requiring
-///   only the base-2 logarithm of the number of registers per counter
-///   (`log2m`). Higher values of `log2m` give more precise estimates at the
-///   cost of more memory;
-/// - [`new`]: creates a builder from two pre-built estimator
-///   arrays and a graph (without its transpose);
-/// - [`with_transpose`]: same, but also accepts the
-///   transpose of the graph, enabling [systolic
+/// **In-memory** (two arrays in RAM, O(1) swap per iteration):
+///
+/// - [`with_hyper_log_log`]: [`HyperLogLog`] counters;
+/// - [`with_hyper_log_log8`]: [`HyperLogLog8`] counters (byte registers,
+///   SIMD-accelerated merges, ≈33% more space).
+///
+/// **External** (one array in RAM, spill to a temporary file):
+///
+/// - [`with_hyper_log_log_external`]: [`HyperLogLog`] counters;
+/// - [`with_hyper_log_log8_external`]: [`HyperLogLog8`] counters.
+///
+/// **Low-level** (caller provides pre-built arrays):
+///
+/// - [`new`]: graph only (no transpose, no systolic iterations);
+/// - [`with_transpose`]: graph + transpose, enabling [systolic
 ///   computation](super::hyperball#systolic-computation).
 ///
 /// # Configuration
@@ -410,6 +427,9 @@ impl<L: SliceEstimationLogic<W> + Clone + Sync, W: Word, S: AsRef<[W]> + AsMut<[
 /// [`run`] or [`run_until_done`] to perform the actual computation.
 ///
 /// [`with_hyper_log_log`]: Self::with_hyper_log_log
+/// [`with_hyper_log_log8`]: Self::with_hyper_log_log8
+/// [`with_hyper_log_log_external`]: Self::with_hyper_log_log_external
+/// [`with_hyper_log_log8_external`]: Self::with_hyper_log_log8_external
 /// [`new`]: Self::new
 /// [`with_transpose`]: Self::with_transpose
 /// [`sum_of_distances`]: Self::sum_of_distances
@@ -609,7 +629,7 @@ impl<
     /// with an external (spill-to-disk) output store.
     ///
     /// Only one estimator array is kept in RAM; iteration results are
-    /// written to an anonymous memory-mapped region and scattered back
+    /// written to a memory-mapped temporary file and scattered back
     /// after each iteration.
     ///
     /// # Arguments
@@ -955,8 +975,8 @@ impl<
             total_bytes += num_nodes * std::mem::size_of::<f32>();
         }
         total_bytes += discounted_centralities.len() * num_nodes * std::mem::size_of::<f32>();
-        // 4 AtomicBitVec of num_nodes bits
-        total_bytes += 5 * num_nodes.div_ceil(usize::BITS as usize) * usize::BITS as usize / 8;
+        // 4 AtomicBitVecs of num_nodes bits
+        total_bytes += 4 * num_nodes.div_ceil(usize::BITS as usize) * usize::BITS as usize / 8;
 
         pl.info(format_args!(
             "HyperBall memory usage: {}B [not counting graph(s)]",
@@ -1570,12 +1590,12 @@ where
     /// Returns `(visited_arcs, modified_estimators)`.
     #[allow(clippy::too_many_arguments)]
     #[inline(always)]
-    fn process_node<I: IntoIterator<Item = usize>>(
+    fn process_node<I: IntoIterator<Item = usize>, NS: SyncOutputStore<L>>(
         node: usize,
         successors: I,
         transpose: Option<&(impl RandomAccessGraph + Sync)>,
         curr_state: &impl EstimatorArray<L>,
-        next_state: &impl SyncOutputStore<L>,
+        next_state: &NS,
         ic: &IterationContext<'_, G1, D>,
         sum_of_dists: Option<&[SyncCell<f32>]>,
         sum_of_inv_dists: Option<&[SyncCell<f32>]>,
@@ -1709,19 +1729,23 @@ where
                 modified_estimators += 1;
             }
 
-            // SAFETY: each node is accessed exactly once per iteration.
-            unsafe {
-                next_state.set(node, next_estimator.as_ref());
-            }
-        } else {
-            // Even if we cannot possibly have changed our value, still our copy
-            // in the result vector might need to be updated because it does not
-            // reflect our current value.
-            if ic.curr_modified[node] {
+            // External stores start clean each iteration, so only modified
+            // nodes need a write. In-memory (ping-pong) stores also need a
+            // write for nodes modified in the previous iteration, because
+            // the "next" array still contains stale data from two rounds ago.
+            if estimator_modified || (!NS::EXTERNAL && ic.curr_modified[node]) {
                 // SAFETY: each node is accessed exactly once per iteration.
                 unsafe {
-                    next_state.set(node, prev_estimator);
+                    next_state.set(node, next_estimator.as_ref());
                 }
+            }
+        } else if !NS::EXTERNAL && ic.curr_modified[node] {
+            // Systolic unchecked: our value cannot have changed, but in
+            // ping-pong mode the result array may not reflect our current
+            // value if we were modified in the previous iteration.
+            // SAFETY: each node is accessed exactly once per iteration.
+            unsafe {
+                next_state.set(node, prev_estimator);
             }
         }
 
@@ -1941,7 +1965,7 @@ mod test {
     /// Generates a parallel-vs-sequential HyperBall comparison test for a
     /// given estimation logic. The macro is needed because the backend word
     /// type (`usize` vs `u8`) differs between `HyperLogLog` and
-    /// `HyperLogLog8`, preventing a single generic function. The
+    /// `HyperLogLog8`, preventing a single generic function.
     macro_rules! cnr_2000_test {
         ($name:ident, $make_logic:expr) => {
             #[cfg_attr(feature = "slow_tests", test)]
