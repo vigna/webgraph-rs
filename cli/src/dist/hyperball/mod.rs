@@ -74,22 +74,21 @@ pub struct CliArgs {
     /// The basename of the graph.​
     pub basename: PathBuf,
 
-    #[clap(long = "symm", short, default_value_t = false)]
-    /// The graph is symmetric (it will be used as its own transpose).​
-    pub symmetric: bool,
-
     /// The basename of the transpose of the graph. If available, HyperBall will
     /// perform systolic iterations which will speed up the computation. If the
     /// graph is symmetric, use the --symm option instead.​
-    #[clap(short, long)]
     pub transpose: Option<PathBuf>,
+
+    #[clap(long = "symm", short, default_value_t = false)]
+    /// The graph is symmetric (it will be used as its own transpose).​
+    pub symmetric: bool,
 
     #[clap(short = 'm', long, default_value_t = 8)]
     /// The base-2 logarithm of the number of registers for the HyperLogLog
     /// cardinality estimators.​
     pub log2m: u32,
 
-    #[clap(long)]
+    #[clap(short, long)]
     /// Uses an external (spill-to-disk) output store, keeping only one counter
     /// array in RAM instead of two; halves the counter memory at the cost
     /// of extra I/O after each iteration.​

@@ -2037,6 +2037,112 @@ mod test {
         HyperLogLog8Builder::new().log2_num_regs(6).build::<usize>()
     ));
 
+    macro_rules! cnr_2000_external_test {
+        ($name:ident, $make_builder:expr) => {
+            #[cfg_attr(feature = "slow_tests", test)]
+            #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
+            fn $name() -> Result<()> {
+                #[cfg(target_pointer_width = "64")]
+                let basename = "../data/cnr-2000";
+                #[cfg(not(target_pointer_width = "64"))]
+                let basename = "../data/cnr-2000_32/cnr-2000";
+
+                #[cfg(target_pointer_width = "64")]
+                let basename_t = "../data/cnr-2000-t";
+                #[cfg(not(target_pointer_width = "64"))]
+                let basename_t = "../data/cnr-2000_32/cnr-2000-t";
+
+                let graph = BvGraph::with_basename(basename).load()?;
+                let transpose = BvGraph::with_basename(basename_t).load()?;
+                let cumulative =
+                    unsafe { DCF::load_mmap(basename.to_owned() + ".dcf", Flags::empty()) }?;
+                let num_nodes = graph.num_nodes();
+
+                let logic = ($make_builder)(&graph, &transpose, cumulative.uncase(), num_nodes)?;
+                let (mut hyperball, seq_logic) = logic;
+
+                let seq_bits = SliceEstimatorArray::new(seq_logic.clone(), num_nodes);
+                let seq_result_bits = SliceEstimatorArray::new(seq_logic, num_nodes);
+
+                struct SeqState<A> {
+                    curr: A,
+                    next: A,
+                }
+
+                let mut seq = SeqState {
+                    curr: seq_bits,
+                    next: seq_result_bits,
+                };
+
+                for i in 0..num_nodes {
+                    seq.curr.get_estimator_mut(i).add(&i);
+                }
+
+                let mut modified_estimators = num_nodes as u64;
+                let mut rng = rand::rngs::SmallRng::seed_from_u64(42);
+                hyperball.init(&mut rng, no_logging![])?;
+
+                while modified_estimators != 0 {
+                    hyperball.iterate(no_logging![])?;
+
+                    for i in 0..num_nodes {
+                        let mut estimator = seq.next.get_estimator_mut(i);
+                        estimator.set(seq.curr.get_backend(i));
+                        for succ in graph.successors(i) {
+                            estimator.merge(seq.curr.get_backend(succ));
+                        }
+                    }
+                    std::mem::swap(&mut seq.curr, &mut seq.next);
+
+                    modified_estimators = hyperball
+                        .iteration_context
+                        .modified_estimators
+                        .load(Ordering::Relaxed);
+
+                    for i in 0..num_nodes {
+                        assert_eq!(
+                            hyperball.curr_state.get_backend(i),
+                            seq.curr.get_backend(i),
+                            "curr_state mismatch at node {i}"
+                        );
+                    }
+                }
+
+                Ok(())
+            }
+        };
+    }
+
+    cnr_2000_external_test!(test_cnr_2000_external, |graph, transpose, dcf, n| {
+        let logic = HyperLogLogBuilder::new(n)
+            .log2_num_regs(6)
+            .build::<usize>()?;
+        let seq_logic = logic.clone();
+        let hb = HyperBallBuilder::with_hyper_log_log_external(
+            graph,
+            Some(transpose),
+            dcf,
+            6,
+            None,
+        )?
+        .build(no_logging![]);
+        Ok::<_, anyhow::Error>((hb, seq_logic))
+    });
+
+    cnr_2000_external_test!(test_cnr_2000_hll8_external, |graph, transpose, dcf, _n| {
+        let logic = HyperLogLog8Builder::new().log2_num_regs(6).build::<usize>();
+        let seq_logic = logic.clone();
+        let hb = HyperBallBuilder::with_hyper_log_log8_external(
+            graph,
+            Some(transpose),
+            dcf,
+            6,
+            None,
+        )?
+        .build(no_logging![]);
+        Ok::<_, anyhow::Error>((hb, seq_logic))
+    });
+
     #[test]
     fn test_spill_store_vs_in_memory() -> Result<()> {
         use webgraph::graphs::vec_graph::VecGraph;
