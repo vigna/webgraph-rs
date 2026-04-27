@@ -96,7 +96,7 @@ fn build_kmerge_heap<T, I: Iterator<Item = ((usize, usize), T)>>(
 /// `collect()`.
 ///
 /// ```rust
-/// use webgraph::utils::sort_pairs::KMergeIters;
+/// use webgraph::utils::kmerge_iters::KMergeIters;
 ///
 /// let iter = vec![vec![((0, 0), 0), ((0, 1), 1)], vec![((1, 0), 1), ((1, 1), 2)]];
 /// let merged: KMergeIters<_, i32> =

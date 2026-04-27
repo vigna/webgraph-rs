@@ -91,9 +91,13 @@
 
 - `MemoryUsage::default` has now a more sensible, nonlinear growth strategy.
 
+- `SortPairs` has been removed, replaced by `*_seq` equivalent methods in
+  `ParSortPairs`; they can additionally partition the output. Consequently, the
+  module `sort_pairs` has been renamed `k_merge_iters`.
+
 ### Improved
 
-- `SortPairs`, `ParSortPairs`, `ParSortIters`, and `KMergeIters` now have a
+- `ParSortPairs`, `ParSortIters`, and `KMergeIters` now have a
   `const DEDUP: bool` type parameter that enables deduplication at compile time.
 
 - Added `FusedIterator` implementations to `BfsOrder` and `DfsOrder`.
