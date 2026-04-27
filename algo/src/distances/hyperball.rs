@@ -1432,7 +1432,7 @@ where
 
         if ic.systolic {
             pl.info(format_args!(
-                "Starting systolic iteration (local: {}, pre_local: {})",
+                "Starting systolic iteration (local: {}, pre-local: {})",
                 ic.local, ic.pre_local
             ));
         } else {
@@ -1499,7 +1499,11 @@ where
 
         let mut arc_pl = pl.dup();
         arc_pl.item_name("arc");
-        arc_pl.expected_updates(if ic.local { None } else { Some(num_arcs as _) });
+        arc_pl.expected_updates(if ic.local || ic.systolic {
+            None
+        } else {
+            Some(num_arcs as _)
+        });
         arc_pl.start("Scanning arcs...");
         {
             let next_state_sync = self.next_state.as_sync();
@@ -1561,7 +1565,7 @@ where
 
         pl.info(format_args!(
             "Pairs: {} ({}%)",
-            *current_nf_mut,
+            current_nf_mut.round() as u128,
             (*current_nf_mut * 100.0) / (num_nodes * num_nodes) as f64
         ));
         pl.info(format_args!(
