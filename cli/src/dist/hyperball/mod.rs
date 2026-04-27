@@ -17,7 +17,8 @@ use webgraph::{
     graphs::bvgraph::get_endianness,
     prelude::{BvGraph, DCF, DEG_CUMUL_EXTENSION},
 };
-use webgraph_algo::distances::hyperball::HyperBallBuilder;
+use webgraph::utils::Granularity;
+use webgraph_algo::distances::hyperball::{self, HyperBallBuilder};
 
 #[derive(Args, Debug, Clone)]
 #[clap(group = ArgGroup::new("centralities"))]
@@ -154,7 +155,7 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
         );
     }
 
-    let deg_cumul = unsafe {
+    let deg_cumul_func = unsafe {
         DCF::mmap(
             args.basename.with_extension(DEG_CUMUL_EXTENSION),
             Flags::RANDOM_ACCESS,
@@ -220,7 +221,11 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
     macro_rules! configure_and_run {
         ($builder:expr) => {{
             let hb = $builder
-                .granularity(args.granularity.into_granularity())
+                .granularity(
+                    args.granularity.into_granularity_or(Granularity::Nodes(
+                        hyperball::DEFAULT_GRANULARITY,
+                    )),
+                )
                 .sum_of_distances(args.centralities.should_compute_sum_of_distances())
                 .sum_of_inverse_distances(
                     args.centralities.should_compute_sum_of_inverse_distances(),
@@ -234,28 +239,28 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
         (false, false) => configure_and_run!(HyperBallBuilder::with_hyper_log_log(
             &graph,
             transpose,
-            deg_cumul.uncase(),
+            deg_cumul_func.uncase(),
             args.log2m,
             None,
         )?),
         (false, true) => configure_and_run!(HyperBallBuilder::with_hyper_log_log_external(
             &graph,
             transpose,
-            deg_cumul.uncase(),
+            deg_cumul_func.uncase(),
             args.log2m,
             None,
         )?),
         (true, false) => configure_and_run!(HyperBallBuilder::with_hyper_log_log8(
             &graph,
             transpose,
-            deg_cumul.uncase(),
+            deg_cumul_func.uncase(),
             args.log2m,
             None,
         )?),
         (true, true) => configure_and_run!(HyperBallBuilder::with_hyper_log_log8_external(
             &graph,
             transpose,
-            deg_cumul.uncase(),
+            deg_cumul_func.uncase(),
             args.log2m,
             None,
         )?),

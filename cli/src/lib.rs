@@ -236,11 +236,15 @@ pub struct GranularityArgs {
 
 impl GranularityArgs {
     pub fn into_granularity(&self) -> Granularity {
+        self.into_granularity_or(Granularity::default())
+    }
+
+    pub fn into_granularity_or(&self, default: Granularity) -> Granularity {
         match (self.arc_granularity, self.node_granularity) {
             (Some(_), Some(_)) => unreachable!(),
             (Some(arc_granularity), None) => Granularity::Arcs(arc_granularity),
             (None, Some(node_granularity)) => Granularity::Nodes(node_granularity),
-            (None, None) => Granularity::default(),
+            (None, None) => default,
         }
     }
 }

@@ -41,9 +41,9 @@ pub enum Granularity {
 }
 
 impl core::default::Default for Granularity {
-    /// Returns a default relative granularity of 1000 nodes.
+    /// Returns a default relative granularity of 10000 nodes.
     fn default() -> Self {
-        Self::Nodes(1000)
+        Self::Nodes(10_000)
     }
 }
 

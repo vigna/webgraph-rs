@@ -159,6 +159,9 @@ use sync_cell_slice::{SyncCell, SyncSlice};
 use webgraph::traits::{RandomAccessGraph, SequentialLabeling};
 use webgraph::utils::Granularity;
 
+/// Default node granularity for HyperBall parallel tasks.
+pub const DEFAULT_GRANULARITY: usize = 16 * 1024;
+
 /// Write-only view of an [`OutputStore`], used during parallel iterations.
 ///
 /// # Safety
@@ -453,12 +456,12 @@ impl<L: SliceEstimationLogic<W> + Clone + Sync, W: Word, S: AsRef<[W]> + AsMut<[
 /// # use dsi_progress_logger::no_logging;
 /// # use rand::SeedableRng;
 /// let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
-/// let dcf = graph.build_dcf();
+/// let deg_cumul_func = graph.build_dcf();
 ///
 /// // Build and run HyperBall (neighborhood function only)
 /// let rng = rand::rngs::SmallRng::seed_from_u64(0);
 /// let mut hyperball = HyperBallBuilder::with_hyper_log_log(
-///     &graph, None::<&VecGraph>, &dcf, 6, None,
+///     &graph, None::<&VecGraph>, &deg_cumul_func, 6, None,
 /// )?.build(no_logging![]);
 /// hyperball.run_until_done(rng, no_logging![])?;
 ///
@@ -476,10 +479,10 @@ impl<L: SliceEstimationLogic<W> + Clone + Sync, W: Word, S: AsRef<[W]> + AsMut<[
 /// # use dsi_progress_logger::no_logging;
 /// # use rand::SeedableRng;
 /// # let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
-/// # let dcf = graph.build_dcf();
+/// # let deg_cumul_func = graph.build_dcf();
 /// # let rng = rand::rngs::SmallRng::seed_from_u64(0);
 /// let mut hyperball = HyperBallBuilder::with_hyper_log_log(
-///     &graph, None::<&VecGraph>, &dcf, 6, None,
+///     &graph, None::<&VecGraph>, &deg_cumul_func, 6, None,
 /// )?
 /// .sum_of_inverse_distances(true)
 /// .build(no_logging![]);
@@ -502,8 +505,8 @@ pub struct HyperBallBuilder<
     graph: &'a G1,
     /// The transpose of `graph`, if any.
     transpose: Option<&'a G2>,
-    /// The outdegree cumulative function of the graph.
-    cumul_outdegree: &'a D,
+    /// The degree cumulative function of the graph.
+    deg_cumul_func: &'a D,
     /// Whether to compute the sum of distances (e.g., for closeness centrality).
     do_sum_of_dists: bool,
     /// Whether to compute the sum of inverse distances (e.g., for harmonic centrality).
@@ -542,7 +545,7 @@ impl<
     /// * `graph` - the graph to analyze.
     /// * `transpose` - optionally, the transpose of `graph`. If [`None`], no
     ///   systolic iterations will be performed by the resulting [`HyperBall`].
-    /// * `cumul_outdeg` - the outdegree cumulative function of the graph.
+    /// * `deg_cumul_func` - the degree cumulative function of the graph.
     /// * `log2m` - the base-2 logarithm of the number *m* of register per
     ///   HyperLogLog cardinality estimator.
     /// * `weights` - the weights to use. If [`None`] every node is assumed to be
@@ -550,7 +553,7 @@ impl<
     pub fn with_hyper_log_log(
         graph: &'a G1,
         transposed: Option<&'a G2>,
-        cumul_outdeg: &'a D,
+        deg_cumul_func: &'a D,
         log2m: u32,
         weights: Option<&'a [usize]>,
     ) -> Result<Self> {
@@ -560,7 +563,7 @@ impl<
             .build()?;
         let array_0 = SliceEstimatorArray::new(logic.clone(), graph.num_nodes());
         let array_1 = SliceEstimatorArray::new(logic, graph.num_nodes());
-        Self::from_parts(graph, transposed, cumul_outdeg, weights, array_0, array_1)
+        Self::from_parts(graph, transposed, deg_cumul_func, weights, array_0, array_1)
     }
 }
 
@@ -591,7 +594,7 @@ impl<
     /// * `graph` - the graph to analyze.
     /// * `transpose` - optionally, the transpose of `graph`. If [`None`], no
     ///   systolic iterations will be performed by the resulting [`HyperBall`].
-    /// * `cumul_outdeg` - the outdegree cumulative function of the graph.
+    /// * `deg_cumul_func` - the degree cumulative function of the graph.
     /// * `log2m` - the base-2 logarithm of the number *m* of registers per
     ///   HyperLogLog counter.
     /// * `weights` - the weights to use. If [`None`] every node is assumed to be
@@ -599,7 +602,7 @@ impl<
     pub fn with_hyper_log_log8(
         graph: &'a G1,
         transposed: Option<&'a G2>,
-        cumul_outdeg: &'a D,
+        deg_cumul_func: &'a D,
         log2m: u32,
         weights: Option<&'a [usize]>,
     ) -> Result<Self> {
@@ -608,7 +611,7 @@ impl<
             .build::<usize>();
         let array_0 = SliceEstimatorArray::new(logic.clone(), graph.num_nodes());
         let array_1 = SliceEstimatorArray::new(logic, graph.num_nodes());
-        Self::from_parts(graph, transposed, cumul_outdeg, weights, array_0, array_1)
+        Self::from_parts(graph, transposed, deg_cumul_func, weights, array_0, array_1)
     }
 }
 
@@ -638,14 +641,14 @@ impl<
     /// # Arguments
     /// * `graph` - the graph to analyze.
     /// * `transpose` - optionally, the transpose of `graph`.
-    /// * `cumul_outdeg` - the outdegree cumulative function of the graph.
+    /// * `deg_cumul_func` - the degree cumulative function of the graph.
     /// * `log2m` - the base-2 logarithm of the number of registers per
     ///   HyperLogLog counter.
     /// * `weights` - optional nonnegative integer node weights.
     pub fn with_hyper_log_log_external(
         graph: &'a G1,
         transposed: Option<&'a G2>,
-        cumul_outdeg: &'a D,
+        deg_cumul_func: &'a D,
         log2m: u32,
         weights: Option<&'a [usize]>,
     ) -> Result<Self> {
@@ -656,7 +659,7 @@ impl<
         let backend_len = logic.backend_len();
         let array_0 = SliceEstimatorArray::new(logic, graph.num_nodes());
         let array_1 = SpillStore::new(graph.num_nodes(), backend_len);
-        Self::from_parts(graph, transposed, cumul_outdeg, weights, array_0, array_1)
+        Self::from_parts(graph, transposed, deg_cumul_func, weights, array_0, array_1)
     }
 }
 
@@ -682,14 +685,14 @@ impl<
     /// # Arguments
     /// * `graph` - the graph to analyze.
     /// * `transpose` - optionally, the transpose of `graph`.
-    /// * `cumul_outdeg` - the outdegree cumulative function of the graph.
+    /// * `deg_cumul_func` - the degree cumulative function of the graph.
     /// * `log2m` - the base-2 logarithm of the number of registers per
     ///   HyperLogLog counter.
     /// * `weights` - optional nonnegative integer node weights.
     pub fn with_hyper_log_log8_external(
         graph: &'a G1,
         transposed: Option<&'a G2>,
-        cumul_outdeg: &'a D,
+        deg_cumul_func: &'a D,
         log2m: u32,
         weights: Option<&'a [usize]>,
     ) -> Result<Self> {
@@ -699,7 +702,7 @@ impl<
         let backend_len = logic.backend_len();
         let array_0 = SliceEstimatorArray::new(logic, graph.num_nodes());
         let array_1 = SpillStore::new(graph.num_nodes(), backend_len);
-        Self::from_parts(graph, transposed, cumul_outdeg, weights, array_0, array_1)
+        Self::from_parts(graph, transposed, deg_cumul_func, weights, array_0, array_1)
     }
 }
 
@@ -715,11 +718,11 @@ impl<
     ///
     /// # Arguments
     /// * `graph` - the graph to analyze.
-    /// * `cumul_outdeg` - the outdegree cumulative function of the graph.
+    /// * `deg_cumul_func` - the degree cumulative function of the graph.
     /// * `array_0` - a first array of estimators.
     /// * `array_1` - a second array of estimators of the same length and with the same logic of
     ///   `array_0`.
-    pub fn new(graph: &'a G, cumul_outdeg: &'a D, array_0: A, array_1: A) -> Self {
+    pub fn new(graph: &'a G, deg_cumul_func: &'a D, array_0: A, array_1: A) -> Self {
         assert!(array_0.logic() == array_1.logic(), "Incompatible logic");
         assert_eq!(
             graph.num_nodes(),
@@ -738,7 +741,7 @@ impl<
         Self {
             graph,
             transpose: None,
-            cumul_outdegree: cumul_outdeg,
+            deg_cumul_func: deg_cumul_func,
             do_sum_of_dists: false,
             do_sum_of_inv_dists: false,
             discount_functions: Vec::new(),
@@ -765,14 +768,14 @@ impl<
     /// # Arguments
     /// * `graph` - the graph to analyze.
     /// * `transpose` - the transpose of `graph`.
-    /// * `cumul_outdeg` - the outdegree cumulative function of the graph.
+    /// * `deg_cumul_func` - the degree cumulative function of the graph.
     /// * `array_0` - a first array of estimators.
     /// * `array_1` - a second array of estimators of the same length and with
     ///   the same logic of `array_0`.
     pub fn with_transpose(
         graph: &'a G1,
         transpose: &'a G2,
-        cumul_outdeg: &'a D,
+        deg_cumul_func: &'a D,
         array_0: A,
         array_1: A,
     ) -> Self {
@@ -807,7 +810,7 @@ impl<
         Self {
             graph,
             transpose: Some(transpose),
-            cumul_outdegree: cumul_outdeg,
+            deg_cumul_func: deg_cumul_func,
             do_sum_of_dists: false,
             do_sum_of_inv_dists: false,
             discount_functions: Vec::new(),
@@ -830,12 +833,12 @@ impl<
     N: OutputStore<L, A>,
 > HyperBallBuilder<'a, G1, G2, D, L, A, N>
 {
-    const DEFAULT_GRANULARITY: Granularity = Granularity::Nodes(16 * 1024);
+    const DEFAULT_GRANULARITY: Granularity = Granularity::Nodes(DEFAULT_GRANULARITY);
 
     fn from_parts(
         graph: &'a G1,
         transposed: Option<&'a G2>,
-        cumul_outdeg: &'a D,
+        deg_cumul_func: &'a D,
         weights: Option<&'a [usize]>,
         array_0: A,
         array_1: N,
@@ -849,7 +852,7 @@ impl<
         Ok(Self {
             graph,
             transpose: transposed,
-            cumul_outdegree: cumul_outdeg,
+            deg_cumul_func: deg_cumul_func,
             do_sum_of_dists: false,
             do_sum_of_inv_dists: false,
             discount_functions: Vec::new(),
@@ -1000,7 +1003,7 @@ impl<
             sum_of_inv_dists: sum_of_inverse_distances,
             discounted_centralities,
             iteration_context: IterationContext {
-                cumul_outdeg: self.cumul_outdegree,
+                deg_cumul_func: self.deg_cumul_func,
                 iteration: 0,
                 current_nf: Mutex::new(0.0),
                 node_granularity: 0,
@@ -1035,8 +1038,8 @@ impl<
 /// [`parallel_task`]: HyperBall::parallel_task
 /// [`iterate`]: HyperBall::iterate
 struct IterationContext<'a, G1: SequentialLabeling, D> {
-    /// The cumulative list of outdegrees.
-    cumul_outdeg: &'a D,
+    /// The degree cumulative function of the graph.
+    deg_cumul_func: &'a D,
     /// The number of the current iteration.
     iteration: usize,
     /// The value of the neighborhood function computed during the current iteration.
@@ -1840,7 +1843,7 @@ where
                     if target >= arc_upper_limit {
                         next_node = node_upper_limit;
                     } else {
-                        (next_node, next_arc) = ic.cumul_outdeg.succ(target).unwrap();
+                        (next_node, next_arc) = ic.deg_cumul_func.succ(target).unwrap();
                     }
                     let end = next_node;
                     *arc_balanced_cursor = (next_node, next_arc);
@@ -2016,7 +2019,7 @@ mod test {
 
                 let graph = BvGraph::with_basename(basename).load()?;
                 let transpose = BvGraph::with_basename(basename_t).load()?;
-                let cumulative =
+                let deg_cumul_func =
                     unsafe { DCF::load_mmap(basename.to_owned() + ".dcf", Flags::empty()) }?;
                 let num_nodes = graph.num_nodes();
 
@@ -2030,7 +2033,7 @@ mod test {
                 let mut hyperball = HyperBallBuilder::with_transpose(
                     &graph,
                     &transpose,
-                    cumulative.uncase(),
+                    deg_cumul_func.uncase(),
                     par_bits,
                     par_result_bits,
                 )
@@ -2119,11 +2122,11 @@ mod test {
 
                 let graph = BvGraph::with_basename(basename).load()?;
                 let transpose = BvGraph::with_basename(basename_t).load()?;
-                let cumulative =
+                let deg_cumul_func =
                     unsafe { DCF::load_mmap(basename.to_owned() + ".dcf", Flags::empty()) }?;
                 let num_nodes = graph.num_nodes();
 
-                let logic = ($make_builder)(&graph, &transpose, cumulative.uncase(), num_nodes)?;
+                let logic = ($make_builder)(&graph, &transpose, deg_cumul_func.uncase(), num_nodes)?;
                 let (mut hyperball, seq_logic) = logic;
 
                 let seq_bits = SliceEstimatorArray::new(seq_logic.clone(), num_nodes);
@@ -2202,19 +2205,19 @@ mod test {
     fn test_spill_store_vs_in_memory() -> Result<()> {
         use webgraph::graphs::vec_graph::VecGraph;
         let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
-        let dcf = graph.build_dcf();
+        let deg_cumul_func = graph.build_dcf();
 
         let mut rng_mem = rand::rngs::SmallRng::seed_from_u64(0);
         let mut rng_ext = rand::rngs::SmallRng::seed_from_u64(0);
 
         let mut hb_mem =
-            HyperBallBuilder::with_hyper_log_log(&graph, None::<&VecGraph>, &dcf, 6, None)?
+            HyperBallBuilder::with_hyper_log_log(&graph, None::<&VecGraph>, &deg_cumul_func, 6, None)?
                 .build(no_logging![]);
 
         let mut hb_ext = HyperBallBuilder::with_hyper_log_log_external(
             &graph,
             None::<&VecGraph>,
-            &dcf,
+            &deg_cumul_func,
             6,
             None,
         )?
@@ -2249,19 +2252,19 @@ mod test {
     fn test_spill_store_hll8() -> Result<()> {
         use webgraph::graphs::vec_graph::VecGraph;
         let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
-        let dcf = graph.build_dcf();
+        let deg_cumul_func = graph.build_dcf();
 
         let mut rng_mem = rand::rngs::SmallRng::seed_from_u64(42);
         let mut rng_ext = rand::rngs::SmallRng::seed_from_u64(42);
 
         let mut hb_mem =
-            HyperBallBuilder::with_hyper_log_log8(&graph, None::<&VecGraph>, &dcf, 6, None)?
+            HyperBallBuilder::with_hyper_log_log8(&graph, None::<&VecGraph>, &deg_cumul_func, 6, None)?
                 .build(no_logging![]);
 
         let mut hb_ext = HyperBallBuilder::with_hyper_log_log8_external(
             &graph,
             None::<&VecGraph>,
-            &dcf,
+            &deg_cumul_func,
             6,
             None,
         )?
