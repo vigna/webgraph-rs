@@ -151,7 +151,10 @@ use rayon::prelude::*;
 use std::hash::{BuildHasherDefault, DefaultHasher};
 use std::sync::{Mutex, atomic::*};
 use sux::traits::AtomicBitVecOps;
-use sux::{bits::AtomicBitVec, traits::Succ};
+use sux::{
+    bits::{AtomicBitVec, BitVec},
+    traits::Succ,
+};
 use sync_cell_slice::{SyncCell, SyncSlice};
 use webgraph::traits::{RandomAccessGraph, SequentialLabeling};
 use webgraph::utils::Granularity;
@@ -949,8 +952,8 @@ impl<
         }
 
         pl.info(format_args!("Allocating bit vectors..."));
-        let estimator_modified = AtomicBitVec::new(num_nodes);
-        let modified_result_estimator = AtomicBitVec::new(num_nodes);
+        let curr_modified = AtomicBitVec::new(num_nodes);
+        let next_modified = AtomicBitVec::new(num_nodes);
         let must_be_checked = AtomicBitVec::new(num_nodes);
         let next_must_be_checked = AtomicBitVec::new(num_nodes);
 
@@ -990,7 +993,6 @@ impl<
             granularity: self.granularity,
             curr_state: self.array_0,
             next_state: self.array_1,
-            completed: false,
             neighborhood_function: Vec::new(),
             last: 0.0,
             relative_increment: 0.0,
@@ -1013,23 +1015,25 @@ impl<
                 local_next_must_be_checked: Mutex::new(Vec::new()),
                 must_be_checked,
                 next_must_be_checked,
-                curr_modified: estimator_modified,
-                next_modified: modified_result_estimator,
+                next_modified,
                 discount_functions: self.discount_functions,
             },
+            curr_modified,
             _marker: std::marker::PhantomData,
         }
     }
 }
 
-/// Data used by [`parallel_task`].
+/// Data shared by the threads running [`parallel_task`].
 ///
-/// These variables are used by the threads running [`parallel_task`]. They
-/// must be isolated in a field because we need to be able to borrow
-/// exclusively [`HyperBall::next_state`], while sharing references to the
-/// data contained here and to the [`HyperBall::curr_state`].
+/// These variables must be isolated in a struct because [`iterate`]
+/// borrows [`HyperBall::next_state`] exclusively (to create a sync view)
+/// and [`HyperBall::curr_modified`] exclusively (to create a non-atomic
+/// view), while sharing references to the data contained here and to
+/// [`HyperBall::curr_state`].
 ///
 /// [`parallel_task`]: HyperBall::parallel_task
+/// [`iterate`]: HyperBall::iterate
 struct IterationContext<'a, G1: SequentialLabeling, D> {
     /// The cumulative list of outdegrees.
     cumul_outdeg: &'a D,
@@ -1070,8 +1074,6 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
     /// Used in systolic iterations to keep track of nodes to check in the next
     /// iteration.
     next_must_be_checked: AtomicBitVec,
-    /// Whether each estimator has been modified during the previous iteration.
-    curr_modified: AtomicBitVec,
     /// Whether each estimator has been modified during the current iteration.
     next_modified: AtomicBitVec,
     /// Custom discount functions whose sum should be computed.
@@ -1113,8 +1115,6 @@ pub struct HyperBall<
     curr_state: A,
     /// The output store (write side).
     next_state: N,
-    /// `true` if the computation is over.
-    completed: bool,
     /// The neighborhood function.
     neighborhood_function: Vec<f64>,
     /// The value computed by the last iteration.
@@ -1130,6 +1130,14 @@ pub struct HyperBall<
     discounted_centralities: Vec<Vec<f32>>,
     /// Context used in a single iteration.
     iteration_context: IterationContext<'a, G1, D>,
+    /// Whether each estimator has been modified during the previous iteration.
+    ///
+    /// This variable should rightfully live in the iteration context, but we
+    /// need to temporarily view it as a standard bit vector (when it is just
+    /// read, for efficiency), and the view requires a mutable reference, which
+    /// would conflict with the shared references to the iteration context used
+    /// by the threads performing the iteration.
+    curr_modified: AtomicBitVec,
     _marker: std::marker::PhantomData<L>,
 }
 
@@ -1504,6 +1512,11 @@ where
         } else {
             Some(num_arcs as _)
         });
+
+        // We're just gonna read this
+        let curr_modified: AtomicBitVec<&mut [AtomicUsize]> = (&mut self.curr_modified).into();
+        let curr_modified: BitVec<&mut [usize]> = curr_modified.into();
+
         arc_pl.start("Scanning arcs...");
         {
             let next_state_sync = self.next_state.as_sync();
@@ -1523,6 +1536,7 @@ where
                     &self.curr_state,
                     &next_state_sync,
                     ic,
+                    &curr_modified,
                     sum_of_dists,
                     sum_of_inv_dists,
                     discounted_centralities,
@@ -1543,7 +1557,7 @@ where
         ));
 
         self.next_state.commute(&mut self.curr_state);
-        std::mem::swap(&mut ic.curr_modified, &mut ic.next_modified);
+        std::mem::swap(&mut self.curr_modified, &mut ic.next_modified);
 
         if ic.systolic {
             std::mem::swap(&mut ic.must_be_checked, &mut ic.next_must_be_checked);
@@ -1601,6 +1615,7 @@ where
         curr_state: &impl EstimatorArray<L>,
         next_state: &NS,
         ic: &IterationContext<'_, G1, D>,
+        curr_modified: &BitVec<&mut [usize]>,
         sum_of_dists: Option<&[SyncCell<f32>]>,
         sum_of_inv_dists: Option<&[SyncCell<f32>]>,
         discounted_centralities: &[&[SyncCell<f32>]],
@@ -1624,7 +1639,7 @@ where
             next_estimator.set(prev_estimator);
             let mut modified = false;
             for succ in successors {
-                if succ != node && ic.curr_modified[succ] {
+                if succ != node && curr_modified[succ] {
                     visited_arcs += 1;
                     arc_pl.light_update();
                     if !modified {
@@ -1737,13 +1752,13 @@ where
             // nodes need a write. In-memory (ping-pong) stores also need a
             // write for nodes modified in the previous iteration, because
             // the "next" array still contains stale data from two rounds ago.
-            if estimator_modified || (!NS::EXTERNAL && ic.curr_modified[node]) {
+            if estimator_modified || (!NS::EXTERNAL && curr_modified[node]) {
                 // SAFETY: each node is accessed exactly once per iteration.
                 unsafe {
                     next_state.set(node, next_estimator.as_ref());
                 }
             }
-        } else if !NS::EXTERNAL && ic.curr_modified[node] {
+        } else if !NS::EXTERNAL && curr_modified[node] {
             // Systolic unchecked: our value cannot have changed, but in
             // ping-pong mode the result array may not reflect our current
             // value if we were modified in the previous iteration.
@@ -1765,6 +1780,8 @@ where
     /// * `curr_state` - the current state of the estimators.
     /// * `next_state` - the next state of the estimators (to be computed).
     /// * `ic` - the iteration context.
+    /// * `curr_modified` - non-atomic view of the modified-estimator flags
+    ///   from the previous iteration (read-only during the parallel phase).
     #[allow(clippy::too_many_arguments)]
     fn parallel_task(
         graph: &(impl RandomAccessGraph + Sync),
@@ -1772,6 +1789,7 @@ where
         curr_state: &impl EstimatorArray<L>,
         next_state: &impl SyncOutputStore<L>,
         ic: &IterationContext<'_, G1, D>,
+        curr_modified: &BitVec<&mut [usize]>,
         sum_of_dists: Option<&[SyncCell<f32>]>,
         sum_of_inv_dists: Option<&[SyncCell<f32>]>,
         discounted_centralities: &[&[SyncCell<f32>]],
@@ -1847,6 +1865,7 @@ where
                         curr_state,
                         next_state,
                         ic,
+                        curr_modified,
                         sum_of_dists,
                         sum_of_inv_dists,
                         discounted_centralities,
@@ -1868,6 +1887,7 @@ where
                         curr_state,
                         next_state,
                         ic,
+                        curr_modified,
                         sum_of_dists,
                         sum_of_inv_dists,
                         discounted_centralities,
@@ -1927,8 +1947,6 @@ where
             });
         }
 
-        self.completed = false;
-
         let ic = &mut self.iteration_context;
         ic.iteration = 0;
         ic.systolic = false;
@@ -1957,7 +1975,7 @@ where
         self.neighborhood_function.push(self.last);
 
         pl.debug(format_args!("Initializing modified estimators"));
-        ic.curr_modified.fill(true, Ordering::Relaxed);
+        self.curr_modified.fill(true, Ordering::Relaxed);
 
         pl.done();
 

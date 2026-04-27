@@ -23,7 +23,7 @@
 
 - New free functions to build the Elias–Fano representation of offsets.
 
-- `ParSortIters`/`ParSortPairs` have programmable logging.
+- `ParSortIters`/`ParSortPairs` have configurable `ProgressLogger` support.
 
 ### Fixed
 
