@@ -20,7 +20,7 @@ use value_traits::slices::SliceByValue;
 /// The `num_nodes` parameter specifies the number of nodes of the resulting
 /// graph: it must be strictly greater than every value in the map.
 ///
-/// Note that if the graph implements [`IntoParLenders`], [`map_split`] will be
+/// Note that if the graph implements [`IntoParLenders`], [`map_par`] will be
 /// much faster.
 ///
 /// For the meaning of the additional parameter, see
@@ -73,7 +73,7 @@ pub fn map(
 /// [`ParGraph`]: crate::graphs::par_graphs::ParGraph
 /// [splittable]: SplitLabeling
 /// [install]: rayon::ThreadPool::install
-pub fn map_split<G, M>(
+pub fn map_par<G, M>(
     graph: G,
     map: &M,
     num_nodes: usize,

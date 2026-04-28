@@ -45,15 +45,15 @@ fn test_transpose_round_trip() -> Result<()> {
 }
 
 #[test]
-fn test_transpose_split() -> Result<()> {
-    use webgraph::transform::transpose_split;
+fn test_transpose_par() -> Result<()> {
+    use webgraph::transform::transpose_par;
 
     let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let sorted = transpose_split(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
+    let sorted = transpose_par(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
     assert_eq!(sorted.num_nodes(), 3);
     // Verify transposed content: (0,1),(1,2),(2,0) transposed is (2,0),(0,1),(1,2)
     let mut arcs = vec![];
@@ -68,13 +68,13 @@ fn test_transpose_split() -> Result<()> {
 }
 
 #[test]
-fn test_transpose_split_bvgraph() -> Result<()> {
+fn test_transpose_par_bvgraph() -> Result<()> {
     use webgraph::traits::SequentialLabeling;
     let basename = common::cnr_2000_basename();
     let graph = BvGraph::with_basename(basename).load()?;
     let num_nodes = graph.num_nodes();
 
-    let sorted = transform::transpose_split(&graph, MemoryUsage::from_perc(1.0), no_logging![])?;
+    let sorted = transform::transpose_par(&graph, MemoryUsage::from_perc(1.0), no_logging![])?;
 
     assert_eq!(sorted.num_nodes(), num_nodes);
 
@@ -167,8 +167,8 @@ fn test_permute_size_mismatch() {
 }
 
 #[test]
-fn test_permute_split() -> Result<()> {
-    use webgraph::transform::permute_split;
+fn test_permute_par() -> Result<()> {
+    use webgraph::transform::permute_par;
 
     let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
     let tmp = tempfile::NamedTempFile::new()?;
@@ -176,7 +176,7 @@ fn test_permute_split() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let perm = vec![2, 0, 1];
-    let sorted = permute_split(&seq, &perm, MemoryUsage::BatchSize(2), no_logging![])?;
+    let sorted = permute_par(&seq, &perm, MemoryUsage::BatchSize(2), no_logging![])?;
     let mut arcs = vec![];
     for_!((node, succs) in sorted.iter() {
         for succ in succs {
@@ -264,16 +264,15 @@ fn test_symmetrize_sorted() -> Result<()> {
 }
 
 #[test]
-fn test_symmetrize_sorted_split() -> Result<()> {
-    use webgraph::transform::symmetrize_sorted_split;
+fn test_symmetrize_sorted_par() -> Result<()> {
+    use webgraph::transform::symmetrize_sorted_par;
 
     let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let sorted =
-        symmetrize_sorted_split::<true, _>(&seq, MemoryUsage::BatchSize(2), None, no_logging![])?;
+    let sorted = symmetrize_sorted_par::<true, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
     let arcs: Vec<_> = sorted
         .into_par_lenders()
         .0
@@ -287,8 +286,8 @@ fn test_symmetrize_sorted_split() -> Result<()> {
 }
 
 #[test]
-fn test_symmetrize_sorted_split_with_loops() -> Result<()> {
-    use webgraph::transform::symmetrize_sorted_split;
+fn test_symmetrize_sorted_par_with_loops() -> Result<()> {
+    use webgraph::transform::symmetrize_sorted_par;
 
     // Graph with self-loop
     let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 2)]);
@@ -296,8 +295,7 @@ fn test_symmetrize_sorted_split_with_loops() -> Result<()> {
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let sorted =
-        symmetrize_sorted_split::<false, _>(&seq, MemoryUsage::BatchSize(2), None, no_logging![])?;
+    let sorted = symmetrize_sorted_par::<false, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
     let arcs: Vec<_> = sorted
         .into_par_lenders()
         .0
@@ -312,15 +310,15 @@ fn test_symmetrize_sorted_split_with_loops() -> Result<()> {
 }
 
 #[test]
-fn test_symmetrize_split_no_loops() -> Result<()> {
-    use webgraph::transform::symmetrize_split;
+fn test_symmetrize_par_no_loops() -> Result<()> {
+    use webgraph::transform::symmetrize_par;
 
     let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let sorted = symmetrize_split::<true, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
+    let sorted = symmetrize_par::<true, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
     let mut arcs = vec![];
     for_!((node, succs) in sorted.iter() {
         for succ in succs {
@@ -382,8 +380,8 @@ fn test_map_size_mismatch() {
 }
 
 #[test]
-fn test_map_split() -> Result<()> {
-    use webgraph::transform::map_split;
+fn test_map_par() -> Result<()> {
+    use webgraph::transform::map_par;
 
     // Graph: 0->1, 0->2, 1->2 with map 0->2, 1->0, 2->1 (a permutation)
     let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
@@ -392,7 +390,7 @@ fn test_map_split() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let m = vec![2, 0, 1];
-    let sorted = map_split(&seq, &m, 3, MemoryUsage::BatchSize(2), no_logging![])?;
+    let sorted = map_par(&seq, &m, 3, MemoryUsage::BatchSize(2), no_logging![])?;
     let mut arcs = vec![];
     for_!((node, succs) in sorted.iter() {
         for succ in succs {
@@ -406,8 +404,8 @@ fn test_map_split() -> Result<()> {
 }
 
 #[test]
-fn test_map_split_shrinks() -> Result<()> {
-    use webgraph::transform::map_split;
+fn test_map_par_shrinks() -> Result<()> {
+    use webgraph::transform::map_par;
 
     // Graph: 0->1, 1->2, 2->0; map merges 1 and 2 into node 1
     let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
@@ -416,7 +414,7 @@ fn test_map_split_shrinks() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let m = vec![0, 1, 1]; // 0->0, 1->1, 2->1
-    let sorted = map_split(&seq, &m, 2, MemoryUsage::BatchSize(2), no_logging![])?;
+    let sorted = map_par(&seq, &m, 2, MemoryUsage::BatchSize(2), no_logging![])?;
     let mut arcs = vec![];
     for_!((node, succs) in sorted.iter() {
         for succ in succs {

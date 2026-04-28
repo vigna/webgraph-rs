@@ -97,7 +97,7 @@ where
         let loaded = args.fmt.load(path)?;
         if sequential {
             dispatch_int_slice!(loaded, |perm| {
-                seq_compress_with_perm::<E, _>(
+                compress_seq_with_perm::<E, _>(
                     thread_pool,
                     builder,
                     &src,
@@ -109,7 +109,7 @@ where
             })
         } else {
             dispatch_int_slice!(loaded, |perm| {
-                par_compress_with_perm::<E, _>(
+                compress_par_with_perm::<E, _>(
                     thread_pool,
                     builder,
                     &src,
@@ -122,9 +122,9 @@ where
             })
         }
     } else if sequential {
-        seq_compress_no_perm::<E>(thread_pool, builder, &src, target_endianness, log_interval)
+        compress_seq_no_perm::<E>(thread_pool, builder, &src, target_endianness, log_interval)
     } else {
-        par_compress_no_perm::<E>(
+        compress_par_no_perm::<E>(
             thread_pool,
             builder,
             &src,
@@ -135,8 +135,9 @@ where
     }
 }
 
+/// Parallel version of [`compress_seq_with_perm`].
 #[allow(clippy::too_many_arguments)]
-pub fn par_compress_with_perm<E: Endianness, P: SliceByValue<Value = usize> + Send + Sync + Clone>(
+pub fn compress_par_with_perm<E: Endianness, P: SliceByValue<Value = usize> + Send + Sync + Clone>(
     thread_pool: rayon::ThreadPool,
     builder: BvCompConf,
     src: &std::path::Path,
@@ -157,7 +158,7 @@ where
         log::info!("Permuting graph with memory usage {}", memory_usage);
         let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
         let start = std::time::Instant::now();
-        let sorted = webgraph::transform::permute_split(&graph, perm, memory_usage, &mut pl)?;
+        let sorted = webgraph::transform::permute_par(&graph, perm, memory_usage, &mut pl)?;
         log::info!(
             "Permuted the graph. It took {:.3} seconds",
             start.elapsed().as_secs_f64()
@@ -168,7 +169,8 @@ where
     Ok(())
 }
 
-pub fn seq_compress_with_perm<E: Endianness, P: SliceByValue<Value = usize>>(
+/// Sequential version of [`compress_par_with_perm`].
+pub fn compress_seq_with_perm<E: Endianness, P: SliceByValue<Value = usize>>(
     thread_pool: rayon::ThreadPool,
     builder: BvCompConf,
     src: &std::path::Path,
@@ -198,7 +200,8 @@ where
     Ok(())
 }
 
-fn par_compress_no_perm<E: Endianness>(
+/// Parallel version of [`compress_seq_no_perm`].
+fn compress_par_no_perm<E: Endianness>(
     thread_pool: rayon::ThreadPool,
     builder: BvCompConf,
     src: &std::path::Path,
@@ -230,7 +233,8 @@ where
     Ok(())
 }
 
-fn seq_compress_no_perm<E: Endianness>(
+/// Sequential version of [`compress_par_no_perm`].
+fn compress_seq_no_perm<E: Endianness>(
     thread_pool: rayon::ThreadPool,
     builder: BvCompConf,
     src: &std::path::Path,

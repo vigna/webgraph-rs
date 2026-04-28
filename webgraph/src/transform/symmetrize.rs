@@ -88,7 +88,7 @@ where
 ///
 /// If `NO_LOOPS` is true, self-loops are removed from the result.
 ///
-/// For a parallel version using splitting, see [`symmetrize_sorted_split`].
+/// For a parallel version, see [`symmetrize_sorted_par`].
 ///
 /// For the meaning of the additional parameter, see
 /// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
@@ -119,60 +119,64 @@ pub fn symmetrize_sorted<const NO_LOOPS: bool, G: SequentialGraph>(
 }
 
 /// Returns a [`ParSortedGraph`] representing a symmetrized version of the
-/// provided sorted (both on nodes and successors) [splittable] graph,
-/// computed in parallel.
+/// provided sorted (both on nodes and successors) graph, computed in
+/// parallel.
 ///
 /// If `NO_LOOPS` is true, self-loops are removed from the result.
 ///
 /// This method exploits the fact that the input graph is already sorted: it
 /// sorts only the reverse arcs (half the total) via [`ParSortIters`], then
-/// splits the original graph at the same evenly spaced boundaries and lazily
-/// merges forward and reverse pairs per partition with deduplication. This
-/// makes it roughly twice as fast as [`symmetrize_split`] for the sorting
-/// phase.
+/// re-splits the original graph at the same evenly spaced boundaries and
+/// lazily merges forward and reverse pairs per partition with
+/// deduplication. This makes it roughly twice as fast as [`symmetrize_par`]
+/// for the sorting phase.
 ///
 /// Note that since the output boundaries are determined by [`ParSortIters`]
 /// (evenly spaced by node count), arc-balanced cutpoints (e.g., from a DCF)
 /// cannot be used for the output partitions.
+///
+/// The graph must implement [`SplitLabeling`] so that it can be re-split at
+/// the sort boundaries.
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
 ///
 /// For the meaning of the additional parameter, see [`ParSortIters`].
 ///
-/// [splittable]: crate::traits::SplitLabeling
 /// [install]: rayon::ThreadPool::install
-pub fn symmetrize_sorted_split<'g, const NO_LOOPS: bool, S>(
-    graph: &'g S,
+pub fn symmetrize_sorted_par<'g, const NO_LOOPS: bool, G>(
+    graph: &'g G,
     memory_usage: MemoryUsage,
-    cutpoints: Option<Vec<usize>>,
     pl: &mut impl ProgressLog,
 ) -> Result<ParSortedGraph<impl Iterator<Item = ((usize, usize), ())> + Send + Sync + 'g>>
 where
-    S: SequentialGraph + SplitLabeling,
-    for<'a> S::Lender<'a>: SortedLender,
-    for<'a, 'b> LenderIntoIter<'a, S::Lender<'b>>: SortedIterator,
-    for<'a> S::SplitLender<'g>:
+    G: SequentialGraph + SplitLabeling,
+    &'g G: IntoParLenders<
+        ParLender: for<'a> NodeLabelsLender<
+            'a,
+            Label = usize,
+            IntoIterator: IntoIterator<IntoIter: Clone + Send + Sync>,
+        > + Clone,
+    >,
+    for<'a> G::Lender<'a>: SortedLender,
+    for<'a, 'b> LenderIntoIter<'a, G::Lender<'b>>: SortedIterator,
+    for<'a> G::SplitLender<'g>:
         NodeLabelsLender<'a, IntoIterator: IntoIterator<IntoIter: Clone + Send + Sync>> + Clone,
 {
-    // Sort only the reverse arcs in parallel
     let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
 
-    let reverse_pairs: Vec<_> = match cutpoints {
-        Some(cp) => graph.split_iter_at(cp),
-        None => {
-            let parts = rayon::current_num_threads();
-            graph.split_iter(parts)
-        }
-    }
-    .into_iter()
-    .map(|iter| iter.into_pairs().map(|(src, dst)| (dst, src)))
-    .collect();
+    let (lenders, _boundaries) = graph.into_par_lenders();
+    let reverse_pairs: Vec<_> = lenders
+        .into_vec()
+        .into_iter()
+        .map(|lender| lender.into_pairs().map(|(src, dst)| (dst, src)))
+        .collect();
 
     let SplitIters { boundaries, iters } = par_sort_iters.sort(reverse_pairs, pl)?;
 
-    // Split the original graph at the same boundaries used by ParSortIters,
-    // then lazily merge forward and reverse pairs per partition.
+    // Re-split the original graph at the same boundaries used by
+    // ParSortIters, then lazily merge forward and reverse pairs per
+    // partition.
     let forward_lenders = graph.split_iter_at(boundaries.iter().copied());
 
     let merged: Vec<_> = forward_lenders
@@ -240,7 +244,7 @@ pub fn symmetrize<const NO_LOOPS: bool>(
 /// [`ParGraph`]: crate::graphs::par_graphs::ParGraph
 /// [splittable]: SplitLabeling
 /// [install]: rayon::ThreadPool::install
-pub fn symmetrize_split<const NO_LOOPS: bool, G>(
+pub fn symmetrize_par<const NO_LOOPS: bool, G>(
     graph: G,
     memory_usage: MemoryUsage,
     pl: &mut impl ProgressLog,

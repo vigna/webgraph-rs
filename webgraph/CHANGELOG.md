@@ -103,6 +103,10 @@
 
 - All parallel structures have a `Par` prefix for consistency.
 
+- All transformation methods have been uniformly renamed with `_par`/`_seq`
+  suffixes to distinguish between the parallel and sequential versions.
+  `_split` is no longer used.
+
 ### Improved
 
 - `ParSortPairs`, `ParSortIters`, and `KMergeIters` now have a

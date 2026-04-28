@@ -68,24 +68,25 @@ pub fn main(args: CliArgs) -> Result<()> {
         #[cfg(feature = "be_bins")]
         BE::NAME => {
             if args.sequential {
-                seq_symmetrize::<BE>(args)
+                symmetrize_seq::<BE>(args)
             } else {
-                par_symmetrize::<BE>(args)
+                symmetrize_par::<BE>(args)
             }
         }
         #[cfg(feature = "le_bins")]
         LE::NAME => {
             if args.sequential {
-                seq_symmetrize::<LE>(args)
+                symmetrize_seq::<LE>(args)
             } else {
-                par_symmetrize::<LE>(args)
+                symmetrize_par::<LE>(args)
             }
         }
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn par_symmetrize<E: Endianness>(args: CliArgs) -> Result<()>
+/// Parallel version of [`symmetrize_seq`].
+pub fn symmetrize_par<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,
@@ -152,7 +153,7 @@ where
             dispatch_int_slice!(loaded, |perm| {
                 // We split the BvGraph directly and apply the permutation
                 // inline rather than wrapping it in a PermutedGraph and
-                // calling symmetrize_split. PermutedGraph's SplitLabeling
+                // calling symmetrize_par. PermutedGraph's SplitLabeling
                 // uses split::seq::Iter, which advances sequentially to
                 // each cutpoint; it cannot use split::ra::Iter because
                 // PermutedGraph does not implement RandomAccessLabeling
@@ -205,18 +206,15 @@ where
             let graph = webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(&args.src)
                 .endianness::<E>()
                 .load()?;
-            let num_nodes = graph.num_nodes();
-            let cp = crate::cutpoints(&src, num_nodes, graph.num_arcs_hint(), use_dcf)?;
 
             macro_rules! symmetrize_and_compress {
                 ($no_loops:expr) => {
                     thread_pool.install(|| {
                         let mut pl =
                             progress_logger![display_memory = true, log_interval = log_interval];
-                        let sorted = webgraph::transform::symmetrize_sorted_split::<$no_loops, _>(
+                        let sorted = webgraph::transform::symmetrize_sorted_par::<$no_loops, _>(
                             &graph,
                             args.memory_usage.memory_usage,
-                            Some(cp),
                             &mut pl,
                         )?;
                         let mut builder = builder.progress_logger(&mut pl);
@@ -235,7 +233,8 @@ where
     Ok(())
 }
 
-pub fn seq_symmetrize<E: Endianness>(args: CliArgs) -> Result<()>
+/// Sequential version of [`symmetrize_par`].
+pub fn symmetrize_seq<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: Clone + Send + Sync,

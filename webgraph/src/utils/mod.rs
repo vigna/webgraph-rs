@@ -325,12 +325,12 @@ impl<I> SplitIters<I> {
 ///
 /// Note that `SortedPairIter` strips the `()` label from the underlying
 /// [`KMergeIters`] via [`Map`]; the transform functions (e.g.,
-/// [`transpose_split`]) use [`KMergeIters`] directly and return a
+/// [`transpose_par`]) use [`KMergeIters`] directly and return a
 /// [`ParSortedGraph`] instead.
 ///
 /// [`ParSortIters::sort`]: par_sort_iters::ParSortIters::sort
 /// [`ParSortPairs::sort`]: par_sort_pairs::ParSortPairs::sort
-/// [`transpose_split`]: crate::transform::transpose_split
+/// [`transpose_par`]: crate::transform::transpose_par
 /// [`Map`]: std::iter::Map
 /// [`KMergeIters`]: kmerge_iters::KMergeIters
 pub type SortedPairIter<const DEDUP: bool = false> = std::iter::Map<

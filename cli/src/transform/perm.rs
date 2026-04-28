@@ -87,7 +87,7 @@ where
     let loaded = args.fmt.load(&args.permutation)?;
     if sequential {
         dispatch_int_slice!(loaded, |perm| {
-            crate::to::bvgraph::seq_compress_with_perm::<E, _>(
+            crate::to::bvgraph::compress_seq_with_perm::<E, _>(
                 thread_pool,
                 builder,
                 &src,
@@ -99,7 +99,7 @@ where
         })
     } else {
         dispatch_int_slice!(loaded, |perm| {
-            crate::to::bvgraph::par_compress_with_perm::<E, _>(
+            crate::to::bvgraph::compress_par_with_perm::<E, _>(
                 thread_pool,
                 builder,
                 &src,

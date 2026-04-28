@@ -63,17 +63,17 @@ pub fn main(args: CliArgs) -> Result<()> {
         #[cfg(feature = "be_bins")]
         BE::NAME => {
             if args.sequential {
-                seq_map::<BE>(args)
+                map_seq::<BE>(args)
             } else {
-                par_map::<BE>(args)
+                map_par::<BE>(args)
             }
         }
         #[cfg(feature = "le_bins")]
         LE::NAME => {
             if args.sequential {
-                seq_map::<LE>(args)
+                map_seq::<LE>(args)
             } else {
-                par_map::<LE>(args)
+                map_par::<LE>(args)
             }
         }
         e => panic!("Unknown endianness: {}", e),
@@ -103,7 +103,8 @@ fn mapped_num_nodes<P: SliceByValue<Value = usize>>(
     }
 }
 
-pub fn par_map<E: Endianness>(args: CliArgs) -> Result<()>
+/// Parallel version of [`map_seq`].
+pub fn map_par<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,
@@ -146,7 +147,7 @@ where
             log::info!("Mapping graph with memory usage {}", memory_usage);
             let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
             let start = std::time::Instant::now();
-            let sorted = webgraph::transform::map_split(
+            let sorted = webgraph::transform::map_par(
                 &par_graph,
                 &node_map,
                 num_nodes,
@@ -166,7 +167,8 @@ where
     })
 }
 
-pub fn seq_map<E: Endianness>(args: CliArgs) -> Result<()>
+/// Sequential version of [`map_par`].
+pub fn map_seq<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {

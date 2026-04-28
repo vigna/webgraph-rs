@@ -51,24 +51,25 @@ pub fn main(args: CliArgs) -> Result<()> {
         #[cfg(feature = "be_bins")]
         BE::NAME => {
             if args.sequential {
-                transpose::<BE>(args)
+                transpose_seq::<BE>(args)
             } else {
-                par_transpose::<BE>(args)
+                transpose_par::<BE>(args)
             }
         }
         #[cfg(feature = "le_bins")]
         LE::NAME => {
             if args.sequential {
-                transpose::<LE>(args)
+                transpose_seq::<LE>(args)
             } else {
-                par_transpose::<LE>(args)
+                transpose_par::<LE>(args)
             }
         }
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn transpose<E: Endianness>(args: CliArgs) -> Result<()>
+/// Sequential version of [`transpose_par`].
+pub fn transpose_seq<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
@@ -107,7 +108,8 @@ where
     Ok(())
 }
 
-pub fn par_transpose<E: Endianness>(args: CliArgs) -> Result<()>
+/// Parallel version of [`transpose_seq`].
+pub fn transpose_par<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,
@@ -129,7 +131,7 @@ where
         log_interval = args.log_interval.log_interval
     ];
     let sorted =
-        webgraph::transform::transpose_split(&par_graph, args.memory_usage.memory_usage, &mut pl)?;
+        webgraph::transform::transpose_par(&par_graph, args.memory_usage.memory_usage, &mut pl)?;
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;

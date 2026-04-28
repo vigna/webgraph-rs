@@ -197,13 +197,13 @@ The [`transform`] module provides common graph operations, each available in
 sequential and parallel ([`SplitLabeling`]-based) variants:
 
 - [**Transpose**][transpose]: reverse all arcs
-  ([`transpose_split`] for parallel, [`transpose_labeled`] for labeled graphs).
+  ([`transpose_par`] for parallel, [`transpose_labeled`] for labeled graphs).
 - [**Symmetrize**][symmetrize]: add missing reverse arcs, optionally removing
-  self-loops ([`symmetrize_split`] for parallel).
+  self-loops ([`symmetrize_par`] for parallel).
 - [**Permute**][permute]: renumber nodes according to a permutation
   ([`permute_split`] for parallel).
 - [**Map**][map]: renumber nodes through an arbitrary function, with
-  deduplication ([`map_split`] for parallel).
+  deduplication ([`map_par`] for parallel).
 
 ## Graph and data wrappers
 
@@ -276,14 +276,14 @@ reflect those of the European Union or the Italian MUR. Neither the European
 Union nor the Italian MUR can be held responsible for them.
 
 [transpose]: https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose.html
-[`transpose_split`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose_split.html
+[`transpose_par`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose_par.html
 [`transpose_labeled`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose_labeled.html
 [symmetrize]: https://docs.rs/webgraph/latest/webgraph/transform/fn.symmetrize.html
-[`symmetrize_split`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.symmetrize_split.html
+[`symmetrize_par`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.symmetrize_par.html
 [permute]: https://docs.rs/webgraph/latest/webgraph/transform/fn.permute.html
 [`permute_split`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.permute_split.html
 [map]: https://docs.rs/webgraph/latest/webgraph/transform/fn.map.html
-[`map_split`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.map_split.html
+[`map_par`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.map_par.html
 [`transform`]: https://docs.rs/webgraph/latest/webgraph/transform/index.html
 [`BvGraph::with_basename`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html#method.with_basename
 [`BvGraphSeq`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/sequential/struct.BvGraphSeq.html

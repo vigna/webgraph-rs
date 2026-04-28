@@ -81,7 +81,7 @@ pub fn transpose(
 /// [`ParGraph`]: crate::graphs::par_graphs::ParGraph
 /// [splittable]: crate::traits::SplitLabeling
 /// [install]: rayon::ThreadPool::install
-pub fn transpose_labeled_split<SD, G>(
+pub fn transpose_labeled_par<SD, G>(
     graph: G,
     memory_usage: MemoryUsage,
     sd: SD,
@@ -130,7 +130,7 @@ where
 /// [`ParGraph`]: crate::graphs::par_graphs::ParGraph
 /// [splittable]: crate::traits::SplitLabeling
 /// [install]: rayon::ThreadPool::install
-pub fn transpose_split<G>(
+pub fn transpose_par<G>(
     graph: G,
     memory_usage: MemoryUsage,
     pl: &mut impl ProgressLog,

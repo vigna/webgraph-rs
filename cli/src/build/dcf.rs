@@ -46,17 +46,17 @@ pub fn main(args: CliArgs) -> Result<()> {
         #[cfg(feature = "be_bins")]
         BE::NAME => {
             if args.sequential {
-                seq_build_dcf::<BE>(args)
+                build_dcf_seq::<BE>(args)
             } else {
-                par_build_dcf::<BE>(args)
+                build_dcf_par::<BE>(args)
             }
         }
         #[cfg(feature = "le_bins")]
         LE::NAME => {
             if args.sequential {
-                seq_build_dcf::<LE>(args)
+                build_dcf_seq::<LE>(args)
             } else {
-                par_build_dcf::<LE>(args)
+                build_dcf_par::<LE>(args)
             }
         }
         e => panic!("Unknown endianness: {}", e),
@@ -95,7 +95,8 @@ fn build_and_serialize(efb: EliasFanoBuilder<u64>, ef_path: &std::path::Path) ->
     Ok(())
 }
 
-pub fn par_build_dcf<E: Endianness>(args: CliArgs) -> Result<()>
+/// Parallel version of [`build_dcf_seq`].
+pub fn build_dcf_par<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,
@@ -106,7 +107,7 @@ where
         std::fs::metadata(basename.with_extension(EF_EXTENSION)).is_ok_and(|x| x.is_file());
     if !has_ef {
         log::warn!(SEQ_PROC_WARN![], basename.display());
-        return seq_build_dcf::<E>(CliArgs {
+        return build_dcf_seq::<E>(CliArgs {
             basename,
             sequential: true,
             num_threads: args.num_threads,
@@ -185,7 +186,8 @@ where
     build_and_serialize(efb, &ef_path)
 }
 
-pub fn seq_build_dcf<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+/// Sequential version of [`build_dcf_par`].
+pub fn build_dcf_seq<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,

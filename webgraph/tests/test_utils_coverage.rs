@@ -19,7 +19,7 @@ use webgraph::{
 #[test]
 fn test_granularity_default() {
     let g = Granularity::default();
-    assert!(matches!(g, Granularity::Nodes(1000)));
+    assert!(matches!(g, Granularity::Nodes(10000)));
 }
 
 #[test]

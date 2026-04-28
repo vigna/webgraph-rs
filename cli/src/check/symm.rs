@@ -77,7 +77,7 @@ where
                 display_memory = true,
                 log_interval = args.log_interval.log_interval
             ];
-            let transposed = webgraph::transform::transpose_split(
+            let transposed = webgraph::transform::transpose_par(
                 &graph,
                 args.memory_usage.memory_usage,
                 &mut pl,

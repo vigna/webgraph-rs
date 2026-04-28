@@ -190,6 +190,21 @@ impl<G: RandomAccessLabeling> RandomAccessLabeling for ParGraph<G> {
 
 impl<G: RandomAccessGraph> RandomAccessGraph for ParGraph<G> {}
 
+impl<G: SplitLabeling> SplitLabeling for ParGraph<G> {
+    type SplitLender<'a>
+        = G::SplitLender<'a>
+    where
+        Self: 'a;
+    type IntoIterator<'a>
+        = G::IntoIterator<'a>
+    where
+        Self: 'a;
+
+    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
+        self.graph.split_iter_at(cutpoints)
+    }
+}
+
 impl<'a, G> IntoParLenders for &'a ParGraph<G>
 where
     G: SequentialLabeling + SplitLabeling,

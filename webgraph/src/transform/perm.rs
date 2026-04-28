@@ -7,21 +7,19 @@
 
 use crate::graphs::par_sorted_graph::{ParSortedGraph, SortedPairIter};
 use crate::prelude::*;
+use crate::traits::{IntoParLenders, NodeLabelsLender};
 use anyhow::{Result, ensure};
 use dsi_progress_logger::ProgressLog;
-use lender::*;
 use value_traits::slices::SliceByValue;
 
 /// Returns a [`ParSortedGraph`] representing the permuted graph.
 ///
-/// Note that if the graph is [splittable], [`permute_split`] will be much
-/// faster.
+/// Note that if the graph implements [`IntoParLenders`], [`permute_par`] will
+/// be much faster.
 ///
 /// The permutation is assumed to be bijective. For the meaning of the
 /// additional parameter, see
 /// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
-///
-/// [splittable]: SplitLabeling
 pub fn permute<G: SequentialGraph, P: SliceByValue<Value = usize>>(
     graph: &G,
     perm: &P,
@@ -42,11 +40,11 @@ pub fn permute<G: SequentialGraph, P: SliceByValue<Value = usize>>(
         .sort_pairs(num_nodes, pgraph.iter().into_pairs())
 }
 
-/// Returns a [`ParSortedGraph`] representing the permuted graph starting from a
-/// [splittable] graph, computed in parallel.
+/// Returns a [`ParSortedGraph`] representing the permuted graph, computed in
+/// parallel.
 ///
-/// Note that if the graph is not [splittable] you must use [`permute`],
-/// albeit it will be slower.
+/// The graph must implement [`IntoParLenders`]; use [`ParGraph`] to wrap a
+/// graph as needed.
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
@@ -55,19 +53,24 @@ pub fn permute<G: SequentialGraph, P: SliceByValue<Value = usize>>(
 /// additional parameter, see
 /// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
 ///
-/// [splittable]: SplitLabeling
+/// [`ParGraph`]: crate::graphs::par_graphs::ParGraph
 /// [install]: rayon::ThreadPool::install
-pub fn permute_split<S, P>(
-    graph: &S,
+pub fn permute_par<G, P>(
+    graph: G,
     perm: &P,
     memory_usage: MemoryUsage,
     pl: &mut impl ProgressLog,
 ) -> Result<ParSortedGraph<SortedPairIter>>
 where
-    S: SequentialGraph + SplitLabeling,
-    P: SliceByValue<Value = usize> + Send + Sync + Clone,
-    for<'a> S::Lender<'a>: Clone + ExactSizeLender + lender::FusedLender + Send + Sync,
-    for<'a, 'b> LenderIntoIter<'b, S::Lender<'a>>: Send + Sync,
+    G: SequentialGraph
+        + IntoParLenders<
+            ParLender: for<'a> NodeLabelsLender<
+                'a,
+                Label = usize,
+                IntoIterator: IntoIterator<IntoIter: Send>,
+            >,
+        >,
+    P: SliceByValue<Value = usize> + Send + Sync,
 {
     ensure!(
         perm.len() == graph.num_nodes(),
@@ -75,9 +78,15 @@ where
         perm.len(),
         graph.num_nodes(),
     );
-    let pgraph = PermutedGraph::new(graph, perm);
-    ParSortedGraph::config()
+    let num_nodes = graph.num_nodes();
+    let conf = ParSortedGraph::config()
         .memory_usage(memory_usage)
-        .progress_logger(pl)
-        .par_sort_graph(&pgraph)
+        .progress_logger(pl);
+    let (lenders, _boundaries) = graph.into_par_lenders();
+    let iters = lenders.into_vec().into_iter().map(|lender| {
+        lender
+            .into_pairs()
+            .map(|(src, dst)| (perm.index_value(src), perm.index_value(dst)))
+    });
+    conf.par_sort_pair_iters(num_nodes, iters)
 }
