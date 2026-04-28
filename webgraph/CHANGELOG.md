@@ -18,7 +18,7 @@
   as `ParGraph` and `ParDcfGraph` can alter the default `IntoParLenders` splitting.
   Parallel compression methods take an `IntoParLenders` implementation.
 
-- New labeled compression API based on the `StoreLabelsConfig` trait. A number of
+- New labeled compression API based on the `StoreLabelsConf` trait. A number of
   basic (de)serializers (fixed width, ɣ, etc.) are provided.
 
 - New free functions to build the Elias–Fano representation of offsets.
@@ -98,6 +98,10 @@
   module `sort_pairs` has been renamed `k_merge_iters`.
 
 - The setters in `BvCompConfig` dropped the `with_` prefix.
+
+- Configuration structures now all end in `Conf` for consistency.
+
+- All parallel structures have a `Par` prefix for consistency.
 
 ### Improved
 

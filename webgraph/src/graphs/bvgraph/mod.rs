@@ -29,7 +29,7 @@
 //! provides also a little-endian version.
 //!
 //! The main access points to the implementation are [`BvGraph::with_basename`]
-//! and [`BvGraphSeq::with_basename`], which provide a [`LoadConfig`] that can
+//! and [`BvGraphSeq::with_basename`], which provide a [`LoadConf`] that can
 //! be further customized (e.g., selecting endianness, memory mapping, etc.).
 //!
 //! # The Graph File

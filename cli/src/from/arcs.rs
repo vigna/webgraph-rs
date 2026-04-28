@@ -199,7 +199,7 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
-    let mut builder = BvCompConfig::new(&args.dst)
+    let mut builder = BvCompConf::new(&args.dst)
         .comp_flags(args.ca.into())
         .tmp_dir(&dir);
 

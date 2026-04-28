@@ -30,7 +30,7 @@
 //! The typical use of [`ParSortPairs`] is to sort (labeled) pairs of nodes
 //! representing a (labeled) graph; the resulting [`SplitIters`] structure can
 //! be wrapped in a [`ParSortedGraph`] (or [`SortedLabeledGraph`]) and then
-//! compressed using, for example, [`BvCompConfig::par_comp`].
+//! compressed using, for example, [`BvCompConf::par_comp`].
 //!
 //! For example, when reading a graph from a file containing an arc list one
 //! typically is able to produce a parallel iterator of (labeled) pairs of
@@ -41,7 +41,7 @@
 //!
 //! [settable number of partitions]: ParSortPairs::num_partitions
 //! [install]: rayon::ThreadPool::install
-//! [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
+//! [`BvCompConf::par_comp`]: crate::graphs::bvgraph::BvCompConf::par_comp
 //! [`ParSortIters`]: crate::utils::par_sort_iters::ParSortIters
 //! [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
 //! [`SortedLabeledGraph`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraph
@@ -66,7 +66,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 /// Takes a parallel iterator of (labeled) pairs as input, and turns them into
 /// a [`SplitIters`] structure which can be wrapped in a
 /// [`ParSortedGraph`] for compression with
-/// [`BvCompConfig::par_comp`].
+/// [`BvCompConf::par_comp`].
 ///
 /// Note that batches will be memory-mapped. If you encounter OS-level errors
 /// using this class (e.g., `ENOMEM: Out of memory` under Linux), please review
@@ -75,7 +75,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 ///
 /// See the [module documentation] for more details.
 ///
-/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
+/// [`BvCompConf::par_comp`]: crate::graphs::bvgraph::BvCompConf::par_comp
 /// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
 /// [module documentation]: self
 ///

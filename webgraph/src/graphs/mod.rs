@@ -9,7 +9,7 @@
 //! Graph implementations.
 //!
 //! - [`bvgraph`]: the compressed BV graph format ([`BvGraph`] for random
-//!   access, [`BvGraphSeq`] for sequential access, [`BvCompConfig`] for
+//!   access, [`BvGraphSeq`] for sequential access, [`BvCompConf`] for
 //!   compression);
 //! - [`vec_graph`] / [`btree_graph`]: mutable in-memory graphs;
 //! - [`csr_graph`]: classical CSR representation;
@@ -21,7 +21,7 @@
 //!
 //! [`BvGraph`]: bvgraph::BvGraph
 //! [`BvGraphSeq`]: bvgraph::BvGraphSeq
-//! [`BvCompConfig`]: bvgraph::BvCompConfig
+//! [`BvCompConf`]: bvgraph::BvCompConf
 
 pub mod arc_list_graph;
 pub mod btree_graph;

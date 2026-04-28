@@ -14,17 +14,17 @@
 //!
 //! - [`bitstream`]: bitstream-based label storage; includes
 //!   [`BitStreamLabeling`] / [`BitStreamLabelingSeq`] for reading, and
-//!   [`BitStreamStoreLabelsConfig`] for writing (used by
-//!   [`BvCompConfig::comp_labeled_graph`] and
-//!   [`BvCompConfig::par_comp_labeled`]).
+//!   [`BitStreamStoreLabelsConf`] for writing (used by
+//!   [`BvCompConf::comp_labeled_graph`] and
+//!   [`BvCompConf::par_comp_labeled`]).
 //! - [`zip`]: zips two labelings together, pairing their labels.
 //! - [`proj`]: projects away one component of a paired labeling.
 //!
-//! [`BvCompConfig::comp_labeled_graph`]: crate::graphs::bvgraph::BvCompConfig::comp_labeled_graph
-//! [`BvCompConfig::par_comp_labeled`]: crate::graphs::bvgraph::BvCompConfig::par_comp_labeled
+//! [`BvCompConf::comp_labeled_graph`]: crate::graphs::bvgraph::BvCompConf::comp_labeled_graph
+//! [`BvCompConf::par_comp_labeled`]: crate::graphs::bvgraph::BvCompConf::par_comp_labeled
 
 pub mod bitstream;
-pub use bitstream::{BitStreamLabeling, BitStreamLabelingSeq, BitStreamStoreLabelsConfig};
+pub use bitstream::{BitStreamLabeling, BitStreamLabelingSeq, BitStreamStoreLabelsConf};
 
 pub mod zip;
 pub use zip::*;

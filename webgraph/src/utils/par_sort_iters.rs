@@ -31,7 +31,7 @@
 //! The typical use of [`ParSortIters`] is to sort (labeled) pairs of nodes
 //! representing a (labeled) graph; the resulting [`SplitIters`] structure can
 //! be wrapped in a [`ParSortedGraph`] (or [`ParSortedLabeledGraph`]) and then
-//! compressed using, for example, [`BvCompConfig::par_comp`].
+//! compressed using, for example, [`BvCompConf::par_comp`].
 //!
 //! For example, when transposing or permuting a [splittable] graph one obtains
 //! such a sequence of iterators.
@@ -42,7 +42,7 @@
 //! [`ParSortPairs`]: crate::utils::par_sort_pairs::ParSortPairs
 //! [settable number of partitions]: ParSortIters::num_partitions
 //! [install]: rayon::ThreadPool::install
-//! [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
+//! [`BvCompConf::par_comp`]: crate::graphs::bvgraph::BvCompConf::par_comp
 //! [splittable]: crate::traits::SplitLabeling
 //! [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
 //! [`ParSortedLabeledGraph`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraph
@@ -62,7 +62,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 /// Takes a sequence of iterators of (labeled) pairs as input, and turns them
 /// into a [`SplitIters`] structure which can be wrapped in a
 /// [`ParSortedGraph`] for compression with
-/// [`BvCompConfig::par_comp`].
+/// [`BvCompConf::par_comp`].
 ///
 /// Note that batches will be memory-mapped. If you encounter OS-level errors
 /// using this class (e.g., `ENOMEM: Out of memory` under Linux), please review
@@ -76,9 +76,9 @@ use crate::utils::{SortedPairIter, SplitIters};
 /// In this example we transpose a graph in parallel by splitting it, exchanging
 /// the source and destination of each arc, sorting the resulting pairs in
 /// parallel using [`ParSortIters`], wrapping the result in a [`ParSortedGraph`],
-/// and then compressing it using [`BvCompConfig::par_comp`]:
+/// and then compressing it using [`BvCompConf::par_comp`]:
 ///
-/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
+/// [`BvCompConf::par_comp`]: crate::graphs::bvgraph::BvCompConf::par_comp
 /// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
 /// [module documentation]: self
 ///
@@ -467,10 +467,10 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
     /// or its items. The output is still partitioned, so the resulting
     /// [`SplitIters`] can be wrapped in a [`ParSortedGraph`] and compressed
     /// in parallel via
-    /// [`BvCompConfig::par_comp`].
+    /// [`BvCompConf::par_comp`].
     ///
     /// [`sort_labeled`]: ParSortIters::sort_labeled
-    /// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
+    /// [`BvCompConf::par_comp`]: crate::graphs::bvgraph::BvCompConf::par_comp
     /// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
     pub fn try_sort_labeled_seq<
         C: BatchCodec,

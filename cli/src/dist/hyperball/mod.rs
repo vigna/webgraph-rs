@@ -138,7 +138,11 @@ pub fn main(args: CliArgs) -> Result<()> {
 }
 
 pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
-    let mut pl = concurrent_progress_logger![log_interval = args.log_interval.log_interval];
+    let mut pl = concurrent_progress_logger![
+        local_speed = true,
+        display_memory = true,
+        log_interval = args.log_interval.log_interval,
+    ];
     let thread_pool = get_thread_pool(args.num_threads.num_threads);
 
     log::info!("Loading graph...");

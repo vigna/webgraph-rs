@@ -156,7 +156,7 @@ impl JobId for Job {
 
 /// Writes γ-coded delta offsets to a bitstream.
 ///
-/// Used internally by [`BvComp`] and [`BvCompConfig`] to produce the
+/// Used internally by [`BvComp`] and [`BvCompConf`] to produce the
 /// `.offsets` file during compression.
 #[derive(Debug)]
 #[repr(transparent)]
@@ -198,7 +198,7 @@ impl<W: Write> OffsetsWriter<W> {
 
 /// Configures and runs BvGraph compression.
 ///
-/// A `BvCompConfig` is normally obtained via the convenience methods
+/// A `BvCompConf` is normally obtained via the convenience methods
 /// [`BvComp::with_basename`] (for the standard compressor) or
 /// [`BvCompZ::with_basename`] (for the [Zuckerli-based] compressor). It
 /// can then be customized using the builder methods below and finally used
@@ -235,8 +235,8 @@ impl<W: Write> OffsetsWriter<W> {
 /// - [`par_comp_labeled`]: compresses a labeled [`IntoParLenders`] in
 ///   parallel.
 ///
-/// The labeled variants accept a [`StoreLabelsConfig`] parameter (e.g.,
-/// [`BitStreamStoreLabelsConfig`]) that controls how labels are written.
+/// The labeled variants accept a [`StoreLabelsConf`] parameter (e.g.,
+/// [`BitStreamStoreLabelsConf`]) that controls how labels are written.
 /// The unlabeled methods are thin wrappers that delegate to the labeled
 /// ones with `()` as label configuration.
 ///
@@ -269,7 +269,7 @@ impl<W: Write> OffsetsWriter<W> {
 ///
 /// // Parallel compression with labels
 /// let label_config =
-///     BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+///     BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
 /// BvComp::with_basename("output")
 ///     .par_comp_labeled::<BE, _, _>(&labeled_graph, label_config)?;
 ///
@@ -293,9 +293,9 @@ impl<W: Write> OffsetsWriter<W> {
 /// [`par_comp_labeled`]: Self::par_comp_labeled
 /// [`store_ef`]: crate::graphs::bvgraph::store_ef
 /// [`store_ef_with_data`]: crate::graphs::bvgraph::store_ef_with_data
-/// [`BitStreamStoreLabelsConfig`]: crate::labels::BitStreamStoreLabelsConfig
+/// [`BitStreamStoreLabelsConf`]: crate::labels::BitStreamStoreLabelsConf
 #[derive(Debug)]
-pub struct BvCompConfig<PL = Option<ProgressLogger>> {
+pub struct BvCompConf<PL = Option<ProgressLogger>> {
     /// The basename of the output files.
     basename: PathBuf,
     /// Compression flags for BvComp/BvCompZ.
@@ -314,7 +314,7 @@ pub struct BvCompConfig<PL = Option<ProgressLogger>> {
     pl: PL,
 }
 
-impl BvCompConfig {
+impl BvCompConf {
     /// Creates a new compression configuration with the given basename and
     /// default options.
     ///
@@ -350,7 +350,7 @@ impl BvCompConfig {
     }
 }
 
-impl<PL> BvCompConfig<PL> {
+impl<PL> BvCompConf<PL> {
     /// Sets the [`CompFlags`] controlling the compression parameters
     /// (compression window, maximum reference count, minimum interval length,
     /// and the instantaneous codes used for each component of the successor
@@ -405,8 +405,8 @@ impl<PL> BvCompConfig<PL> {
     /// [`expected_updates`](ProgressLog::expected_updates) are set by the
     /// compression methods; all other properties (e.g., display options,
     /// log interval) should be configured by the caller.
-    pub fn progress_logger<PL2>(self, pl: PL2) -> BvCompConfig<PL2> {
-        BvCompConfig {
+    pub fn progress_logger<PL2>(self, pl: PL2) -> BvCompConf<PL2> {
+        BvCompConf {
             basename: self.basename,
             comp_flags: self.comp_flags,
             bvgraphz: self.bvgraphz,
@@ -421,7 +421,7 @@ impl<PL> BvCompConfig<PL> {
     fn resolve_labels_basename(&self) -> PathBuf {
         self.labels_basename
             .clone()
-            .unwrap_or_else(|| BvCompConfig::default_labels_basename(&self.basename))
+            .unwrap_or_else(|| BvCompConf::default_labels_basename(&self.basename))
     }
 
     fn resolve_tmp_dir(&mut self) -> Result<PathBuf> {
@@ -442,7 +442,7 @@ impl<PL> BvCompConfig<PL> {
     }
 }
 
-impl<PL: ProgressLog> BvCompConfig<PL> {
+impl<PL: ProgressLog> BvCompConf<PL> {
     /// Compresses sequentially a [`SequentialGraph`] and returns
     /// the number of bits written to the graph bitstream.
     ///
@@ -484,10 +484,10 @@ impl<PL: ProgressLog> BvCompConfig<PL> {
     ///
     /// The `store_labels_config` parameter provides the factory for creating
     /// label storage instances alongside graph compression (e.g.,
-    /// [`BitStreamStoreLabelsConfig`]).
+    /// [`BitStreamStoreLabelsConf`]).
     ///
-    /// [`BitStreamStoreLabelsConfig`]: crate::labels::BitStreamStoreLabelsConfig
-    pub fn comp_labeled_graph<E: Endianness, L, SLC: StoreLabelsConfig>(
+    /// [`BitStreamStoreLabelsConf`]: crate::labels::BitStreamStoreLabelsConf
+    pub fn comp_labeled_graph<E: Endianness, L, SLC: StoreLabelsConf>(
         &mut self,
         graph: impl LabeledSequentialGraph<L>,
         store_labels_config: SLC,
@@ -518,7 +518,7 @@ impl<PL: ProgressLog> BvCompConfig<PL> {
     where
         E: Endianness,
         L: IntoLender,
-        SLC: StoreLabelsConfig,
+        SLC: StoreLabelsConf,
         SLC::StoreLabels: StoreLabels,
         L::Lender: for<'next> NodeLabelsLender<
                 'next,
@@ -650,15 +650,15 @@ impl<PL: ProgressLog> BvCompConfig<PL> {
     /// a [`StoreLabels`] instance obtained from `store_labels_config` (use
     /// `()` for unlabeled graphs). After all threads finish, the main thread
     /// concatenates the chunk files using
-    /// [`StoreLabelsConfig::concat_part`].
+    /// [`StoreLabelsConf::concat_part`].
     ///
     /// The number of parallel compression threads will be
     /// [`current_num_threads`]. It is your responsibility to ensure that the
     /// number of threads is appropriate for the number of lenders returned
     /// by [`into_par_lenders`], possibly using [`install`].
     ///
-    /// A concrete implementation of [`StoreLabelsConfig`] for
-    /// bitstream-based labels is [`BitStreamStoreLabelsConfig`].
+    /// A concrete implementation of [`StoreLabelsConf`] for
+    /// bitstream-based labels is [`BitStreamStoreLabelsConf`].
     ///
     /// # Examples
     ///
@@ -667,7 +667,7 @@ impl<PL: ProgressLog> BvCompConfig<PL> {
     ///
     /// [`into_par_lenders`]: IntoParLenders::into_par_lenders
     /// [`install`]: rayon::ThreadPool::install
-    /// [`BitStreamStoreLabelsConfig`]: crate::labels::BitStreamStoreLabelsConfig
+    /// [`BitStreamStoreLabelsConf`]: crate::labels::BitStreamStoreLabelsConf
     ///
     /// ```
     /// # use anyhow::Result;
@@ -676,7 +676,7 @@ impl<PL: ProgressLog> BvCompConfig<PL> {
     /// # use webgraph::graphs::bvgraph::*;
     /// # use webgraph::labels::BitStreamLabelingSeq;
     /// # use webgraph::graphs::vec_graph::LabeledVecGraph;
-    /// # use webgraph::labels::BitStreamStoreLabelsConfig;
+    /// # use webgraph::labels::BitStreamStoreLabelsConf;
     /// # use webgraph::traits::FixedWidth;
     /// # fn main() -> Result<()> {
     /// # let tmp = tempfile::TempDir::new()?;
@@ -690,12 +690,12 @@ impl<PL: ProgressLog> BvCompConfig<PL> {
     /// ]);
     ///
     /// let label_config =
-    ///     BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+    ///     BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
     ///
     /// BvComp::with_basename(&basename)
     ///     .par_comp_labeled::<BE, _, _>(&graph, label_config)?;
     ///
-    /// let labels_basename = BvCompConfig::default_labels_basename(&basename);
+    /// let labels_basename = BvCompConf::default_labels_basename(&basename);
     ///
     /// // Load the compressed graph and labeling, then verify
     /// let seq = BvGraphSeq::with_basename(&basename)
@@ -725,7 +725,7 @@ impl<PL: ProgressLog> BvCompConfig<PL> {
                 Label = (usize, <SLC::StoreLabels as StoreLabels>::Label),
             >,
         >,
-        SLC: StoreLabelsConfig + Send + Sync,
+        SLC: StoreLabelsConf + Send + Sync,
         SLC::StoreLabels: Send,
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,

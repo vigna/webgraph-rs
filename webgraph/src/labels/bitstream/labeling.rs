@@ -41,7 +41,7 @@
 //! # use epserde::prelude::*;
 //! # use webgraph::prelude::*;
 //! # use webgraph::graphs::bvgraph::*;
-//! # use webgraph::labels::{BitStreamLabeling, BitStreamLabelingSeq, BitStreamStoreLabelsConfig};
+//! # use webgraph::labels::{BitStreamLabeling, BitStreamLabelingSeq, BitStreamStoreLabelsConf};
 //! # use webgraph::graphs::vec_graph::LabeledVecGraph;
 //! # use webgraph::traits::FixedWidth;
 //! # use dsi_bitstream::traits::BE;
@@ -60,12 +60,12 @@
 //! ]);
 //!
 //! let label_config =
-//!     BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+//!     BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
 //!
 //! BvComp::with_basename(&basename)
 //!     .par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 //!
-//! let labels_basename = BvCompConfig::default_labels_basename(&basename);
+//! let labels_basename = BvCompConf::default_labels_basename(&basename);
 //!
 //! // --- Sequential access (no .ef needed) ---
 //! let seq = BvGraphSeq::with_basename(&basename)
@@ -134,12 +134,12 @@ use value_traits::slices::SliceByValue;
 /// label basename, or [`new`](BitStreamLabelingSeq::new) for custom setups.
 ///
 /// The label files read by this struct are produced by
-/// [`BvCompConfig::comp_labeled_graph`] or [`BvCompConfig::par_comp_labeled`]
-/// using a [`BitStreamStoreLabelsConfig`].
+/// [`BvCompConf::comp_labeled_graph`] or [`BvCompConf::par_comp_labeled`]
+/// using a [`BitStreamStoreLabelsConf`].
 ///
-/// [`BvCompConfig::comp_labeled_graph`]: crate::graphs::bvgraph::BvCompConfig::comp_labeled_graph
-/// [`BvCompConfig::par_comp_labeled`]: crate::graphs::bvgraph::BvCompConfig::par_comp_labeled
-/// [`BitStreamStoreLabelsConfig`]: crate::labels::BitStreamStoreLabelsConfig
+/// [`BvCompConf::comp_labeled_graph`]: crate::graphs::bvgraph::BvCompConf::comp_labeled_graph
+/// [`BvCompConf::par_comp_labeled`]: crate::graphs::bvgraph::BvCompConf::par_comp_labeled
+/// [`BitStreamStoreLabelsConf`]: crate::labels::BitStreamStoreLabelsConf
 /// [`BitStreamLabeling`]: super::BitStreamLabeling
 pub struct BitStreamLabelingSeq<E: Endianness, S: CodesReaderFactory<E>, D>
 where
@@ -323,17 +323,17 @@ where
 /// basename, or [`new`](BitStreamLabeling::new) for custom setups.
 ///
 /// The label files read by this struct are produced by
-/// [`BvCompConfig::comp_labeled_graph`] or [`BvCompConfig::par_comp_labeled`]
-/// using a [`BitStreamStoreLabelsConfig`]. The `.ef` file can be built with
+/// [`BvCompConf::comp_labeled_graph`] or [`BvCompConf::par_comp_labeled`]
+/// using a [`BitStreamStoreLabelsConf`]. The `.ef` file can be built with
 /// [`store_ef_with_data`].
 ///
 /// See also [`BitStreamLabelingSeq`] for the sequential-only counterpart
 /// (no `.ef` needed).
 ///
 /// [Elias–Fano]: crate::graphs::bvgraph::EF
-/// [`BvCompConfig::comp_labeled_graph`]: crate::graphs::bvgraph::BvCompConfig::comp_labeled_graph
-/// [`BvCompConfig::par_comp_labeled`]: crate::graphs::bvgraph::BvCompConfig::par_comp_labeled
-/// [`BitStreamStoreLabelsConfig`]: crate::labels::BitStreamStoreLabelsConfig
+/// [`BvCompConf::comp_labeled_graph`]: crate::graphs::bvgraph::BvCompConf::comp_labeled_graph
+/// [`BvCompConf::par_comp_labeled`]: crate::graphs::bvgraph::BvCompConf::par_comp_labeled
+/// [`BitStreamStoreLabelsConf`]: crate::labels::BitStreamStoreLabelsConf
 /// [`store_ef_with_data`]: crate::graphs::bvgraph::store_ef_with_data
 pub struct BitStreamLabeling<E: Endianness, S: CodesReaderFactory<E>, D, O: Offsets>
 where

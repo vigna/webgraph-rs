@@ -19,7 +19,7 @@ use std::path::Path;
 /// possible to use labeled compressors as unlabeled ones by wrapping the
 /// unlabeled graph in a [`UnitLabelGraph`].
 ///
-/// See also [`StoreLabelsConfig`] (the factory that creates instances of
+/// See also [`StoreLabelsConf`] (the factory that creates instances of
 /// this trait) and [`BitStreamStoreLabels`] (the concrete bitstream
 /// implementation).
 ///
@@ -102,18 +102,18 @@ impl StoreLabels for () {
 /// The unit type implements this trait as a no-op factory that spawns
 /// `()` stores.
 ///
-/// See also [`BitStreamStoreLabelsConfig`] (the concrete bitstream
-/// implementation) and [`BvCompConfig::par_comp_labeled`] /
-/// [`BvCompConfig::comp_labeled_graph`] (the consumers).
+/// See also [`BitStreamStoreLabelsConf`] (the concrete bitstream
+/// implementation) and [`BvCompConf::par_comp_labeled`] /
+/// [`BvCompConf::comp_labeled_graph`] (the consumers).
 ///
 /// [`new_storage`]: Self::new_storage
 /// [`init_concat`]: Self::init_concat
 /// [`concat_part`]: Self::concat_part
 /// [`flush_concat`]: Self::flush_concat
-/// [`BitStreamStoreLabelsConfig`]: crate::labels::BitStreamStoreLabelsConfig
-/// [`BvCompConfig::par_comp_labeled`]: crate::graphs::bvgraph::BvCompConfig::par_comp_labeled
-/// [`BvCompConfig::comp_labeled_graph`]: crate::graphs::bvgraph::BvCompConfig::comp_labeled_graph
-pub trait StoreLabelsConfig {
+/// [`BitStreamStoreLabelsConf`]: crate::labels::BitStreamStoreLabelsConf
+/// [`BvCompConf::par_comp_labeled`]: crate::graphs::bvgraph::BvCompConf::par_comp_labeled
+/// [`BvCompConf::comp_labeled_graph`]: crate::graphs::bvgraph::BvCompConf::comp_labeled_graph
+pub trait StoreLabelsConf {
     /// The per-part label writer this factory creates.
     type StoreLabels: StoreLabels;
 
@@ -147,7 +147,7 @@ pub trait StoreLabelsConfig {
     fn label_serializer_name(&self) -> String;
 }
 
-impl StoreLabelsConfig for () {
+impl StoreLabelsConf for () {
     type StoreLabels = ();
 
     #[inline(always)]

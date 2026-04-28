@@ -13,7 +13,7 @@
 //!   [`NodeLabelsLender`] lending protocol;
 //! - [`bit_serde`]: [`BitSerializer`] / [`BitDeserializer`] and the
 //!   [`FixedWidth`] implementation for label I/O;
-//! - [`store`]: [`StoreLabels`] / [`StoreLabelsConfig`] for writing labels
+//! - [`store`]: [`StoreLabels`] / [`StoreLabelsConf`] for writing labels
 //!   alongside graph compression;
 //! - [`split`]: [`SplitLabeling`] for parallel iteration;
 //! - [`par_map_fold`]: [`IntoParLenders`] for parallel graph algorithms.

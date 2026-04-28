@@ -9,11 +9,11 @@
 //!
 //! The main implementation is [`FixedWidth`], which serializes primitive
 //! integers using a fixed number of bits. Serializers and deserializers are
-//! used by [`BitStreamStoreLabelsConfig`] to compress labels alongside a
+//! used by [`BitStreamStoreLabelsConf`] to compress labels alongside a
 //! graph, and by [`BitStreamLabeling`] / [`BitStreamLabelingSeq`] to read
 //! them back.
 //!
-//! [`BitStreamStoreLabelsConfig`]: crate::labels::BitStreamStoreLabelsConfig
+//! [`BitStreamStoreLabelsConf`]: crate::labels::BitStreamStoreLabelsConf
 //! [`BitStreamLabeling`]: crate::labels::BitStreamLabeling
 //! [`BitStreamLabelingSeq`]: crate::labels::BitStreamLabelingSeq
 

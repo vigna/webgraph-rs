@@ -12,7 +12,7 @@ use dsi_bitstream::dispatch::Codes;
 use dsi_bitstream::prelude::*;
 use webgraph::graphs::vec_graph::LabeledVecGraph;
 use webgraph::labels::BitStreamLabeling;
-use webgraph::labels::bitstream::BitStreamStoreLabelsConfig;
+use webgraph::labels::bitstream::BitStreamStoreLabelsConf;
 use webgraph::prelude::*;
 use webgraph::traits::FixedWidth;
 
@@ -561,7 +561,7 @@ fn test_bvcomp_config_basic() -> Result<()> {
     let basename = dir.path().join("test_config");
     let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
 
-    let bits_written = BvCompConfig::new(&basename).comp_graph::<BE>(&graph)?;
+    let bits_written = BvCompConf::new(&basename).comp_graph::<BE>(&graph)?;
     assert!(bits_written > 0);
 
     // Verify the graph was written correctly (use sequential access, no EF needed)
@@ -582,7 +582,7 @@ fn test_bvcomp_config_with_flags() -> Result<()> {
         ..CompFlags::default()
     };
 
-    let bits_written = BvCompConfig::new(&basename)
+    let bits_written = BvCompConf::new(&basename)
         .comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
     assert!(bits_written > 0);
@@ -598,7 +598,7 @@ fn test_bvcomp_config_with_explicit_tmp_dir() -> Result<()> {
     let basename = dir.path().join("test_tmpdir");
     let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
 
-    let bits_written = BvCompConfig::new(&basename)
+    let bits_written = BvCompConf::new(&basename)
         .tmp_dir(tmp.path())
         .comp_graph::<BE>(&graph)?;
     assert!(bits_written > 0);
@@ -614,7 +614,7 @@ fn test_par_comp() -> Result<()> {
     let graph =
         webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3), (3, 4)]);
 
-    let bits_written = BvCompConfig::new(&basename).par_comp::<BE, _>(&graph)?;
+    let bits_written = BvCompConf::new(&basename).par_comp::<BE, _>(&graph)?;
     assert!(bits_written > 0);
 
     // Build EF for loaded graph
@@ -648,7 +648,7 @@ fn test_par_comp_from_parts() -> Result<()> {
     let sorted = ParSortedGraph::from_parts(split.boundaries, split.iters);
     let dir = tempfile::tempdir()?;
     let basename = dir.path().join("par_lenders");
-    let bits = BvCompConfig::new(&basename).par_comp::<BE, _>(&sorted)?;
+    let bits = BvCompConf::new(&basename).par_comp::<BE, _>(&sorted)?;
     assert!(bits > 0);
 
     // Build EF and load
@@ -666,7 +666,7 @@ fn test_comp_lender() -> Result<()> {
     let basename = dir.path().join("test_lender");
     let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
 
-    let bits_written = BvCompConfig::new(&basename).comp_lender::<BE, _>(graph.iter(), Some(3))?;
+    let bits_written = BvCompConf::new(&basename).comp_lender::<BE, _>(graph.iter(), Some(3))?;
     assert!(bits_written > 0);
 
     // Verify with sequential access (no EF needed)
@@ -683,7 +683,7 @@ fn test_bvcomp_le_endianness() -> Result<()> {
     let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
 
     // Compress with LE endianness
-    let bits_written = BvCompConfig::new(&basename).comp_graph::<LE>(&graph)?;
+    let bits_written = BvCompConf::new(&basename).comp_graph::<LE>(&graph)?;
     assert!(bits_written > 0);
 
     // Load with sequential access (no EF needed)
@@ -713,7 +713,7 @@ fn test_bvcomp_with_custom_comp_flags() -> Result<()> {
         max_ref_count: 3,
     };
 
-    let bits = BvCompConfig::new(&basename)
+    let bits = BvCompConf::new(&basename)
         .comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
     assert!(bits > 0);
@@ -742,11 +742,11 @@ fn test_bvcomp_labeled_roundtrip() -> Result<()> {
     let tmp = tempfile::TempDir::new()?;
     let basename = tmp.path().join("labeled");
 
-    let label_config = BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+    let label_config = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
 
     BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, label_config)?;
 
-    let labels_basename = BvCompConfig::default_labels_basename(&basename);
+    let labels_basename = BvCompConf::default_labels_basename(&basename);
 
     // Verify the label properties file
     let label_props = webgraph::graphs::bvgraph::parse_label_properties::<BE>(&labels_basename)?;
@@ -786,11 +786,11 @@ fn test_par_comp_labeled_roundtrip() -> Result<()> {
     let tmp = tempfile::TempDir::new()?;
     let basename = tmp.path().join("parlabeled");
 
-    let label_config = BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+    let label_config = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
 
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 
-    let labels_basename = BvCompConfig::default_labels_basename(&basename);
+    let labels_basename = BvCompConf::default_labels_basename(&basename);
     common::build_ef_from_offsets(
         graph.num_nodes(),
         &labels_basename.with_extension("labels"),
@@ -823,11 +823,11 @@ fn test_par_comp_labeled_seq_roundtrip() -> Result<()> {
     let tmp = tempfile::TempDir::new()?;
     let basename = tmp.path().join("parlabeled_seq");
 
-    let label_config = BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+    let label_config = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
 
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 
-    let labels_basename = BvCompConfig::default_labels_basename(&basename);
+    let labels_basename = BvCompConf::default_labels_basename(&basename);
 
     // No EF needed — BitStreamLabelingSeq reads offsets from the .offsets file
     let seq = BvGraphSeq::with_basename(&basename)
@@ -855,12 +855,11 @@ fn test_par_comp_labeled_roundtrip_zstd() -> Result<()> {
     let tmp = tempfile::TempDir::new()?;
     let basename = tmp.path().join("parlabeled_zstd");
 
-    let label_config =
-        BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new()).with_zstd();
+    let label_config = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new()).zstd();
 
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 
-    let labels_basename = BvCompConfig::default_labels_basename(&basename);
+    let labels_basename = BvCompConf::default_labels_basename(&basename);
     common::build_ef_from_offsets(
         graph.num_nodes(),
         &labels_basename.with_extension("labels"),
@@ -912,11 +911,11 @@ fn test_comp_labeled_cnr2000() -> Result<()> {
     let tmp = tempfile::TempDir::new()?;
     let basename = tmp.path().join("cnr_labeled_seq");
 
-    let label_config = BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+    let label_config = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
 
     BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, label_config)?;
 
-    let labels_basename = BvCompConfig::default_labels_basename(&basename);
+    let labels_basename = BvCompConf::default_labels_basename(&basename);
     common::build_ef_from_offsets(
         graph.num_nodes(),
         &labels_basename.with_extension("labels"),
@@ -950,11 +949,11 @@ fn test_par_comp_labeled_cnr2000() -> Result<()> {
     let tmp = tempfile::TempDir::new()?;
     let basename = tmp.path().join("cnr_labeled_par");
 
-    let label_config = BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+    let label_config = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
 
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 
-    let labels_basename = BvCompConfig::default_labels_basename(&basename);
+    let labels_basename = BvCompConf::default_labels_basename(&basename);
     common::build_ef_from_offsets(
         graph.num_nodes(),
         &labels_basename.with_extension("labels"),

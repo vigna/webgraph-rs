@@ -33,7 +33,7 @@ use sux::traits::TryIntoUnaligned;
 /// in this structure.
 ///
 /// To load an existing compressed graph, use [`BvGraphSeq::with_basename`]. To
-/// create one, compress a graph with [`BvCompConfig`] (e.g., via
+/// create one, compress a graph with [`BvCompConf`] (e.g., via
 /// [`BvComp::with_basename`]).
 ///
 /// See also [`BvGraph`] for the random-access variant.
@@ -50,8 +50,8 @@ impl BvGraphSeq<()> {
     /// Returns a load configuration that can be customized.
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
-    ) -> LoadConfig<BE, Sequential, Dynamic, Mmap, Mmap> {
-        LoadConfig {
+    ) -> LoadConf<BE, Sequential, Dynamic, Mmap, Mmap> {
+        LoadConf {
             basename: PathBuf::from(basename.as_ref()),
             graph_load_flags: Flags::empty(),
             offsets_load_flags: Flags::empty(),

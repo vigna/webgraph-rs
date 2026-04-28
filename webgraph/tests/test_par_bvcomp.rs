@@ -45,7 +45,7 @@ fn _test_par_bvcomp(basename: &std::path::Path) -> Result<()> {
         // we can test with different number of threads
         let start = std::time::Instant::now();
         // recompress the graph in parallel
-        BvCompConfig::new(&tmp_basename)
+        BvCompConf::new(&tmp_basename)
             .comp_flags(comp_flags)
             .par_comp::<BE, _>(&graph)?;
 

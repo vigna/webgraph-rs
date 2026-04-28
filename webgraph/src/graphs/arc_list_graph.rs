@@ -20,12 +20,12 @@ use lender::*;
 /// useful in circumstances in which one has a list of arcs sorted by source
 /// that represent only part of a graph, but need to exhibit them as a
 /// [`NodeLabelsLender`], for example, for feeding such lenders to
-/// [`BvCompConfig::par_comp`].
+/// [`BvCompConf::par_comp`].
 ///
 /// [labeled sequential graph]: LabeledSequentialGraph
 /// [`iter`]: SequentialLabeling::iter
 /// [built independently]: NodeLabels::new
-/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
+/// [`BvCompConf::par_comp`]: crate::graphs::bvgraph::BvCompConf::par_comp
 #[derive(Clone)]
 pub struct ArcListGraph<I> {
     num_nodes: usize,

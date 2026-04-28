@@ -1523,6 +1523,7 @@ where
         // let curr_modified: BitVec<&mut [usize]> = curr_modified.into();
         let curr_modified = unsafe {
             <BitVec<&[usize]>>::from_raw_parts(
+                #[allow(clippy::missing_transmute_annotations)]
                 transmute(self.curr_modified.as_ref()),
                 self.curr_modified.len(),
             )

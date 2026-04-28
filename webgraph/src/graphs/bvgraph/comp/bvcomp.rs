@@ -68,7 +68,7 @@ impl AddAssign for CompStats {
 /// [`CompStats`].
 ///
 /// In most cases you do not need to instantiate this struct directly: use
-/// [`BvComp::with_basename`] to obtain a [`BvCompConfig`] with suitable
+/// [`BvComp::with_basename`] to obtain a [`BvCompConf`] with suitable
 /// defaults, then call [`comp_graph`] or [`par_comp`] on it.
 ///
 /// For a compressor that uses an alternative reference-selection strategy
@@ -79,8 +79,8 @@ impl AddAssign for CompStats {
 /// [`push`]: Self::push
 /// [`extend`]: Self::extend
 /// [`flush`]: Self::flush
-/// [`comp_graph`]: BvCompConfig::comp_graph
-/// [`par_comp`]: BvCompConfig::par_comp
+/// [`comp_graph`]: BvCompConf::comp_graph
+/// [`par_comp`]: BvCompConf::par_comp
 /// [`BvCompZ`]: super::BvCompZ
 #[derive(Debug)]
 pub struct BvComp<E, W: Write, SL: StoreLabels = ()> {
@@ -119,10 +119,10 @@ pub struct BvComp<E, W: Write, SL: StoreLabels = ()> {
 }
 
 impl BvComp<(), std::io::Sink, ()> {
-    /// Convenience method returning a [`BvCompConfig`] with
+    /// Convenience method returning a [`BvCompConf`] with
     /// settings suitable for the standard Boldi–Vigna compressor.
-    pub fn with_basename(basename: impl AsRef<Path>) -> BvCompConfig {
-        BvCompConfig::new(basename)
+    pub fn with_basename(basename: impl AsRef<Path>) -> BvCompConf {
+        BvCompConf::new(basename)
     }
 }
 

@@ -53,7 +53,7 @@ compile_error!("At least one of the features `le_bins` or `be_bins` must be enab
 ///
 /// # Arguments
 ///
-/// * `config` - the [`BvCompConfig`] to call [`par_comp`] on;
+/// * `config` - the [`BvCompConf`] to call [`par_comp`] on;
 ///
 /// * `graph` - an implementation of [`IntoParLenders`] with `Label = usize`;
 ///
@@ -61,8 +61,8 @@ compile_error!("At least one of the features `le_bins` or `be_bins` must be enab
 ///   it must implement `AsRef<str>`, and must be equal to the name of one of the
 ///   endianness types supported by the binary.
 ///
-/// [`par_comp`]: webgraph::prelude::BvCompConfig::par_comp
-/// [`BvCompConfig`]: webgraph::prelude::BvCompConfig
+/// [`par_comp`]: webgraph::prelude::BvCompConf::par_comp
+/// [`BvCompConf`]: webgraph::prelude::BvCompConf
 /// [`IntoParLenders`]: webgraph::prelude::IntoParLenders
 #[macro_export]
 macro_rules! par_comp {
@@ -78,12 +78,12 @@ macro_rules! par_comp {
 /// Implementation detail of [`par_comp!`]. Dispatches to the correct
 /// endianness-specific [`par_comp`].
 ///
-/// [`par_comp`]: webgraph::prelude::BvCompConfig::par_comp
+/// [`par_comp`]: webgraph::prelude::BvCompConf::par_comp
 pub fn __par_comp_dispatch<
     PL: dsi_progress_logger::ProgressLog,
     G: for<'a> IntoParLenders<ParLender: NodeLabelsLender<'a, Label = usize>>,
 >(
-    config: &mut webgraph::prelude::BvCompConfig<PL>,
+    config: &mut webgraph::prelude::BvCompConf<PL>,
     graph: G,
     endianness: &str,
 ) -> anyhow::Result<u64> {

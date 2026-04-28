@@ -12,7 +12,7 @@ pub use bvcomp::*;
 pub use bvcompz::*;
 
 mod impls;
-pub use impls::{BvCompConfig, OffsetsWriter};
+pub use impls::{BvCompConf, OffsetsWriter};
 
 mod flags;
 pub use flags::*;

@@ -4,18 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! [`StoreLabelsConfig`] implementations for bitstream-based label
+//! [`StoreLabelsConf`] implementations for bitstream-based label
 //! compression.
 //!
 //! Compression of labeled graphs or pairs via [`par_comp_labeled`] requires
-//! providing a [`StoreLabelsConfig`] that can create [`StoreLabels`] instances.
+//! providing a [`StoreLabelsConf`] that can create [`StoreLabels`] instances.
 //! This module provides a concrete implementation
-//! [`BitStreamStoreLabelsConfig`] of [`StoreLabelsConfig`] that stores
+//! [`BitStreamStoreLabelsConf`] of [`StoreLabelsConf`] that stores
 //! labels in a bitstream format, with support for both uncompressed and
 //! [`Zstd`]-compressed per-thread part files. The format can be loaded using
 //! [`BitStreamLabelingSeq`]/[`BitStreamLabeling`].
 //!
-//! [`par_comp_labeled`]: crate::graphs::bvgraph::BvCompConfig::par_comp_labeled
+//! [`par_comp_labeled`]: crate::graphs::bvgraph::BvCompConf::par_comp_labeled
 //! [`Zstd`]: zstd
 
 use crate::prelude::*;
@@ -47,29 +47,29 @@ impl PartComp for Zstd {}
 /// # Examples
 ///
 /// ```rust
-/// # use webgraph::labels::bitstream::store::BitStreamStoreLabelsConfig;
+/// # use webgraph::labels::bitstream::store::BitStreamStoreLabelsConf;
 /// # use webgraph::traits::bit_serde::FixedWidth;
 /// # use dsi_bitstream::prelude::BE;
 /// // Uncompressed (default)
-/// let config = BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new());
+/// let config = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
 ///
 /// // Zstd-compressed temp files
-/// let config = BitStreamStoreLabelsConfig::<BE, _>::new(FixedWidth::<u32>::new())
-///     .with_zstd();
+/// let config = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new())
+///     .zstd();
 /// ```
-pub struct BitStreamStoreLabelsConfig<E: Endianness, S, C: PartComp = Uncompressed> {
+pub struct BitStreamStoreLabelsConf<E: Endianness, S, C: PartComp = Uncompressed> {
     serializer: S,
     labels_writer: Option<BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>>,
     offsets_writer: Option<BufBitWriter<BigEndian, WordAdapter<usize, BufWriter<File>>>>,
     _marker: PhantomData<C>,
 }
 
-impl<E: Endianness, S: Clone> BitStreamStoreLabelsConfig<E, S, Uncompressed> {
+impl<E: Endianness, S: Clone> BitStreamStoreLabelsConf<E, S, Uncompressed> {
     /// Creates a new configuration with the given serializer.
     ///
-    /// If your labels are highly compressible, consider using [`with_zstd`].
+    /// If your labels are highly compressible, consider using [`zstd`].
     ///
-    /// [`with_zstd`]: Self::with_zstd
+    /// [`zstd`]: Self::zstd
     pub fn new(serializer: S) -> Self {
         Self {
             serializer,
@@ -82,8 +82,8 @@ impl<E: Endianness, S: Clone> BitStreamStoreLabelsConfig<E, S, Uncompressed> {
     /// Enables [`Zstd`] compression for per-thread label part files.
     ///
     /// [`Zstd`]: zstd
-    pub fn with_zstd(self) -> BitStreamStoreLabelsConfig<E, S, Zstd> {
-        BitStreamStoreLabelsConfig {
+    pub fn zstd(self) -> BitStreamStoreLabelsConf<E, S, Zstd> {
+        BitStreamStoreLabelsConf {
             serializer: self.serializer,
             labels_writer: None,
             offsets_writer: None,
@@ -94,7 +94,7 @@ impl<E: Endianness, S: Clone> BitStreamStoreLabelsConfig<E, S, Uncompressed> {
 
 // --- Shared helpers ---
 
-impl<E, S, C: PartComp> BitStreamStoreLabelsConfig<E, S, C>
+impl<E, S, C: PartComp> BitStreamStoreLabelsConf<E, S, C>
 where
     E: Endianness,
     S: Clone,
@@ -140,9 +140,9 @@ where
     }
 }
 
-// --- Uncompressed StoreLabelsConfig impl ---
+// --- Uncompressed StoreLabelsConf impl ---
 
-impl<E, S> StoreLabelsConfig for BitStreamStoreLabelsConfig<E, S, Uncompressed>
+impl<E, S> StoreLabelsConf for BitStreamStoreLabelsConf<E, S, Uncompressed>
 where
     E: Endianness,
     S: Clone,
@@ -183,9 +183,9 @@ where
     }
 }
 
-// --- Zstd StoreLabelsConfig impl ---
+// --- Zstd StoreLabelsConf impl ---
 
-impl<E, S> StoreLabelsConfig for BitStreamStoreLabelsConfig<E, S, Zstd>
+impl<E, S> StoreLabelsConf for BitStreamStoreLabelsConf<E, S, Zstd>
 where
     E: Endianness,
     S: Clone,

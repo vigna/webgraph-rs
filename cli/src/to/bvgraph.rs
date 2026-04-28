@@ -85,7 +85,7 @@ where
     let src = args.src.clone();
     let memory_usage = args.memory_usage.memory_usage;
     let log_interval = args.log_interval.log_interval;
-    let mut builder = BvCompConfig::new(&args.dst)
+    let mut builder = BvCompConf::new(&args.dst)
         .comp_flags(args.ca.into())
         .tmp_dir(&dir);
 
@@ -138,7 +138,7 @@ where
 #[allow(clippy::too_many_arguments)]
 pub fn par_compress_with_perm<E: Endianness, P: SliceByValue<Value = usize> + Send + Sync + Clone>(
     thread_pool: rayon::ThreadPool,
-    builder: BvCompConfig,
+    builder: BvCompConf,
     src: &std::path::Path,
     target_endianness: Option<String>,
     memory_usage: webgraph::utils::MemoryUsage,
@@ -170,7 +170,7 @@ where
 
 pub fn seq_compress_with_perm<E: Endianness, P: SliceByValue<Value = usize>>(
     thread_pool: rayon::ThreadPool,
-    builder: BvCompConfig,
+    builder: BvCompConf,
     src: &std::path::Path,
     target_endianness: Option<String>,
     memory_usage: webgraph::utils::MemoryUsage,
@@ -200,7 +200,7 @@ where
 
 fn par_compress_no_perm<E: Endianness>(
     thread_pool: rayon::ThreadPool,
-    builder: BvCompConfig,
+    builder: BvCompConf,
     src: &std::path::Path,
     target_endianness: Option<String>,
     use_dcf: bool,
@@ -232,7 +232,7 @@ where
 
 fn seq_compress_no_perm<E: Endianness>(
     thread_pool: rayon::ThreadPool,
-    builder: BvCompConfig,
+    builder: BvCompConf,
     src: &std::path::Path,
     target_endianness: Option<String>,
     log_interval: Duration,

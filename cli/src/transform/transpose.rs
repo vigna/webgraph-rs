@@ -91,7 +91,7 @@ where
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
-    let mut builder = BvCompConfig::new(&args.dst)
+    let mut builder = BvCompConf::new(&args.dst)
         .comp_flags(args.ca.into())
         .tmp_dir(&dir);
 
@@ -135,7 +135,7 @@ where
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
-    let mut builder = BvCompConfig::new(&args.dst)
+    let mut builder = BvCompConf::new(&args.dst)
         .comp_flags(args.ca.into())
         .tmp_dir(&dir);
 

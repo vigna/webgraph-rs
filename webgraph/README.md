@@ -77,7 +77,7 @@ To load a graph with random access:
 let graph = BvGraph::with_basename("BASENAME").load()?;
 ```
 
-[`BvGraph::with_basename`] returns a [`LoadConfig`] that can be further
+[`BvGraph::with_basename`] returns a [`LoadConf`] that can be further
 customized, selecting endianness, type of memory access (memory mapping, full
 loading, etc.), and so on. By default you will get big endianness, memory
 mapping, and dynamic code dispatch.
@@ -131,7 +131,7 @@ From code, you have several options depending on how your data is organized:
 
 - If you can generate arcs **in sorted order** (by source, then by target), wrap
   your iterator in an [`ArcListGraph`] and pass it directly to
-  [`BvCompConfig::comp_graph`]; no intermediate storage is needed.
+  [`BvCompConf::comp_graph`]; no intermediate storage is needed.
 
 - If your arcs are **unsorted**, [`ParSortedGraph::from_pairs`] accepts an
   iterator on `(usize, usize)` pairs, sorts them, and returns a graph ready for
@@ -141,7 +141,7 @@ From code, you have several options depending on how your data is organized:
   [`ParSortedGraph::par_from_pairs`] does the same with parallel sorting.
 
 In all cases the result implements [`IntoParLenders`], so it can be passed to
-[`BvCompConfig::par_comp`] for parallel compression. For full control over
+[`BvCompConf::par_comp`] for parallel compression. For full control over
 deduplication, memory budget, and progress logging, use the
 [`ParSortedGraphConf`] builder obtained via [`ParSortedGraph::config()`].
 
@@ -152,7 +152,7 @@ pairs instead of `(usize, usize)` and the corresponding
 ## Compressing graphs
 
 The entry point for compression is [`BvComp::with_basename`], which returns a
-[`BvCompConfig`] builder. Compression parameters (window size, codes for
+[`BvCompConf`] builder. Compression parameters (window size, codes for
 different components, etc.) are controlled by [`CompFlags`]. compression
 paramters are described in detail in the [`bvgraph`] module documentation.
 
@@ -164,7 +164,7 @@ BvComp::with_basename("BASENAME")
 ```
 
 For better compression ratios at the cost of a longer compression time, use
-[`BvCompConfig::bvgraphz`], which enables Zuckerli-like
+[`BvCompConf::bvgraphz`], which enables Zuckerli-like
 dynamic-programming reference selection.
 
 ### Parallel compression
@@ -186,9 +186,9 @@ All common graph types implement [`IntoParLenders`] automatically via
 ### Labeled compression
 
 Graphs with labels can be compressed with
-[`BvCompConfig::comp_labeled_graph`] (sequential) or
-[`BvCompConfig::par_comp_labeled`] (parallel). Label storage is controlled by a
-[`StoreLabelsConfig`] implementation; [`BitStreamStoreLabelsConfig`] provides
+[`BvCompConf::comp_labeled_graph`] (sequential) or
+[`BvCompConf::par_comp_labeled`] (parallel). Label storage is controlled by a
+[`StoreLabelsConf`] implementation; [`BitStreamStoreLabelsConf`] provides
 bitstream-based storage with optional Zstandard compression.
 
 ## Graph transforms
@@ -287,12 +287,12 @@ Union nor the Italian MUR can be held responsible for them.
 [`transform`]: https://docs.rs/webgraph/latest/webgraph/transform/index.html
 [`BvGraph::with_basename`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html#method.with_basename
 [`BvGraphSeq`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/sequential/struct.BvGraphSeq.html
-[`LoadConfig`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/load/struct.LoadConfig.html
+[`LoadConf`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/load/struct.LoadConf.html
 [`BvComp::with_basename`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvComp.html#method.with_basename
-[`BvCompConfig`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html
-[`BvCompConfig::bvgraphz`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html#method.bvgraphz
-[`BvCompConfig::comp_labeled_graph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html#method.comp_labeled_graph
-[`BvCompConfig::par_comp_labeled`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html#method.par_comp_labeled
+[`BvCompConf`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConf.html
+[`BvCompConf::bvgraphz`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConf.html#method.bvgraphz
+[`BvCompConf::comp_labeled_graph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConf.html#method.comp_labeled_graph
+[`BvCompConf::par_comp_labeled`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConf.html#method.par_comp_labeled
 [`CompFlags`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.CompFlags.html
 [`store_ef`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/fn.store_ef.html
 [`IntoParLenders`]: https://docs.rs/webgraph/latest/webgraph/traits/trait.IntoParLenders.html
@@ -303,8 +303,8 @@ Union nor the Italian MUR can be held responsible for them.
 [`ParSortedGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedGraph.html
 [`ParSortedGraphConf`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedGraphConf.html
 [`MemoryUsage`]: https://docs.rs/webgraph/latest/webgraph/utils/enum.MemoryUsage.html
-[`StoreLabelsConfig`]: https://docs.rs/webgraph/latest/webgraph/traits/store/trait.StoreLabelsConfig.html
-[`BitStreamStoreLabelsConfig`]: https://docs.rs/webgraph/latest/webgraph/labels/bitstream/struct.BitStreamStoreLabelsConfig.html
+[`StoreLabelsConf`]: https://docs.rs/webgraph/latest/webgraph/traits/store/trait.StoreLabelsConf.html
+[`BitStreamStoreLabelsConf`]: https://docs.rs/webgraph/latest/webgraph/labels/bitstream/struct.BitStreamStoreLabelsConf.html
 [`SequentialGraph`]: https://docs.rs/webgraph/latest/webgraph/traits/graph/trait.SequentialGraph.html
 [`SequentialLabeling`]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html
 [iterate on the whole graph]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter
@@ -335,8 +335,8 @@ Union nor the Italian MUR can be held responsible for them.
 [`LabeledBTreeGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.LabeledBTreeGraph.html
 [`CsrGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/csr_graph/struct.CsrGraph.html
 [`ArcListGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/arc_list_graph/struct.ArcListGraph.html
-[`BvCompConfig::comp_graph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html#method.comp_graph
-[`BvCompConfig::par_comp`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html#method.par_comp
+[`BvCompConf::comp_graph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConf.html#method.comp_graph
+[`BvCompConf::par_comp`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConf.html#method.par_comp
 [`ParSortedGraph::from_pairs`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedGraph.html#method.from_pairs
 [`ParSortedGraph::par_from_pairs`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedGraph.html#method.par_from_pairs
 [`ParSortedGraph::config()`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedGraph.html#method.config

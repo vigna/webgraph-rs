@@ -32,7 +32,7 @@ use self::sequential::NodeLabels;
 /// in this structure.
 ///
 /// To load an existing compressed graph, use [`BvGraph::with_basename`]. To
-/// create one, compress a graph with [`BvCompConfig`] (e.g., via
+/// create one, compress a graph with [`BvCompConf`] (e.g., via
 /// [`BvComp::with_basename`]) and then build the Elias–Fano offsets with
 /// [`store_ef_with_data`].
 ///
@@ -50,8 +50,8 @@ impl BvGraph<()> {
     /// Returns a load configuration that can be customized.
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
-    ) -> LoadConfig<BE, Random, Dynamic, Mmap, Mmap> {
-        LoadConfig {
+    ) -> LoadConf<BE, Random, Dynamic, Mmap, Mmap> {
+        LoadConf {
             basename: PathBuf::from(basename.as_ref()),
             graph_load_flags: Flags::empty(),
             offsets_load_flags: Flags::empty(),

@@ -46,14 +46,14 @@ struct ReferenceTableEntry {
 /// [`flush`] is called.
 ///
 /// In most cases you do not need to instantiate this struct directly: use
-/// [`BvCompZ::with_basename`] to obtain a [`BvCompConfig`] with suitable
+/// [`BvCompZ::with_basename`] to obtain a [`BvCompConf`] with suitable
 /// defaults (including a larger compression window of 16), then call
 /// [`comp_graph`] or [`par_comp`] on it.
 ///
 /// [BV graph format]: super::super
 /// [`flush`]: Self::flush
-/// [`comp_graph`]: BvCompConfig::comp_graph
-/// [`par_comp`]: BvCompConfig::par_comp
+/// [`comp_graph`]: BvCompConf::comp_graph
+/// [`par_comp`]: BvCompConf::par_comp
 /// [Zuckerli paper]: <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9272613>
 #[derive(Debug)]
 pub struct BvCompZ<E, W: Write, SL: StoreLabels = ()> {
@@ -95,15 +95,13 @@ pub struct BvCompZ<E, W: Write, SL: StoreLabels = ()> {
 }
 
 impl BvCompZ<(), std::io::Sink, ()> {
-    /// Convenience method returning a [`BvCompConfig`] with
+    /// Convenience method returning a [`BvCompConf`] with
     /// settings suitable for the Zuckerli-based compressor.
-    pub fn with_basename(basename: impl AsRef<Path>) -> BvCompConfig {
-        BvCompConfig::new(basename)
-            .bvgraphz()
-            .comp_flags(CompFlags {
-                compression_window: 16,
-                ..Default::default()
-            })
+    pub fn with_basename(basename: impl AsRef<Path>) -> BvCompConf {
+        BvCompConf::new(basename).bvgraphz().comp_flags(CompFlags {
+            compression_window: 16,
+            ..Default::default()
+        })
     }
 }
 

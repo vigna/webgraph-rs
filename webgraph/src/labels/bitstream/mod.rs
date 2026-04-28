@@ -12,4 +12,4 @@ pub mod labeling;
 pub use labeling::*;
 
 pub mod store;
-pub use store::{BitStreamStoreLabelsConfig, Uncompressed, Zstd};
+pub use store::{BitStreamStoreLabelsConf, Uncompressed, Zstd};
