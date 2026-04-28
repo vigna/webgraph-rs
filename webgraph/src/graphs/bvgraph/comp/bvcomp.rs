@@ -712,7 +712,7 @@ mod test {
         let basename = tmp_dir.path().join("cnr-2000");
 
         BvComp::with_basename(&basename)
-            .with_comp_flags(CompFlags {
+            .comp_flags(CompFlags {
                 compression_window,
                 min_interval_length,
                 ..Default::default()

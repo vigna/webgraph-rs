@@ -11,6 +11,8 @@ use crate::*;
 use anyhow::Result;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
+use dsi_progress_logger::prelude::*;
+use std::time::Duration;
 use value_traits::slices::SliceByValue;
 
 use std::path::PathBuf;
@@ -50,6 +52,9 @@ pub struct CliArgs {
 
     #[clap(flatten)]
     pub ca: CompressArgs,
+
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
@@ -79,12 +84,13 @@ where
     let use_dcf = args.dcf;
     let src = args.src.clone();
     let memory_usage = args.memory_usage.memory_usage;
+    let log_interval = args.log_interval.log_interval;
     let mut builder = BvCompConfig::new(&args.dst)
-        .with_comp_flags(args.ca.into())
-        .with_tmp_dir(&dir);
+        .comp_flags(args.ca.into())
+        .tmp_dir(&dir);
 
     if bvgraphz {
-        builder = builder.with_chunk_size(chunk_size);
+        builder = builder.chunk_size(chunk_size);
     }
 
     if let Some(path) = args.permutation.as_ref() {
@@ -97,6 +103,7 @@ where
                     &src,
                     target_endianness,
                     memory_usage,
+                    log_interval,
                     perm,
                 )
             })
@@ -109,24 +116,34 @@ where
                     target_endianness,
                     memory_usage,
                     use_dcf,
+                    log_interval,
                     perm,
                 )
             })
         }
     } else if sequential {
-        seq_compress_no_perm::<E>(thread_pool, builder, &src, target_endianness)
+        seq_compress_no_perm::<E>(thread_pool, builder, &src, target_endianness, log_interval)
     } else {
-        par_compress_no_perm::<E>(thread_pool, builder, &src, target_endianness, use_dcf)
+        par_compress_no_perm::<E>(
+            thread_pool,
+            builder,
+            &src,
+            target_endianness,
+            use_dcf,
+            log_interval,
+        )
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn par_compress_with_perm<E: Endianness, P: SliceByValue<Value = usize> + Send + Sync + Clone>(
     thread_pool: rayon::ThreadPool,
-    mut builder: BvCompConfig,
+    builder: BvCompConfig,
     src: &std::path::Path,
     target_endianness: Option<String>,
     memory_usage: webgraph::utils::MemoryUsage,
     _use_dcf: bool,
+    log_interval: Duration,
     perm: &P,
 ) -> Result<()>
 where
@@ -138,12 +155,14 @@ where
     let graph = BvGraph::with_basename(src).endianness::<E>().load()?;
     thread_pool.install(|| {
         log::info!("Permuting graph with memory usage {}", memory_usage);
+        let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
         let start = std::time::Instant::now();
-        let sorted = webgraph::transform::permute_split(&graph, perm, memory_usage)?;
+        let sorted = webgraph::transform::permute_split(&graph, perm, memory_usage, &mut pl)?;
         log::info!(
             "Permuted the graph. It took {:.3} seconds",
             start.elapsed().as_secs_f64()
         );
+        let mut builder = builder.progress_logger(&mut pl);
         par_comp!(builder, sorted, te)
     })?;
     Ok(())
@@ -151,10 +170,11 @@ where
 
 pub fn seq_compress_with_perm<E: Endianness, P: SliceByValue<Value = usize>>(
     thread_pool: rayon::ThreadPool,
-    mut builder: BvCompConfig,
+    builder: BvCompConfig,
     src: &std::path::Path,
     target_endianness: Option<String>,
     memory_usage: webgraph::utils::MemoryUsage,
+    log_interval: Duration,
     perm: &P,
 ) -> Result<()>
 where
@@ -165,29 +185,35 @@ where
     let seq_graph = BvGraphSeq::with_basename(src).endianness::<E>().load()?;
 
     log::info!("Permuting graph with memory usage {}", memory_usage);
+    let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
     let start = std::time::Instant::now();
-    let permuted = webgraph::transform::permute(&seq_graph, perm, memory_usage)?;
+    let permuted = webgraph::transform::permute(&seq_graph, perm, memory_usage, &mut pl)?;
     log::info!(
         "Permuted the graph. It took {:.3} seconds",
         start.elapsed().as_secs_f64()
     );
 
+    let mut builder = builder.progress_logger(&mut pl);
     thread_pool.install(|| par_comp!(builder, permuted, te))?;
     Ok(())
 }
 
 fn par_compress_no_perm<E: Endianness>(
     thread_pool: rayon::ThreadPool,
-    mut builder: BvCompConfig,
+    builder: BvCompConfig,
     src: &std::path::Path,
     target_endianness: Option<String>,
     use_dcf: bool,
+    log_interval: Duration,
 ) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Send + Sync + Clone,
 {
     let target_endianness = target_endianness.unwrap_or_else(|| E::NAME.into());
+
+    let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
+    let mut builder = builder.progress_logger(&mut pl);
 
     let graph = BvGraph::with_basename(src).endianness::<E>().load()?;
     if use_dcf {
@@ -206,15 +232,19 @@ where
 
 fn seq_compress_no_perm<E: Endianness>(
     thread_pool: rayon::ThreadPool,
-    mut builder: BvCompConfig,
+    builder: BvCompConfig,
     src: &std::path::Path,
     target_endianness: Option<String>,
+    log_interval: Duration,
 ) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: Clone + Send + Sync,
 {
     let target_endianness = target_endianness.unwrap_or_else(|| E::NAME.into());
+
+    let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
+    let mut builder = builder.progress_logger(&mut pl);
 
     let seq_graph = BvGraphSeq::with_basename(src).endianness::<E>().load()?;
     thread_pool.install(|| par_comp!(builder, &seq_graph, target_endianness))?;

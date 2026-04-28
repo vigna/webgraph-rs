@@ -56,11 +56,7 @@ fn compose<P: SliceByValue<Value = usize>>(
 pub fn main(args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
-    let mut pl = progress_logger![display_memory = true, item_name = "indices"];
-
-    if let Some(duration) = args.log_interval.log_interval {
-        pl.log_interval(duration);
-    }
+    let mut pl = progress_logger![display_memory = true, item_name = "indices", log_interval = args.log_interval.log_interval];
 
     let mut perms: Vec<IntSlice> = Vec::new();
     for path in &args.perms {

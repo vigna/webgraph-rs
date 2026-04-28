@@ -205,7 +205,7 @@ fn test_static_dispatch_large_graph_with_all_codec_paths() -> Result<()> {
     let tmp = tempfile::tempdir()?;
     let basename = tmp.path().join("graph");
     BvComp::with_basename(&basename)
-        .with_comp_flags(CompFlags {
+        .comp_flags(CompFlags {
             min_interval_length: 4,
             compression_window: 7,
             max_ref_count: 3,
@@ -239,7 +239,7 @@ fn test_static_dispatch_verify_same_as_dynamic() -> Result<()> {
     let tmp = tempfile::tempdir()?;
     let basename = tmp.path().join("graph");
     BvComp::with_basename(&basename)
-        .with_comp_flags(CompFlags {
+        .comp_flags(CompFlags {
             min_interval_length: 4,
             compression_window: 7,
             max_ref_count: 3,
@@ -302,7 +302,7 @@ fn test_bvgraph_random_access_all_paths() -> Result<()> {
     let tmp = tempfile::tempdir()?;
     let basename = tmp.path().join("graph");
     BvComp::with_basename(&basename)
-        .with_comp_flags(CompFlags {
+        .comp_flags(CompFlags {
             min_interval_length: 4,
             compression_window: 7,
             max_ref_count: 3,
@@ -352,7 +352,7 @@ fn test_bvgraph_random_access_static_dispatch() -> Result<()> {
     let tmp = tempfile::tempdir()?;
     let basename = tmp.path().join("graph");
     BvComp::with_basename(&basename)
-        .with_comp_flags(CompFlags {
+        .comp_flags(CompFlags {
             min_interval_length: 4,
             compression_window: 7,
             max_ref_count: 3,

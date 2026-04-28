@@ -142,10 +142,8 @@ where
         item_name = "node",
         display_memory = true,
         expected_updates = Some(num_nodes),
+        log_interval = args.log_interval.log_interval,
     ];
-    if let Some(duration) = args.log_interval.log_interval {
-        pl.log_interval(duration);
-    }
 
     let num_threads = args.num_threads.num_threads;
     pl.start(format!(
@@ -210,10 +208,8 @@ where
         display_memory = true,
         item_name = "node",
         expected_updates = Some(num_nodes),
+        log_interval = args.log_interval.log_interval,
     ];
-    if let Some(duration) = args.log_interval.log_interval {
-        pl.log_interval(duration);
-    }
     let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&basename)
         .endianness::<E>()
         .load()

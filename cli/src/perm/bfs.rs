@@ -59,10 +59,8 @@ where
         display_memory = true,
         item_name = "nodes",
         expected_updates = Some(graph.num_nodes()),
+        log_interval = args.log_interval.log_interval,
     ];
-    if let Some(duration) = args.log_interval.log_interval {
-        pl.log_interval(duration);
-    }
 
     // create the permutation
     let mut perm = vec![0; graph.num_nodes()];

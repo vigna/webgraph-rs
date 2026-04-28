@@ -101,7 +101,7 @@ where
     BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
 {
     let tmp_path = tmp_path.as_ref();
-    let mut bvcomp = BvComp::with_basename(tmp_path).with_comp_flags(comp_flags);
+    let mut bvcomp = BvComp::with_basename(tmp_path).comp_flags(comp_flags);
     bvcomp.comp_graph::<E>(seq_graph)?;
     let new_graph = BvGraphSeq::with_basename(tmp_path)
         .endianness::<E>()
@@ -118,8 +118,8 @@ where
 
     for chunk_size in [1, 10, 1000] {
         let mut bvcompz = BvCompZ::with_basename(tmp_path)
-            .with_comp_flags(comp_flags)
-            .with_chunk_size(chunk_size);
+            .comp_flags(comp_flags)
+            .chunk_size(chunk_size);
         bvcompz.comp_graph::<E>(seq_graph)?;
         let new_graph = BvGraphSeq::with_basename(tmp_path)
             .endianness::<E>()

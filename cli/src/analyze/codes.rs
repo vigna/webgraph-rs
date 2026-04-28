@@ -99,12 +99,9 @@ where
             item_name = "node",
             display_memory = true,
             expected_updates = Some(graph.num_nodes()),
+            log_interval = args.log_interval.log_interval,
         ];
         pl.start("Scanning...");
-
-        if let Some(duration) = args.log_interval.log_interval {
-            pl.log_interval(duration);
-        }
 
         let thread_pool = rayon::ThreadPoolBuilder::new()
             .num_threads(args.num_threads.num_threads)

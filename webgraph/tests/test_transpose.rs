@@ -8,6 +8,7 @@
 use dsi_bitstream::codes::{GammaRead, GammaWrite};
 use dsi_bitstream::traits::Endianness;
 use dsi_bitstream::traits::{BitRead, BitWrite};
+use dsi_progress_logger::no_logging;
 use webgraph::graphs::vec_graph::LabeledVecGraph;
 use webgraph::prelude::transpose_labeled;
 use webgraph::traits::labels::SequentialLabeling;
@@ -80,10 +81,20 @@ fn test_transpose_labeled() -> anyhow::Result<()> {
     ];
     let g = LabeledVecGraph::<Payload>::from_arcs(arcs);
 
-    let trans = transpose_labeled(&g, MemoryUsage::BatchSize(3), BitSerDeser(BS, BD))?;
+    let trans = transpose_labeled(
+        &g,
+        MemoryUsage::BatchSize(3),
+        BitSerDeser(BS, BD),
+        no_logging![],
+    )?;
     let g2 = LabeledVecGraph::<Payload>::from_lender(trans.iter());
 
-    let trans = transpose_labeled(&g2, MemoryUsage::BatchSize(3), BitSerDeser(BS, BD))?;
+    let trans = transpose_labeled(
+        &g2,
+        MemoryUsage::BatchSize(3),
+        BitSerDeser(BS, BD),
+        no_logging![],
+    )?;
     let g3 = LabeledVecGraph::<Payload>::from_lender(trans.iter());
 
     let g4 = LabeledVecGraph::from_lender(g.iter());

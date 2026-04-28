@@ -8,7 +8,7 @@ use crate::{FloatSliceFormat, GranularityArgs, LogIntervalArg, NumThreadsArg, ge
 use anyhow::{Result, ensure};
 use clap::Parser;
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::{ProgressLog, concurrent_progress_logger, progress_logger};
+use dsi_progress_logger::{concurrent_progress_logger, progress_logger};
 use predicates::prelude::*;
 use std::path::PathBuf;
 use value_traits::slices::SliceByValue;
@@ -135,15 +135,9 @@ fn run_and_store<G: RandomAccessGraph + Sync + Send, V: SliceByValue<Value = f64
 }
 
 pub fn pagerank<E: Endianness>(args: CliArgs) -> Result<()> {
-    let mut pl = progress_logger![display_memory = true];
-    if let Some(log_interval) = args.log_interval.log_interval {
-        pl.log_interval(log_interval);
-    }
+    let mut pl = progress_logger![display_memory = true, log_interval = args.log_interval.log_interval];
 
-    let mut cpl = concurrent_progress_logger![display_memory = true];
-    if let Some(log_interval) = args.log_interval.log_interval {
-        cpl.log_interval(log_interval);
-    }
+    let mut cpl = concurrent_progress_logger![display_memory = true, log_interval = args.log_interval.log_interval];
 
     let thread_pool = get_thread_pool(args.num_threads.num_threads);
 

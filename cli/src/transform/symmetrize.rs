@@ -9,6 +9,7 @@
 use crate::*;
 use anyhow::Result;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
+use dsi_progress_logger::prelude::*;
 use std::path::PathBuf;
 use tempfile::Builder;
 use webgraph::prelude::*;
@@ -55,6 +56,9 @@ pub struct CliArgs {
     /// Uses the degree cumulative function to balance work by arcs rather than
     /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.​
     pub dcf: bool,
+
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
@@ -90,6 +94,7 @@ where
     let use_dcf = args.dcf;
     let no_loops = args.no_loops;
     let src = args.src.clone();
+    let log_interval = args.log_interval.log_interval;
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
 
@@ -97,11 +102,11 @@ where
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
     let mut builder = BvCompConfig::new(&args.dst)
-        .with_comp_flags(args.ca.into())
-        .with_tmp_dir(&dir);
+        .comp_flags(args.ca.into())
+        .tmp_dir(&dir);
 
     if bvgraphz {
-        builder = builder.with_chunk_size(chunk_size);
+        builder = builder.chunk_size(chunk_size);
     }
 
     match (args.permutation, args.transposed) {
@@ -126,6 +131,8 @@ where
                 );
             }
 
+            let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
+            let mut builder = builder.progress_logger(&mut pl);
             if no_loops {
                 let union = NoSelfLoopsGraph(UnionGraph(graph, graph_t));
                 thread_pool.install(|| par_comp!(builder, &union, target_endianness))?;
@@ -159,7 +166,11 @@ where
                 let cp = crate::cutpoints(&src, num_nodes, graph.num_arcs_hint(), use_dcf)?;
 
                 thread_pool.install(|| {
-                    let conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
+                    let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
+                    let conf = ParSortedGraph::config()
+                        .dedup()
+                        .memory_usage(memory_usage)
+                        .progress_logger(&mut pl);
 
                     let pairs: Vec<_> = graph
                         .split_iter_at(cp)
@@ -179,6 +190,7 @@ where
                         .collect();
 
                     let sorted = conf.par_sort_pair_iters(num_nodes, pairs)?;
+                    let mut builder = builder.progress_logger(&mut pl);
                     par_comp!(builder, sorted, target_endianness)
                 })
             })?;
@@ -198,11 +210,14 @@ where
             macro_rules! symmetrize_and_compress {
                 ($no_loops:expr) => {
                     thread_pool.install(|| {
+                        let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
                         let sorted = webgraph::transform::symmetrize_sorted_split::<$no_loops, _>(
                             &graph,
                             args.memory_usage.memory_usage,
                             Some(cp),
+                            &mut pl,
                         )?;
+                        let mut builder = builder.progress_logger(&mut pl);
                         par_comp!(builder, sorted, target_endianness)
                     })?
                 };
@@ -225,6 +240,7 @@ where
 {
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
     let no_loops = args.no_loops;
+    let log_interval = args.log_interval.log_interval;
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
 
@@ -232,11 +248,11 @@ where
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
     let mut builder = BvCompConfig::new(&args.dst)
-        .with_comp_flags(args.ca.into())
-        .with_tmp_dir(&dir);
+        .comp_flags(args.ca.into())
+        .tmp_dir(&dir);
 
     if bvgraphz {
-        builder = builder.with_chunk_size(chunk_size);
+        builder = builder.chunk_size(chunk_size);
     }
 
     match (args.permutation, args.transposed) {
@@ -261,6 +277,8 @@ where
                 );
             }
 
+            let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
+            let mut builder = builder.progress_logger(&mut pl);
             if no_loops {
                 let union = NoSelfLoopsGraph(UnionGraph(seq_graph, seq_graph_t));
                 thread_pool.install(|| par_comp!(builder, &union, target_endianness))?;
@@ -283,10 +301,13 @@ where
                 let perm_graph = PermutedGraph::new(&seq_graph, perm);
                 macro_rules! symmetrize_and_compress {
                     ($no_loops:expr) => {{
+                        let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
                         let sorted = webgraph::transform::symmetrize::<$no_loops>(
                             &perm_graph,
                             memory_usage,
+                            &mut pl,
                         )?;
+                        let mut builder = builder.progress_logger(&mut pl);
                         thread_pool.install(|| par_comp!(builder, sorted, target_endianness))
                     }};
                 }
@@ -309,10 +330,13 @@ where
 
             macro_rules! symmetrize_and_compress {
                 ($no_loops:expr) => {{
+                    let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
                     let symmetrized = webgraph::transform::symmetrize::<$no_loops>(
                         &seq_graph,
                         args.memory_usage.memory_usage,
+                        &mut pl,
                     )?;
+                    let mut builder = builder.progress_logger(&mut pl);
                     thread_pool.install(|| par_comp!(builder, symmetrized, target_endianness))?
                 }};
             }

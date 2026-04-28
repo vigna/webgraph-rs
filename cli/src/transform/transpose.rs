@@ -9,6 +9,7 @@
 use crate::*;
 use anyhow::Result;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
+use dsi_progress_logger::prelude::*;
 use std::path::PathBuf;
 use tempfile::Builder;
 use webgraph::prelude::*;
@@ -38,6 +39,9 @@ pub struct CliArgs {
 
     #[clap(flatten)]
     pub ca: CompressArgs,
+
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
@@ -76,22 +80,25 @@ where
         .load()?;
 
     // transpose the graph
-    let sorted = webgraph::transform::transpose(&seq_graph, args.memory_usage.memory_usage)?;
+    let mut pl = progress_logger![display_memory = true, log_interval = args.log_interval.log_interval];
+    let sorted =
+        webgraph::transform::transpose(&seq_graph, args.memory_usage.memory_usage, &mut pl)?;
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
     let mut builder = BvCompConfig::new(&args.dst)
-        .with_comp_flags(args.ca.into())
-        .with_tmp_dir(&dir);
+        .comp_flags(args.ca.into())
+        .tmp_dir(&dir);
 
     if bvgraphz {
-        builder = builder.with_chunk_size(chunk_size);
+        builder = builder.chunk_size(chunk_size);
     }
 
     // Use uniform cutpoints for compression of the transposed graph
     // (the source DCF does not match the transpose's degree distribution)
+    let mut builder = builder.progress_logger(&mut pl);
     thread_pool.install(|| par_comp!(builder, sorted, target_endianness))?;
 
     Ok(())
@@ -114,20 +121,23 @@ where
 
     // transpose the graph
     let par_graph = webgraph::graphs::par_graphs::ParGraph::with_cutpoints(graph, cp);
-    let sorted = webgraph::transform::transpose_split(&par_graph, args.memory_usage.memory_usage)?;
+    let mut pl = progress_logger![display_memory = true, log_interval = args.log_interval.log_interval];
+    let sorted =
+        webgraph::transform::transpose_split(&par_graph, args.memory_usage.memory_usage, &mut pl)?;
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
     let mut builder = BvCompConfig::new(&args.dst)
-        .with_comp_flags(args.ca.into())
-        .with_tmp_dir(&dir);
+        .comp_flags(args.ca.into())
+        .tmp_dir(&dir);
 
     if bvgraphz {
-        builder = builder.with_chunk_size(chunk_size);
+        builder = builder.chunk_size(chunk_size);
     }
 
+    let mut builder = builder.progress_logger(&mut pl);
     thread_pool.install(|| par_comp!(builder, sorted, target_endianness))?;
     Ok(())
 }

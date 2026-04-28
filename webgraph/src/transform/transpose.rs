@@ -14,6 +14,7 @@ use crate::traits::{BitDeserializer, BitSerializer, IntoParLenders, NodeLabelsLe
 use crate::utils::{BitReader, BitWriter, MemoryUsage};
 use anyhow::Result;
 use dsi_bitstream::prelude::NE;
+use dsi_progress_logger::ProgressLog;
 
 /// Returns the transpose of the provided labeled graph as a
 /// [`ParSortedLabeledGraph`].
@@ -24,6 +25,7 @@ pub fn transpose_labeled<SD>(
     graph: &impl LabeledSequentialGraph<SD::SerType>,
     memory_usage: MemoryUsage,
     sd: SD,
+    pl: &mut impl ProgressLog,
 ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
 where
     SD: BitSerializer<NE, BitWriter<NE>>
@@ -35,6 +37,7 @@ where
 {
     ParSortedLabeledGraphConf::default()
         .memory_usage(memory_usage)
+        .progress_logger(pl)
         .sort_pairs(
             graph.num_nodes(),
             sd,
@@ -52,9 +55,11 @@ where
 pub fn transpose(
     graph: impl SequentialGraph,
     memory_usage: MemoryUsage,
+    pl: &mut impl ProgressLog,
 ) -> Result<ParSortedGraph<SortedPairIter>> {
     ParSortedGraph::config()
         .memory_usage(memory_usage)
+        .progress_logger(pl)
         .sort_pairs(
             graph.num_nodes(),
             graph.iter().into_pairs().map(|(src, dst)| (dst, src)),
@@ -80,6 +85,7 @@ pub fn transpose_labeled_split<SD, G>(
     graph: G,
     memory_usage: MemoryUsage,
     sd: SD,
+    pl: &mut impl ProgressLog,
 ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
 where
     SD: BitSerializer<NE, BitWriter<NE>>
@@ -98,7 +104,9 @@ where
         >,
 {
     let num_nodes = graph.num_nodes();
-    let conf = ParSortedLabeledGraphConf::default().memory_usage(memory_usage);
+    let conf = ParSortedLabeledGraphConf::default()
+        .memory_usage(memory_usage)
+        .progress_logger(pl);
     let (lenders, _boundaries) = graph.into_par_lenders();
     let iters = lenders
         .into_vec()
@@ -125,6 +133,7 @@ where
 pub fn transpose_split<G>(
     graph: G,
     memory_usage: MemoryUsage,
+    pl: &mut impl ProgressLog,
 ) -> Result<ParSortedGraph<SortedPairIter>>
 where
     G: SequentialGraph
@@ -137,7 +146,9 @@ where
         >,
 {
     let num_nodes = graph.num_nodes();
-    let conf = ParSortedGraph::config().memory_usage(memory_usage);
+    let conf = ParSortedGraph::config()
+        .memory_usage(memory_usage)
+        .progress_logger(pl);
     let (lenders, _boundaries) = graph.into_par_lenders();
     let iters = lenders
         .into_vec()

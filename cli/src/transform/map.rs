@@ -7,6 +7,7 @@
 use crate::*;
 use anyhow::Result;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
+use dsi_progress_logger::prelude::*;
 use std::path::PathBuf;
 use tempfile::Builder;
 use value_traits::slices::SliceByValue;
@@ -50,6 +51,9 @@ pub struct CliArgs {
     /// Uses the degree cumulative function to balance work by arcs rather than
     /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.​
     pub dcf: bool,
+
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
@@ -107,6 +111,7 @@ where
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
     let use_dcf = args.dcf;
     let src = args.src.clone();
+    let log_interval = args.log_interval.log_interval;
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
 
@@ -114,11 +119,11 @@ where
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
     let mut builder = BvCompConfig::new(&args.dst)
-        .with_comp_flags(args.ca.into())
-        .with_tmp_dir(&dir);
+        .comp_flags(args.ca.into())
+        .tmp_dir(&dir);
 
     if bvgraphz {
-        builder = builder.with_chunk_size(chunk_size);
+        builder = builder.chunk_size(chunk_size);
     }
 
     let loaded = args.fmt.load(&args.map)?;
@@ -139,14 +144,21 @@ where
 
         thread_pool.install(|| {
             log::info!("Mapping graph with memory usage {}", memory_usage);
+            let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
             let start = std::time::Instant::now();
-            let sorted =
-                webgraph::transform::map_split(&par_graph, &node_map, num_nodes, memory_usage)?;
+            let sorted = webgraph::transform::map_split(
+                &par_graph,
+                &node_map,
+                num_nodes,
+                memory_usage,
+                &mut pl,
+            )?;
             log::info!(
                 "Mapped the graph. It took {:.3} seconds",
                 start.elapsed().as_secs_f64()
             );
 
+            let mut builder = builder.progress_logger(&mut pl);
             par_comp!(builder, sorted, target_endianness)
         })?;
 
@@ -159,6 +171,7 @@ where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
+    let log_interval = args.log_interval.log_interval;
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
 
@@ -166,11 +179,11 @@ where
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
     let mut builder = BvCompConfig::new(&args.dst)
-        .with_comp_flags(args.ca.into())
-        .with_tmp_dir(&dir);
+        .comp_flags(args.ca.into())
+        .tmp_dir(&dir);
 
     if bvgraphz {
-        builder = builder.with_chunk_size(chunk_size);
+        builder = builder.chunk_size(chunk_size);
     }
 
     let loaded = args.fmt.load(&args.map)?;
@@ -185,13 +198,16 @@ where
             .load()?;
 
         log::info!("Mapping graph with memory usage {}", memory_usage);
+        let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
         let start = std::time::Instant::now();
-        let sorted = webgraph::transform::map(&seq_graph, &node_map, num_nodes, memory_usage)?;
+        let sorted =
+            webgraph::transform::map(&seq_graph, &node_map, num_nodes, memory_usage, &mut pl)?;
         log::info!(
             "Mapped the graph. It took {:.3} seconds",
             start.elapsed().as_secs_f64()
         );
 
+        let mut builder = builder.progress_logger(&mut pl);
         thread_pool.install(|| par_comp!(builder, sorted, target_endianness))?;
 
         Ok(())

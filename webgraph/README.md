@@ -164,7 +164,7 @@ BvComp::with_basename("BASENAME")
 ```
 
 For better compression ratios at the cost of a longer compression time, use
-[`BvCompConfig::with_bvgraphz`], which enables Zuckerli-like
+[`BvCompConfig::bvgraphz`], which enables Zuckerli-like
 dynamic-programming reference selection.
 
 ### Parallel compression
@@ -290,7 +290,7 @@ Union nor the Italian MUR can be held responsible for them.
 [`LoadConfig`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/load/struct.LoadConfig.html
 [`BvComp::with_basename`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvComp.html#method.with_basename
 [`BvCompConfig`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html
-[`BvCompConfig::with_bvgraphz`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html#method.with_bvgraphz
+[`BvCompConfig::bvgraphz`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html#method.bvgraphz
 [`BvCompConfig::comp_labeled_graph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html#method.comp_labeled_graph
 [`BvCompConfig::par_comp_labeled`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConfig.html#method.par_comp_labeled
 [`CompFlags`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.CompFlags.html

@@ -73,8 +73,9 @@ fn test_tarjan_chain() {
 #[test]
 fn test_kosaraju_chain() -> Result<()> {
     let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3)]);
-    let transpose =
-        VecGraph::from_lender(transform::transpose(&graph, MemoryUsage::BatchSize(10000))?.iter());
+    let transpose = VecGraph::from_lender(
+        transform::transpose(&graph, MemoryUsage::BatchSize(10000), no_logging![])?.iter(),
+    );
     let sccs = sccs::kosaraju(&graph, &transpose, no_logging![]);
     assert_eq!(sccs.num_components(), 4);
     Ok(())

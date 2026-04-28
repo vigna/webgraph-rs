@@ -8,6 +8,7 @@ use crate::*;
 use anyhow::Result;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
+use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
 use std::path::PathBuf;
 use std::process::exit;
@@ -33,6 +34,9 @@ pub struct CliArgs {
 
     #[clap(flatten)]
     pub memory_usage: MemoryUsageArg,
+
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
@@ -69,8 +73,12 @@ where
 
         // Transpose the graph in parallel and compare
         thread_pool.install(|| {
-            let transposed =
-                webgraph::transform::transpose_split(&graph, args.memory_usage.memory_usage)?;
+            let mut pl = progress_logger![display_memory = true, log_interval = args.log_interval.log_interval];
+            let transposed = webgraph::transform::transpose_split(
+                &graph,
+                args.memory_usage.memory_usage,
+                &mut pl,
+            )?;
             compare(&graph, &transposed, check_simple)
         })
     } else {
@@ -80,7 +88,9 @@ where
                 .load()?;
 
         // Transpose sequentially
-        let transposed = webgraph::transform::transpose(graph, args.memory_usage.memory_usage)?;
+        let mut pl = progress_logger![display_memory = true, log_interval = args.log_interval.log_interval];
+        let transposed =
+            webgraph::transform::transpose(graph, args.memory_usage.memory_usage, &mut pl)?;
 
         // Reload the graph for comparison (transpose consumed it)
         let graph =

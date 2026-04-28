@@ -99,8 +99,8 @@ impl BvCompZ<(), std::io::Sink, ()> {
     /// settings suitable for the Zuckerli-based compressor.
     pub fn with_basename(basename: impl AsRef<Path>) -> BvCompConfig {
         BvCompConfig::new(basename)
-            .with_bvgraphz()
-            .with_comp_flags(CompFlags {
+            .bvgraphz()
+            .comp_flags(CompFlags {
                 compression_window: 16,
                 ..Default::default()
             })
@@ -596,7 +596,7 @@ mod test {
         let basename = tmp_dir.path().join("cnr-2000");
 
         BvCompZ::with_basename(&basename)
-            .with_comp_flags(CompFlags {
+            .comp_flags(CompFlags {
                 compression_window,
                 min_interval_length,
                 ..Default::default()

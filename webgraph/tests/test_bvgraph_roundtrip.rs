@@ -60,7 +60,7 @@ fn test_bvcomp_delta_codes() -> Result<()> {
         ..CompFlags::default()
     };
     BvComp::with_basename(path)
-        .with_comp_flags(flags)
+        .comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 11);
@@ -85,7 +85,7 @@ fn test_bvcomp_zeta_codes() -> Result<()> {
         ..CompFlags::default()
     };
     BvComp::with_basename(path)
-        .with_comp_flags(flags)
+        .comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 6);
@@ -117,7 +117,7 @@ fn test_bvcomp_no_reference_compression() -> Result<()> {
         ..CompFlags::default()
     };
     BvComp::with_basename(path)
-        .with_comp_flags(flags)
+        .comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 4);
@@ -136,7 +136,7 @@ fn test_bvcomp_no_intervals() -> Result<()> {
         ..CompFlags::default()
     };
     BvComp::with_basename(path)
-        .with_comp_flags(flags)
+        .comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 3);
@@ -156,7 +156,7 @@ fn test_bvcomp_interval_encoding() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path)
-        .with_comp_flags(CompFlags {
+        .comp_flags(CompFlags {
             min_interval_length: 4,
             ..CompFlags::default()
         })
@@ -180,7 +180,7 @@ fn test_bvcomp_large_window() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path)
-        .with_comp_flags(CompFlags {
+        .comp_flags(CompFlags {
             compression_window: 15,
             max_ref_count: 10,
             ..CompFlags::default()
@@ -213,7 +213,7 @@ fn test_bvcomp_bvcompz() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvCompZ::with_basename(path)
-        .with_chunk_size(2)
+        .chunk_size(2)
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 4);
@@ -228,7 +228,7 @@ fn test_bvcomp_config_with_tmp_dir() -> Result<()> {
     let basename = tmp.path().join("test_graph");
     let custom_tmp = tempfile::tempdir()?;
     BvComp::with_basename(&basename)
-        .with_tmp_dir(custom_tmp.path())
+        .tmp_dir(custom_tmp.path())
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
@@ -251,7 +251,7 @@ fn test_bvcomp_recompress_with_different_flags() -> Result<()> {
         .load()?;
     let basename2 = tmp.path().join("test_recomp");
     BvComp::with_basename(&basename2)
-        .with_comp_flags(CompFlags {
+        .comp_flags(CompFlags {
             outdegrees: Codes::Delta,
             residuals: Codes::Delta,
             ..CompFlags::default()
@@ -297,7 +297,7 @@ fn test_bvcomp_with_chunk_size() -> Result<()> {
     let tmp = tempfile::tempdir()?;
     let basename = tmp.path().join("test_chunk");
     BvComp::with_basename(&basename)
-        .with_chunk_size(1)
+        .chunk_size(1)
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
@@ -320,7 +320,7 @@ fn test_bvcomp_large_graph_with_reference_compression() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path)
-        .with_comp_flags(CompFlags {
+        .comp_flags(CompFlags {
             compression_window: 10,
             max_ref_count: 5,
             min_interval_length: 3,
@@ -353,7 +353,7 @@ fn test_bvcomp_pi_codes() -> Result<()> {
         ..CompFlags::default()
     };
     BvComp::with_basename(path)
-        .with_comp_flags(flags)
+        .comp_flags(flags)
         .comp_graph::<LE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<LE>().load()?;
     assert_eq!(seq.num_nodes(), 20);
@@ -377,7 +377,7 @@ fn test_bvcomp_unary_codes() -> Result<()> {
         ..CompFlags::default()
     };
     BvComp::with_basename(path)
-        .with_comp_flags(flags)
+        .comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 4);
@@ -441,7 +441,7 @@ fn test_bvcomp_star_graph() -> Result<()> {
     let tmp = tempfile::tempdir()?;
     let basename = tmp.path().join("graph");
     BvComp::with_basename(&basename)
-        .with_comp_flags(CompFlags {
+        .comp_flags(CompFlags {
             min_interval_length: 4,
             ..CompFlags::default()
         })
@@ -462,7 +462,7 @@ fn test_bvcomp_with_delta_codes() -> Result<()> {
     let tmp = tempfile::tempdir()?;
     let basename = tmp.path().join("graph");
     BvComp::with_basename(&basename)
-        .with_comp_flags(CompFlags {
+        .comp_flags(CompFlags {
             outdegrees: dsi_bitstream::dispatch::Codes::Delta,
             references: dsi_bitstream::dispatch::Codes::Delta,
             blocks: dsi_bitstream::dispatch::Codes::Delta,
@@ -487,7 +487,7 @@ fn test_bvcomp_with_zeta_codes() -> Result<()> {
     let tmp = tempfile::tempdir()?;
     let basename = tmp.path().join("graph");
     BvComp::with_basename(&basename)
-        .with_comp_flags(CompFlags {
+        .comp_flags(CompFlags {
             outdegrees: dsi_bitstream::dispatch::Codes::Zeta(5),
             residuals: dsi_bitstream::dispatch::Codes::Zeta(5),
             ..CompFlags::default()
@@ -514,7 +514,7 @@ fn test_bvcomp_with_no_intervals() -> Result<()> {
     let tmp = tempfile::tempdir()?;
     let basename = tmp.path().join("graph");
     BvComp::with_basename(&basename)
-        .with_comp_flags(CompFlags {
+        .comp_flags(CompFlags {
             min_interval_length: 0, // disable intervals
             compression_window: 7,
             max_ref_count: 3,
@@ -541,7 +541,7 @@ fn test_bvcomp_with_no_references() -> Result<()> {
     let tmp = tempfile::tempdir()?;
     let basename = tmp.path().join("graph");
     BvComp::with_basename(&basename)
-        .with_comp_flags(CompFlags {
+        .comp_flags(CompFlags {
             compression_window: 0, // disable references
             min_interval_length: 4,
             ..CompFlags::default()
@@ -583,7 +583,7 @@ fn test_bvcomp_config_with_flags() -> Result<()> {
     };
 
     let bits_written = BvCompConfig::new(&basename)
-        .with_comp_flags(flags)
+        .comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
     assert!(bits_written > 0);
     let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename).load()?;
@@ -599,7 +599,7 @@ fn test_bvcomp_config_with_explicit_tmp_dir() -> Result<()> {
     let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
 
     let bits_written = BvCompConfig::new(&basename)
-        .with_tmp_dir(tmp.path())
+        .tmp_dir(tmp.path())
         .comp_graph::<BE>(&graph)?;
     assert!(bits_written > 0);
     let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename).load()?;
@@ -714,7 +714,7 @@ fn test_bvcomp_with_custom_comp_flags() -> Result<()> {
     };
 
     let bits = BvCompConfig::new(&basename)
-        .with_comp_flags(flags)
+        .comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
     assert!(bits > 0);
 

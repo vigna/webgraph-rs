@@ -23,7 +23,9 @@
 
 - New free functions to build the Elias–Fano representation of offsets.
 
-- `ParSortIters`/`ParSortPairs` have configurable `ProgressLogger` support.
+- `ParSortIters`/`ParSortPairs` have configurable `ProgressLogger` support. As a
+  consequence, all transformation methods (`simplify*`, `symmetrize*`,
+  `transpose`, etc.) have a `&mut impl ProgressLog` argument.
 
 ### Fixed
 
@@ -94,6 +96,8 @@
 - `SortPairs` has been removed, replaced by `*_seq` equivalent methods in
   `ParSortPairs`; they can additionally partition the output. Consequently, the
   module `sort_pairs` has been renamed `k_merge_iters`.
+
+- The setters in `BvCompConfig` dropped the `with_` prefix.
 
 ### Improved
 

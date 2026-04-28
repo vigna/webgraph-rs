@@ -43,6 +43,9 @@ pub struct CliArgs {
     /// Uses the degree cumulative function to balance work by arcs rather than
     /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.​
     pub dcf: bool,
+
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
@@ -68,16 +71,17 @@ where
     let src = args.src.clone();
     let target_endianness = args.ca.endianness.clone();
     let memory_usage = args.memory_usage.memory_usage;
+    let log_interval = args.log_interval.log_interval;
 
     let dir = Builder::new().prefix("transform_perm_").tempdir()?;
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
     let mut builder = BvCompConfig::new(&args.dst)
-        .with_comp_flags(args.ca.into())
-        .with_tmp_dir(&dir);
+        .comp_flags(args.ca.into())
+        .tmp_dir(&dir);
 
     if bvgraphz {
-        builder = builder.with_chunk_size(chunk_size);
+        builder = builder.chunk_size(chunk_size);
     }
 
     let loaded = args.fmt.load(&args.permutation)?;
@@ -89,6 +93,7 @@ where
                 &src,
                 target_endianness,
                 memory_usage,
+                log_interval,
                 perm,
             )
         })
@@ -101,6 +106,7 @@ where
                 target_endianness,
                 memory_usage,
                 use_dcf,
+                log_interval,
                 perm,
             )
         })

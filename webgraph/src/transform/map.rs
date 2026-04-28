@@ -8,6 +8,7 @@ use crate::graphs::par_sorted_graph::SortedPairIter;
 use crate::prelude::*;
 use crate::traits::{IntoParLenders, NodeLabelsLender};
 use anyhow::{Result, ensure};
+use dsi_progress_logger::ProgressLog;
 use value_traits::slices::SliceByValue;
 
 /// Returns a [`ParSortedGraph`] obtained by mapping the nodes of the provided
@@ -29,6 +30,7 @@ pub fn map(
     map: &impl SliceByValue<Value = usize>,
     num_nodes: usize,
     memory_usage: MemoryUsage,
+    pl: &mut impl ProgressLog,
 ) -> Result<ParSortedGraph<SortedPairIter<true>>> {
     ensure!(
         map.len() == graph.num_nodes(),
@@ -40,6 +42,7 @@ pub fn map(
     ParSortedGraph::config()
         .dedup()
         .memory_usage(memory_usage)
+        .progress_logger(pl)
         .sort_pairs(
             num_nodes,
             graph
@@ -75,6 +78,7 @@ pub fn map_split<G, M>(
     map: &M,
     num_nodes: usize,
     memory_usage: MemoryUsage,
+    pl: &mut impl ProgressLog,
 ) -> Result<ParSortedGraph<SortedPairIter<true>>>
 where
     G: SequentialGraph
@@ -94,7 +98,10 @@ where
         graph.num_nodes(),
     );
 
-    let conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
+    let conf = ParSortedGraph::config()
+        .dedup()
+        .memory_usage(memory_usage)
+        .progress_logger(pl);
     let (lenders, _boundaries) = graph.into_par_lenders();
     let iters = lenders.into_vec().into_iter().map(|lender| {
         lender

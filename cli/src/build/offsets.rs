@@ -52,10 +52,8 @@ where
         display_memory = true,
         item_name = "node",
         expected_updates = Some(seq_graph.num_nodes()),
+        log_interval = args.log_interval.log_interval,
     ];
-    if let Some(duration) = args.log_interval.log_interval {
-        pl.log_interval(duration);
-    }
     pl.start("Computing offsets...");
     // read the graph a write the offsets
     let mut offset = 0;

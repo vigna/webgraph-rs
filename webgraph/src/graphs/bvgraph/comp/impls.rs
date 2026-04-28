@@ -206,16 +206,16 @@ impl<W: Write> OffsetsWriter<W> {
 ///
 /// # Configuration
 ///
-/// - [`with_comp_flags`]: sets [`CompFlags`] (compression window, maximum
+/// - [`comp_flags`]: sets [`CompFlags`] (compression window, maximum
 ///   reference count, minimum interval length, and the instantaneous codes
 ///   used for each component);
-/// - [`with_bvgraphz`]: switches to the [Zuckerli-based]
+/// - [`bvgraphz`]: switches to the [Zuckerli-based]
 ///   reference-selection algorithm;
-/// - [`with_chunk_size`]: sets the chunk size for [`BvCompZ`] (implies
-///   `with_bvgraphz`);
-/// - [`with_labels_basename`]: overrides the default label-file basename
+/// - [`chunk_size`]: sets the chunk size for [`BvCompZ`] (implies
+///   `bvgraphz`);
+/// - [`labels_basename`]: overrides the default label-file basename
 ///   (e.g., to write labels to a different disk);
-/// - [`with_tmp_dir`]: sets the temporary directory for parallel
+/// - [`tmp_dir`]: sets the temporary directory for parallel
 ///   compression.
 ///
 /// # Compression Methods
@@ -257,7 +257,7 @@ impl<W: Write> OffsetsWriter<W> {
 ///
 /// // Standard compression with custom flags
 /// BvComp::with_basename("output")
-///     .with_comp_flags(CompFlags {
+///     .comp_flags(CompFlags {
 ///         compression_window: 10,
 ///         min_interval_length: 2,
 ///         ..Default::default()
@@ -278,12 +278,12 @@ impl<W: Write> OffsetsWriter<W> {
 /// ```
 ///
 /// [Zuckerli-based]: BvCompZ
-/// [`with_comp_flags`]: Self::with_comp_flags
-/// [`with_bvgraphz`]: Self::with_bvgraphz
-/// [`with_chunk_size`]: Self::with_chunk_size
-/// [`with_labels_basename`]: Self::with_labels_basename
+/// [`comp_flags`]: Self::comp_flags
+/// [`bvgraphz`]: Self::bvgraphz
+/// [`chunk_size`]: Self::chunk_size
+/// [`labels_basename`]: Self::labels_basename
 /// [`default_labels_basename`]: Self::default_labels_basename
-/// [`with_tmp_dir`]: Self::with_tmp_dir
+/// [`tmp_dir`]: Self::tmp_dir
 /// [`comp_graph`]: Self::comp_graph
 /// [`comp_lender`]: Self::comp_lender
 /// [`comp_labeled_graph`]: Self::comp_labeled_graph
@@ -295,7 +295,7 @@ impl<W: Write> OffsetsWriter<W> {
 /// [`store_ef_with_data`]: crate::graphs::bvgraph::store_ef_with_data
 /// [`BitStreamStoreLabelsConfig`]: crate::labels::BitStreamStoreLabelsConfig
 #[derive(Debug)]
-pub struct BvCompConfig {
+pub struct BvCompConfig<PL = Option<ProgressLogger>> {
     /// The basename of the output files.
     basename: PathBuf,
     /// Compression flags for BvComp/BvCompZ.
@@ -310,6 +310,8 @@ pub struct BvCompConfig {
     tmp_dir: Option<PathBuf>,
     /// Owns the TempDir that [`Self::tmp_dir`] refers to, if it was created by default.
     owned_tmp_dir: Option<tempfile::TempDir>,
+    /// Progress logger for compression methods.
+    pl: PL,
 }
 
 impl BvCompConfig {
@@ -331,48 +333,8 @@ impl BvCompConfig {
             labels_basename: None,
             tmp_dir: None,
             owned_tmp_dir: None,
+            pl: None,
         }
-    }
-}
-
-impl BvCompConfig {
-    /// Sets the [`CompFlags`] controlling the compression parameters
-    /// (compression window, maximum reference count, minimum interval length,
-    /// and the instantaneous codes used for each component of the successor
-    /// list).
-    pub fn with_comp_flags(mut self, compression_flags: CompFlags) -> Self {
-        self.comp_flags = compression_flags;
-        self
-    }
-
-    /// Sets the temporary directory used by [`par_comp`] to store
-    /// partial bitstreams. If not set, a system temporary directory is created
-    /// automatically.
-    ///
-    /// [`par_comp`]: Self::par_comp
-    pub fn with_tmp_dir(mut self, tmp_dir: impl AsRef<Path>) -> Self {
-        self.tmp_dir = Some(tmp_dir.as_ref().into());
-        self
-    }
-
-    /// Switches to the [`BvCompZ`] (Zuckerli-based) reference-selection
-    /// algorithm.
-    pub fn with_bvgraphz(mut self) -> Self {
-        self.bvgraphz = true;
-        self
-    }
-
-    /// Sets the chunk size for [`BvCompZ`] and enables the Zuckerli-based
-    /// compressor. The chunk size controls how many consecutive nodes are
-    /// buffered before running the dynamic-programming reference-selection
-    /// algorithm; larger chunks can yield better compression at the cost of
-    /// more memory. Implies [`with_bvgraphz`].
-    ///
-    /// [`with_bvgraphz`]: Self::with_bvgraphz
-    pub fn with_chunk_size(mut self, chunk_size: usize) -> Self {
-        self.bvgraphz = true;
-        self.chunk_size = chunk_size;
-        self
     }
 
     /// Returns the default basename for label files given a graph basename.
@@ -386,23 +348,83 @@ impl BvCompConfig {
         name.push(LABELS_BASENAME_SUFFIX);
         PathBuf::from(name)
     }
+}
+
+impl<PL> BvCompConfig<PL> {
+    /// Sets the [`CompFlags`] controlling the compression parameters
+    /// (compression window, maximum reference count, minimum interval length,
+    /// and the instantaneous codes used for each component of the successor
+    /// list).
+    pub fn comp_flags(mut self, compression_flags: CompFlags) -> Self {
+        self.comp_flags = compression_flags;
+        self
+    }
+
+    /// Sets the temporary directory used by [`par_comp`] to store
+    /// partial bitstreams. If not set, a system temporary directory is created
+    /// automatically.
+    ///
+    /// [`par_comp`]: Self::par_comp
+    pub fn tmp_dir(mut self, tmp_dir: impl AsRef<Path>) -> Self {
+        self.tmp_dir = Some(tmp_dir.as_ref().into());
+        self
+    }
+
+    /// Switches to the [`BvCompZ`] (Zuckerli-based) reference-selection
+    /// algorithm.
+    pub fn bvgraphz(mut self) -> Self {
+        self.bvgraphz = true;
+        self
+    }
+
+    /// Sets the chunk size for [`BvCompZ`] and enables the Zuckerli-based
+    /// compressor. The chunk size controls how many consecutive nodes are
+    /// buffered before running the dynamic-programming reference-selection
+    /// algorithm; larger chunks can yield better compression at the cost of
+    /// more memory. Implies [`bvgraphz`].
+    ///
+    /// [`bvgraphz`]: Self::bvgraphz
+    pub fn chunk_size(mut self, chunk_size: usize) -> Self {
+        self.bvgraphz = true;
+        self.chunk_size = chunk_size;
+        self
+    }
 
     /// Sets a custom basename for label files, overriding the
     /// [`default_labels_basename`](Self::default_labels_basename) convention.
     ///
     /// This is useful, for example, to write labels to a different disk.
-    pub fn with_labels_basename(mut self, labels_basename: impl AsRef<Path>) -> Self {
+    pub fn labels_basename(mut self, labels_basename: impl AsRef<Path>) -> Self {
         self.labels_basename = Some(labels_basename.as_ref().into());
         self
     }
 
-    fn labels_basename(&self) -> PathBuf {
-        self.labels_basename
-            .clone()
-            .unwrap_or_else(|| Self::default_labels_basename(&self.basename))
+    /// Sets the progress logger for the compression methods.
+    ///
+    /// Only the [`item_name`](ProgressLog::item_name) and
+    /// [`expected_updates`](ProgressLog::expected_updates) are set by the
+    /// compression methods; all other properties (e.g., display options,
+    /// log interval) should be configured by the caller.
+    pub fn progress_logger<PL2>(self, pl: PL2) -> BvCompConfig<PL2> {
+        BvCompConfig {
+            basename: self.basename,
+            comp_flags: self.comp_flags,
+            bvgraphz: self.bvgraphz,
+            chunk_size: self.chunk_size,
+            labels_basename: self.labels_basename,
+            tmp_dir: self.tmp_dir,
+            owned_tmp_dir: self.owned_tmp_dir,
+            pl,
+        }
     }
 
-    fn tmp_dir(&mut self) -> Result<PathBuf> {
+    fn resolve_labels_basename(&self) -> PathBuf {
+        self.labels_basename
+            .clone()
+            .unwrap_or_else(|| BvCompConfig::default_labels_basename(&self.basename))
+    }
+
+    fn resolve_tmp_dir(&mut self) -> Result<PathBuf> {
         if self.tmp_dir.is_none() {
             let tmp_dir = tempfile::tempdir()?;
             self.tmp_dir = Some(tmp_dir.path().to_owned());
@@ -418,7 +440,9 @@ impl BvCompConfig {
         }
         Ok(tmp_dir)
     }
+}
 
+impl<PL: ProgressLog> BvCompConfig<PL> {
     /// Compresses sequentially a [`SequentialGraph`] and returns
     /// the number of bits written to the graph bitstream.
     ///
@@ -503,7 +527,7 @@ impl BvCompConfig {
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
-        let labels_basename = self.labels_basename();
+        let labels_basename = self.resolve_labels_basename();
         let labels_path = labels_basename.with_extension(LABELS_EXTENSION);
         let label_offsets_path = labels_basename.with_extension(OFFSETS_EXTENSION);
 
@@ -521,12 +545,10 @@ impl BvCompConfig {
             store_labels_config.new_storage(&labels_path, &label_offsets_path)?;
         store_labels.init()?;
 
-        let mut pl = progress_logger![
-            display_memory = true,
-            item_name = "node",
-            expected_updates = expected_num_nodes,
-        ];
-        pl.start("Compressing successors...");
+        self.pl
+            .item_name("node")
+            .expected_updates(expected_num_nodes);
+        self.pl.start("Compressing successors...");
         let comp_stats = if self.bvgraphz {
             let mut bvcompz = BvCompZ::new(
                 codes_writer,
@@ -542,10 +564,10 @@ impl BvCompConfig {
             for_! ( (_node_id, successors) in iter {
                 bvcompz.push(successors).context("Could not push successors")?;
                 log_comp_stats(&bvcompz.stats(), false);
-                pl.update();
+                self.pl.update();
             });
             log_comp_stats(&bvcompz.stats(), true);
-            pl.done();
+            self.pl.done();
 
             bvcompz.flush()?
         } else {
@@ -562,10 +584,10 @@ impl BvCompConfig {
             for_! ( (_node_id, successors) in iter {
                 bvcomp.push(successors).context("Could not push successors")?;
                 log_comp_stats(&bvcomp.stats(), false);
-                pl.update();
+                self.pl.update();
             });
             log_comp_stats(&bvcomp.stats(), true);
-            pl.done();
+            self.pl.done();
 
             bvcomp.flush()?
         };
@@ -710,11 +732,11 @@ impl BvCompConfig {
     {
         let (lenders, boundaries) = graph.into_par_lenders();
         let num_nodes = *boundaries.last().unwrap_or(&0);
-        let tmp_dir = self.tmp_dir()?;
+        let tmp_dir = self.resolve_tmp_dir()?;
 
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
         let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
-        let label_base = self.labels_basename();
+        let label_base = self.resolve_labels_basename();
         let labels_path = label_base.with_extension(LABELS_EXTENSION);
         let label_offsets_path = label_base.with_extension(OFFSETS_EXTENSION);
 
@@ -722,13 +744,11 @@ impl BvCompConfig {
 
         let thread_path = |thread_id: usize| tmp_dir.join(format!("{thread_id:016x}.bitstream"));
 
-        let mut comp_pl = concurrent_progress_logger![
-            log_target = "webgraph::graphs::bvgraph::comp::impls::par_comp::comp",
-            display_memory = true,
-            item_name = "node",
-            local_speed = true,
-            expected_updates = Some(num_nodes),
-        ];
+        let mut comp_pl = self.pl.concurrent();
+        comp_pl
+            .item_name("node")
+            .expected_updates(num_nodes)
+            .local_speed(true);
         comp_pl.start(format!(
             "Compressing successors in parallel using {} threads...",
             current_num_threads()
@@ -829,14 +849,10 @@ impl BvCompConfig {
 
             drop(tx);
 
-            let mut copy_pl = progress_logger![
-                log_target = "webgraph::graphs::bvgraph::comp::impls::par_comp::copy",
-                display_memory = true,
-                item_name = "node",
-                local_speed = true,
-                expected_updates = Some(num_nodes),
-            ];
-            copy_pl.start("Copying compressed successors to final graph");
+            self.pl
+                .item_name("node")
+                .expected_updates(num_nodes);
+            self.pl.start("Copying compressed successors to final graph");
 
             let mut graph_writer = buf_bit_writer::from_path::<E, usize>(&graph_path)
                 .with_context(|| format!("Could not create graph {}", graph_path.display()))?;
@@ -942,7 +958,7 @@ impl BvCompConfig {
                     labels_written_bits,
                     label_offsets_written_bits,
                 };
-                copy_pl.update_with_count(last_node - first_node + 1);
+                self.pl.update_with_count(last_node - first_node + 1);
             }
 
             store_labels_config.flush_concat()?;
@@ -955,7 +971,7 @@ impl BvCompConfig {
             total_stats.num_nodes = num_nodes;
             log_comp_stats(&total_stats, true);
             comp_pl.done();
-            copy_pl.done();
+            self.pl.done();
 
             log::info!("Writing the .properties file");
             let properties = self

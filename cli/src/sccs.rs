@@ -9,7 +9,7 @@ use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::{ProgressLog, progress_logger};
+use dsi_progress_logger::progress_logger;
 use std::path::PathBuf;
 use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::prelude::*;
@@ -92,10 +92,7 @@ where
         .endianness::<E>()
         .load()?;
 
-    let mut pl = progress_logger![expected_updates = Some(graph.num_nodes())];
-    if let Some(log_interval) = args.log_interval.log_interval {
-        pl.log_interval(log_interval);
-    }
+    let mut pl = progress_logger![expected_updates = Some(graph.num_nodes()), log_interval = args.log_interval.log_interval];
 
     let mut sccs = webgraph_algo::sccs::tarjan(graph, &mut pl);
     log::info!(

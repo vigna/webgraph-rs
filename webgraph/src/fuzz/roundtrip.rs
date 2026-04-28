@@ -43,7 +43,7 @@ pub fn harness(data: FuzzCase) {
     let tmp_path_bvcompz = tmp_dir.path().join("bvcompz");
     let tmp_path_bvcomp = tmp_dir.path().join("bvcomp");
 
-    let mut bvcomp = BvComp::with_basename(&tmp_path_bvcomp).with_comp_flags(comp_flags);
+    let mut bvcomp = BvComp::with_basename(&tmp_path_bvcomp).comp_flags(comp_flags);
     bvcomp.comp_graph::<BE>(&graph).unwrap();
     let new_graph = BvGraphSeq::with_basename(&tmp_path_bvcomp)
         .endianness::<BE>()
@@ -53,8 +53,8 @@ pub fn harness(data: FuzzCase) {
     bvgraph::check_offsets(&new_graph, &tmp_path_bvcomp).unwrap();
 
     let mut bvcompz = BvCompZ::with_basename(&tmp_path_bvcompz)
-        .with_comp_flags(comp_flags)
-        .with_chunk_size(chunk_size);
+        .comp_flags(comp_flags)
+        .chunk_size(chunk_size);
     bvcompz.par_comp::<BE, _>(&graph).unwrap();
     let new_graph = BvGraphSeq::with_basename(&tmp_path_bvcompz)
         .endianness::<BE>()

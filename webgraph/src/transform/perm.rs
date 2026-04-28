@@ -8,6 +8,7 @@
 use crate::graphs::par_sorted_graph::{ParSortedGraph, SortedPairIter};
 use crate::prelude::*;
 use anyhow::{Result, ensure};
+use dsi_progress_logger::ProgressLog;
 use lender::*;
 use value_traits::slices::SliceByValue;
 
@@ -25,6 +26,7 @@ pub fn permute<G: SequentialGraph, P: SliceByValue<Value = usize>>(
     graph: &G,
     perm: &P,
     memory_usage: MemoryUsage,
+    pl: &mut impl ProgressLog,
 ) -> Result<ParSortedGraph<SortedPairIter>> {
     ensure!(
         perm.len() == graph.num_nodes(),
@@ -36,6 +38,7 @@ pub fn permute<G: SequentialGraph, P: SliceByValue<Value = usize>>(
     let num_nodes = pgraph.num_nodes();
     ParSortedGraph::config()
         .memory_usage(memory_usage)
+        .progress_logger(pl)
         .sort_pairs(num_nodes, pgraph.iter().into_pairs())
 }
 
@@ -58,6 +61,7 @@ pub fn permute_split<S, P>(
     graph: &S,
     perm: &P,
     memory_usage: MemoryUsage,
+    pl: &mut impl ProgressLog,
 ) -> Result<ParSortedGraph<SortedPairIter>>
 where
     S: SequentialGraph + SplitLabeling,
@@ -74,5 +78,6 @@ where
     let pgraph = PermutedGraph::new(graph, perm);
     ParSortedGraph::config()
         .memory_usage(memory_usage)
+        .progress_logger(pl)
         .par_sort_graph(&pgraph)
 }

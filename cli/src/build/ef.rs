@@ -67,10 +67,7 @@ where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
-    let mut pl = progress_logger![display_memory = true, item_name = "node"];
-    if let Some(duration) = args.log_interval.log_interval {
-        pl.log_interval(duration);
-    }
+    let mut pl = progress_logger![display_memory = true, item_name = "node", log_interval = args.log_interval.log_interval];
 
     let basename = &args.basename;
     let of_file_path = basename.with_extension(OFFSETS_EXTENSION);

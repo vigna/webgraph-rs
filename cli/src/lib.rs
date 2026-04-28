@@ -80,9 +80,10 @@ macro_rules! par_comp {
 ///
 /// [`par_comp`]: webgraph::prelude::BvCompConfig::par_comp
 pub fn __par_comp_dispatch<
+    PL: dsi_progress_logger::ProgressLog,
     G: for<'a> IntoParLenders<ParLender: NodeLabelsLender<'a, Label = usize>>,
 >(
-    config: &mut webgraph::prelude::BvCompConfig,
+    config: &mut webgraph::prelude::BvCompConfig<PL>,
     graph: G,
     endianness: &str,
 ) -> anyhow::Result<u64> {
@@ -1027,12 +1028,12 @@ pub fn init_env_logger() -> Result<()> {
 /// Shared CLI arguments for commands that use a log interval.​
 #[derive(Args, Debug, Clone)]
 pub struct LogIntervalArg {
-    #[arg(long, value_parser = parse_duration)]
+    #[arg(long, value_parser = parse_duration, default_value = "10s")]
     /// How often to log progress (default: 10s). Supported suffixes: "s"
     /// (seconds), "m" (minutes), "h" (hours), "d" (days). Without a suffix,
     /// the value is interpreted as milliseconds. Example: "1d2h3m4s567" means
     /// 1 day + 2 hours + 3 minutes + 4 seconds + 567 milliseconds.​
-    pub log_interval: Option<Duration>,
+    pub log_interval: Duration,
 }
 
 #[derive(Subcommand, Debug)]

@@ -67,10 +67,8 @@ where
         display_memory = true,
         item_name = "offset",
         expected_updates = Some(num_nodes),
+        log_interval = args.log_interval.log_interval,
     ];
-    if let Some(duration) = args.log_interval.log_interval {
-        pl.log_interval(duration);
-    }
 
     // if the offset files exists, read it to build elias-fano
     if of_file_path.exists() {
@@ -97,10 +95,8 @@ where
         display_memory = true,
         item_name = "offset",
         expected_updates = Some(num_nodes),
+        log_interval = args.log_interval.log_interval,
     ];
-    if let Some(duration) = args.log_interval.log_interval {
-        pl.log_interval(duration);
-    }
 
     let seq_graph =
         webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.basename)

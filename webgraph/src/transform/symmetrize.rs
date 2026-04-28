@@ -13,7 +13,7 @@ use crate::traits::{
 use crate::utils::par_sort_iters::ParSortIters;
 use crate::utils::{MemoryUsage, SplitIters};
 use anyhow::Result;
-use dsi_progress_logger::no_logging;
+use dsi_progress_logger::ProgressLog;
 
 /// Merges two sorted iterators of node pairs, deduplicating consecutive
 /// equal elements. When `NO_LOOPS` is true, self-loops (pairs where
@@ -95,10 +95,14 @@ where
 pub fn symmetrize_sorted<const NO_LOOPS: bool, G: SequentialGraph>(
     graph: &G,
     memory_usage: MemoryUsage,
+    pl: &mut impl ProgressLog,
 ) -> Result<ParSortedGraph<SortedPairIter<true>>> {
     let num_nodes = graph.num_nodes();
 
-    let conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
+    let conf = ParSortedGraph::config()
+        .dedup()
+        .memory_usage(memory_usage)
+        .progress_logger(pl);
 
     conf.sort_pairs(
         num_nodes,
@@ -142,6 +146,7 @@ pub fn symmetrize_sorted_split<'g, const NO_LOOPS: bool, S>(
     graph: &'g S,
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
+    pl: &mut impl ProgressLog,
 ) -> Result<ParSortedGraph<impl Iterator<Item = ((usize, usize), ())> + Send + Sync + 'g>>
 where
     S: SequentialGraph + SplitLabeling,
@@ -164,7 +169,7 @@ where
     .map(|iter| iter.into_pairs().map(|(src, dst)| (dst, src)))
     .collect();
 
-    let SplitIters { boundaries, iters } = par_sort_iters.sort(reverse_pairs, no_logging![])?;
+    let SplitIters { boundaries, iters } = par_sort_iters.sort(reverse_pairs, pl)?;
 
     // Split the original graph at the same boundaries used by ParSortIters,
     // then lazily merge forward and reverse pairs per partition.
@@ -195,10 +200,14 @@ where
 pub fn symmetrize<const NO_LOOPS: bool>(
     graph: &impl SequentialGraph,
     memory_usage: MemoryUsage,
+    pl: &mut impl ProgressLog,
 ) -> Result<ParSortedGraph<SortedPairIter<true>>> {
     let num_nodes = graph.num_nodes();
 
-    let conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
+    let conf = ParSortedGraph::config()
+        .dedup()
+        .memory_usage(memory_usage)
+        .progress_logger(pl);
 
     conf.sort_pairs(
         num_nodes,
@@ -234,6 +243,7 @@ pub fn symmetrize<const NO_LOOPS: bool>(
 pub fn symmetrize_split<const NO_LOOPS: bool, G>(
     graph: G,
     memory_usage: MemoryUsage,
+    pl: &mut impl ProgressLog,
 ) -> Result<ParSortedGraph<SortedPairIter<true>>>
 where
     G: SequentialGraph
@@ -246,7 +256,10 @@ where
         >,
 {
     let num_nodes = graph.num_nodes();
-    let conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
+    let conf = ParSortedGraph::config()
+        .dedup()
+        .memory_usage(memory_usage)
+        .progress_logger(pl);
     let (lenders, _boundaries) = graph.into_par_lenders();
     let iters = lenders.into_vec().into_iter().map(|lender| {
         lender.into_pairs().flat_map(move |(src, dst)| {

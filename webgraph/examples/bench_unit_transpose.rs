@@ -38,7 +38,8 @@ where
         let mut pl = ProgressLogger::default();
         pl.start("Transposing standard graph...");
 
-        let transposed = transform::transpose(&graph, MemoryUsage::BatchSize(10_000_000))?;
+        let transposed =
+            transform::transpose(&graph, MemoryUsage::BatchSize(10_000_000), no_logging![])?;
         let mut iter = transposed.iter();
         while let Some((x, s)) = iter.next() {
             black_box(x);
@@ -49,8 +50,12 @@ where
         pl.done_with_count(graph.num_nodes());
 
         pl.start("Transposing unit graph...");
-        let transposed =
-            transform::transpose_labeled(&unit, MemoryUsage::BatchSize(10_000_000), ())?;
+        let transposed = transform::transpose_labeled(
+            &unit,
+            MemoryUsage::BatchSize(10_000_000),
+            (),
+            no_logging![],
+        )?;
         let mut iter = transposed.iter();
         while let Some((x, s)) = iter.next() {
             black_box(x);
