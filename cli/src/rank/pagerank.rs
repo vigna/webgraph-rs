@@ -135,9 +135,15 @@ fn run_and_store<G: RandomAccessGraph + Sync + Send, V: SliceByValue<Value = f64
 }
 
 pub fn pagerank<E: Endianness>(args: CliArgs) -> Result<()> {
-    let mut pl = progress_logger![display_memory = true, log_interval = args.log_interval.log_interval];
+    let mut pl = progress_logger![
+        display_memory = true,
+        log_interval = args.log_interval.log_interval
+    ];
 
-    let mut cpl = concurrent_progress_logger![display_memory = true, log_interval = args.log_interval.log_interval];
+    let mut cpl = concurrent_progress_logger![
+        display_memory = true,
+        log_interval = args.log_interval.log_interval
+    ];
 
     let thread_pool = get_thread_pool(args.num_threads.num_threads);
 

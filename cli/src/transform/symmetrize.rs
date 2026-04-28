@@ -166,7 +166,8 @@ where
                 let cp = crate::cutpoints(&src, num_nodes, graph.num_arcs_hint(), use_dcf)?;
 
                 thread_pool.install(|| {
-                    let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
+                    let mut pl =
+                        progress_logger![display_memory = true, log_interval = log_interval];
                     let conf = ParSortedGraph::config()
                         .dedup()
                         .memory_usage(memory_usage)
@@ -210,7 +211,8 @@ where
             macro_rules! symmetrize_and_compress {
                 ($no_loops:expr) => {
                     thread_pool.install(|| {
-                        let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
+                        let mut pl =
+                            progress_logger![display_memory = true, log_interval = log_interval];
                         let sorted = webgraph::transform::symmetrize_sorted_split::<$no_loops, _>(
                             &graph,
                             args.memory_usage.memory_usage,
@@ -301,7 +303,8 @@ where
                 let perm_graph = PermutedGraph::new(&seq_graph, perm);
                 macro_rules! symmetrize_and_compress {
                     ($no_loops:expr) => {{
-                        let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
+                        let mut pl =
+                            progress_logger![display_memory = true, log_interval = log_interval];
                         let sorted = webgraph::transform::symmetrize::<$no_loops>(
                             &perm_graph,
                             memory_usage,
@@ -330,7 +333,8 @@ where
 
             macro_rules! symmetrize_and_compress {
                 ($no_loops:expr) => {{
-                    let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
+                    let mut pl =
+                        progress_logger![display_memory = true, log_interval = log_interval];
                     let symmetrized = webgraph::transform::symmetrize::<$no_loops>(
                         &seq_graph,
                         args.memory_usage.memory_usage,

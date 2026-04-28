@@ -2126,7 +2126,8 @@ mod test {
                     unsafe { DCF::load_mmap(basename.to_owned() + ".dcf", Flags::empty()) }?;
                 let num_nodes = graph.num_nodes();
 
-                let logic = ($make_builder)(&graph, &transpose, deg_cumul_func.uncase(), num_nodes)?;
+                let logic =
+                    ($make_builder)(&graph, &transpose, deg_cumul_func.uncase(), num_nodes)?;
                 let (mut hyperball, seq_logic) = logic;
 
                 let seq_bits = SliceEstimatorArray::new(seq_logic.clone(), num_nodes);
@@ -2210,9 +2211,14 @@ mod test {
         let mut rng_mem = rand::rngs::SmallRng::seed_from_u64(0);
         let mut rng_ext = rand::rngs::SmallRng::seed_from_u64(0);
 
-        let mut hb_mem =
-            HyperBallBuilder::with_hyper_log_log(&graph, None::<&VecGraph>, &deg_cumul_func, 6, None)?
-                .build(no_logging![]);
+        let mut hb_mem = HyperBallBuilder::with_hyper_log_log(
+            &graph,
+            None::<&VecGraph>,
+            &deg_cumul_func,
+            6,
+            None,
+        )?
+        .build(no_logging![]);
 
         let mut hb_ext = HyperBallBuilder::with_hyper_log_log_external(
             &graph,
@@ -2257,9 +2263,14 @@ mod test {
         let mut rng_mem = rand::rngs::SmallRng::seed_from_u64(42);
         let mut rng_ext = rand::rngs::SmallRng::seed_from_u64(42);
 
-        let mut hb_mem =
-            HyperBallBuilder::with_hyper_log_log8(&graph, None::<&VecGraph>, &deg_cumul_func, 6, None)?
-                .build(no_logging![]);
+        let mut hb_mem = HyperBallBuilder::with_hyper_log_log8(
+            &graph,
+            None::<&VecGraph>,
+            &deg_cumul_func,
+            6,
+            None,
+        )?
+        .build(no_logging![]);
 
         let mut hb_ext = HyperBallBuilder::with_hyper_log_log8_external(
             &graph,

@@ -849,10 +849,9 @@ impl<PL: ProgressLog> BvCompConfig<PL> {
 
             drop(tx);
 
+            self.pl.item_name("node").expected_updates(num_nodes);
             self.pl
-                .item_name("node")
-                .expected_updates(num_nodes);
-            self.pl.start("Copying compressed successors to final graph");
+                .start("Copying compressed successors to final graph");
 
             let mut graph_writer = buf_bit_writer::from_path::<E, usize>(&graph_path)
                 .with_context(|| format!("Could not create graph {}", graph_path.display()))?;

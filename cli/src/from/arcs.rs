@@ -207,14 +207,21 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
         builder = builder.chunk_size(chunk_size);
     }
 
-    let mut pl_comp = progress_logger![display_memory = true, log_interval = args.log_interval.log_interval];
+    let mut pl_comp = progress_logger![
+        display_memory = true,
+        log_interval = args.log_interval.log_interval
+    ];
     let mut builder = builder.progress_logger(&mut pl_comp);
     thread_pool.install(|| par_comp!(builder, sorted, target_endianness))?;
 
     // Save the label-to-node-id mapping
     if labels {
         let nodes_file = args.dst.with_extension("nodes");
-        let mut pl = progress_logger![display_memory = true, item_name = "lines", log_interval = args.log_interval.log_interval];
+        let mut pl = progress_logger![
+            display_memory = true,
+            item_name = "lines",
+            log_interval = args.log_interval.log_interval
+        ];
 
         let mut file = std::fs::File::create(&nodes_file).unwrap();
         let mut buf = std::io::BufWriter::new(&mut file);

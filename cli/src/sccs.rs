@@ -92,7 +92,10 @@ where
         .endianness::<E>()
         .load()?;
 
-    let mut pl = progress_logger![expected_updates = Some(graph.num_nodes()), log_interval = args.log_interval.log_interval];
+    let mut pl = progress_logger![
+        expected_updates = Some(graph.num_nodes()),
+        log_interval = args.log_interval.log_interval
+    ];
 
     let mut sccs = webgraph_algo::sccs::tarjan(graph, &mut pl);
     log::info!(

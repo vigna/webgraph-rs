@@ -119,7 +119,11 @@ pub fn exact_sum_sweep<E: Endianness>(args: CliArgs) -> Result<()> {
     let graph = BvGraph::with_basename(&args.basename).load()?;
 
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
-    let mut pl = concurrent_progress_logger![display_memory = true, local_speed = true, log_interval = args.log_interval.log_interval];
+    let mut pl = concurrent_progress_logger![
+        display_memory = true,
+        local_speed = true,
+        log_interval = args.log_interval.log_interval
+    ];
 
     let use_tot = !args.no_tot;
 

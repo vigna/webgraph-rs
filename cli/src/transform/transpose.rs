@@ -80,7 +80,10 @@ where
         .load()?;
 
     // transpose the graph
-    let mut pl = progress_logger![display_memory = true, log_interval = args.log_interval.log_interval];
+    let mut pl = progress_logger![
+        display_memory = true,
+        log_interval = args.log_interval.log_interval
+    ];
     let sorted =
         webgraph::transform::transpose(&seq_graph, args.memory_usage.memory_usage, &mut pl)?;
 
@@ -121,7 +124,10 @@ where
 
     // transpose the graph
     let par_graph = webgraph::graphs::par_graphs::ParGraph::with_cutpoints(graph, cp);
-    let mut pl = progress_logger![display_memory = true, log_interval = args.log_interval.log_interval];
+    let mut pl = progress_logger![
+        display_memory = true,
+        log_interval = args.log_interval.log_interval
+    ];
     let sorted =
         webgraph::transform::transpose_split(&par_graph, args.memory_usage.memory_usage, &mut pl)?;
 

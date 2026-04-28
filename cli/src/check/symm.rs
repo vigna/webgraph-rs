@@ -73,7 +73,10 @@ where
 
         // Transpose the graph in parallel and compare
         thread_pool.install(|| {
-            let mut pl = progress_logger![display_memory = true, log_interval = args.log_interval.log_interval];
+            let mut pl = progress_logger![
+                display_memory = true,
+                log_interval = args.log_interval.log_interval
+            ];
             let transposed = webgraph::transform::transpose_split(
                 &graph,
                 args.memory_usage.memory_usage,
@@ -88,7 +91,10 @@ where
                 .load()?;
 
         // Transpose sequentially
-        let mut pl = progress_logger![display_memory = true, log_interval = args.log_interval.log_interval];
+        let mut pl = progress_logger![
+            display_memory = true,
+            log_interval = args.log_interval.log_interval
+        ];
         let transposed =
             webgraph::transform::transpose(graph, args.memory_usage.memory_usage, &mut pl)?;
 

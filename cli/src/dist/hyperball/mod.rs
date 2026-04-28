@@ -13,11 +13,11 @@ use dsi_progress_logger::concurrent_progress_logger;
 use epserde::deser::{Deserialize, Flags};
 use rand::SeedableRng;
 use std::path::PathBuf;
+use webgraph::utils::Granularity;
 use webgraph::{
     graphs::bvgraph::get_endianness,
     prelude::{BvGraph, DCF, DEG_CUMUL_EXTENSION},
 };
-use webgraph::utils::Granularity;
 use webgraph_algo::distances::hyperball::{self, HyperBallBuilder};
 
 #[derive(Args, Debug, Clone)]
@@ -219,9 +219,8 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
         ($builder:expr) => {{
             let hb = $builder
                 .granularity(
-                    args.granularity.into_granularity_or(Granularity::Nodes(
-                        hyperball::DEFAULT_GRANULARITY,
-                    )),
+                    args.granularity
+                        .into_granularity_or(Granularity::Nodes(hyperball::DEFAULT_GRANULARITY)),
                 )
                 .sum_of_distances(args.centralities.should_compute_sum_of_distances())
                 .sum_of_inverse_distances(
