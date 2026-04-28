@@ -149,6 +149,7 @@ use kahan::KahanSum;
 use lender::prelude::*;
 use rayon::prelude::*;
 use std::hash::{BuildHasherDefault, DefaultHasher};
+use std::mem::transmute;
 use std::sync::{Mutex, atomic::*};
 use sux::traits::AtomicBitVecOps;
 use sux::{
@@ -741,7 +742,7 @@ impl<
         Self {
             graph,
             transpose: None,
-            deg_cumul_func: deg_cumul_func,
+            deg_cumul_func,
             do_sum_of_dists: false,
             do_sum_of_inv_dists: false,
             discount_functions: Vec::new(),
@@ -810,7 +811,7 @@ impl<
         Self {
             graph,
             transpose: Some(transpose),
-            deg_cumul_func: deg_cumul_func,
+            deg_cumul_func,
             do_sum_of_dists: false,
             do_sum_of_inv_dists: false,
             discount_functions: Vec::new(),
@@ -852,7 +853,7 @@ impl<
         Ok(Self {
             graph,
             transpose: transposed,
-            deg_cumul_func: deg_cumul_func,
+            deg_cumul_func,
             do_sum_of_dists: false,
             do_sum_of_inv_dists: false,
             discount_functions: Vec::new(),
@@ -1517,8 +1518,15 @@ where
         });
 
         // We're just gonna read this
-        let curr_modified: AtomicBitVec<&mut [AtomicUsize]> = (&mut self.curr_modified).into();
-        let curr_modified: BitVec<&mut [usize]> = curr_modified.into();
+        // TODO: put back once we release the new sux
+        // let curr_modified: AtomicBitVec<&mut [AtomicUsize]> = (&mut self.curr_modified).into();
+        // let curr_modified: BitVec<&mut [usize]> = curr_modified.into();
+        let curr_modified = unsafe {
+            <BitVec<&[usize]>>::from_raw_parts(
+                transmute(self.curr_modified.as_ref()),
+                self.curr_modified.len(),
+            )
+        };
 
         arc_pl.start("Scanning arcs...");
         {
@@ -1618,7 +1626,7 @@ where
         curr_state: &impl EstimatorArray<L>,
         next_state: &NS,
         ic: &IterationContext<'_, G1, D>,
-        curr_modified: &BitVec<&mut [usize]>,
+        curr_modified: &BitVec<&[usize]>,
         sum_of_dists: Option<&[SyncCell<f32>]>,
         sum_of_inv_dists: Option<&[SyncCell<f32>]>,
         discounted_centralities: &[&[SyncCell<f32>]],
@@ -1792,7 +1800,7 @@ where
         curr_state: &impl EstimatorArray<L>,
         next_state: &impl SyncOutputStore<L>,
         ic: &IterationContext<'_, G1, D>,
-        curr_modified: &BitVec<&mut [usize]>,
+        curr_modified: &BitVec<&[usize]>,
         sum_of_dists: Option<&[SyncCell<f32>]>,
         sum_of_inv_dists: Option<&[SyncCell<f32>]>,
         discounted_centralities: &[&[SyncCell<f32>]],
