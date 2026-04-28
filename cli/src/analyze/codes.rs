@@ -95,9 +95,9 @@ where
             .endianness::<E>()
             .load()?;
 
+        // display_memory uses sysinfo, which can deadlock in concurrent contexts
         let mut pl = concurrent_progress_logger![
             item_name = "node",
-            display_memory = true,
             expected_updates = Some(graph.num_nodes()),
             log_interval = args.log_interval.log_interval,
         ];

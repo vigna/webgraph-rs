@@ -8,7 +8,7 @@ use crate::{FloatSliceFormat, GranularityArgs, LogIntervalArg, NumThreadsArg, ge
 use anyhow::{Result, ensure};
 use clap::Parser;
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::{concurrent_progress_logger, progress_logger};
+use dsi_progress_logger::progress_logger;
 use predicates::prelude::*;
 use std::path::PathBuf;
 use value_traits::slices::SliceByValue;
@@ -123,11 +123,10 @@ fn run_and_store<
     br: &mut BiRank<G, H, V>,
     predicate: impl predicates::Predicate<PredParams> + Send,
     pl: &mut (impl dsi_progress_logger::ProgressLog + Send),
-    cpl: &mut impl dsi_progress_logger::ConcurrentProgressLog,
     thread_pool: &rayon::ThreadPool,
     args: &CliArgs,
 ) -> Result<()> {
-    thread_pool.install(|| br.run_with_logging(predicate, pl, cpl));
+    thread_pool.install(|| br.run_with_logging(predicate, pl));
 
     log::info!(
         "Completed after {} iteration(s), L1 norm delta = {}, Linf norm delta = {}",
@@ -143,12 +142,7 @@ fn run_and_store<
 pub fn birank<E: Endianness>(args: CliArgs) -> Result<()> {
     let mut pl = progress_logger![
         display_memory = true,
-        log_interval = args.log_interval.log_interval
-    ];
-
-    let mut cpl = concurrent_progress_logger![
-        display_memory = true,
-        log_interval = args.log_interval.log_interval
+        log_interval = args.log_interval.log_interval,
     ];
 
     let thread_pool = get_thread_pool(args.num_threads.num_threads);
@@ -188,13 +182,13 @@ pub fn birank<E: Endianness>(args: CliArgs) -> Result<()> {
         br.alpha(args.alpha)
             .beta(args.beta)
             .granularity(args.granularity.into_granularity());
-        run_and_store(&mut br, predicate, &mut pl, &mut cpl, &thread_pool, &args)?;
+        run_and_store(&mut br, predicate, &mut pl, &thread_pool, &args)?;
     } else {
         let mut br = BiRank::new(&graph, &transpose, args.num_sources);
         br.alpha(args.alpha)
             .beta(args.beta)
             .granularity(args.granularity.into_granularity());
-        run_and_store(&mut br, predicate, &mut pl, &mut cpl, &thread_pool, &args)?;
+        run_and_store(&mut br, predicate, &mut pl, &thread_pool, &args)?;
     }
 
     Ok(())

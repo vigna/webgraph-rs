@@ -9,7 +9,7 @@ use crate::{FloatSliceFormat, GranularityArgs, LogIntervalArg, NumThreadsArg, ge
 use anyhow::{Result, bail};
 use clap::{ArgGroup, Args, Parser};
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::concurrent_progress_logger;
+use dsi_progress_logger::progress_logger;
 use epserde::deser::{Deserialize, Flags};
 use rand::SeedableRng;
 use std::path::PathBuf;
@@ -138,8 +138,7 @@ pub fn main(args: CliArgs) -> Result<()> {
 }
 
 pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
-    let mut pl = concurrent_progress_logger![
-        local_speed = true,
+    let mut pl = progress_logger![
         display_memory = true,
         log_interval = args.log_interval.log_interval,
     ];

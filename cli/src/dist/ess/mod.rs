@@ -8,7 +8,7 @@ use crate::{IntSliceFormat, LogIntervalArg, NumThreadsArg};
 use anyhow::{Result, ensure};
 use clap::{ArgGroup, Parser, ValueEnum};
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::concurrent_progress_logger;
+use dsi_progress_logger::progress_logger;
 use std::path::{Path, PathBuf};
 use webgraph::{graphs::bvgraph::get_endianness, prelude::BvGraph};
 use webgraph_algo::distances::exact_sum_sweep::{
@@ -119,10 +119,9 @@ pub fn exact_sum_sweep<E: Endianness>(args: CliArgs) -> Result<()> {
     let graph = BvGraph::with_basename(&args.basename).load()?;
 
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
-    let mut pl = concurrent_progress_logger![
+    let mut pl = progress_logger![
         display_memory = true,
-        local_speed = true,
-        log_interval = args.log_interval.log_interval
+        log_interval = args.log_interval.log_interval,
     ];
 
     let use_tot = !args.no_tot;

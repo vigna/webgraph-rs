@@ -8,7 +8,7 @@ use crate::{FloatSliceFormat, GranularityArgs, LogIntervalArg, NumThreadsArg, ge
 use anyhow::{Result, ensure};
 use clap::Parser;
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::{concurrent_progress_logger, progress_logger};
+use dsi_progress_logger::progress_logger;
 use predicates::prelude::*;
 use std::path::PathBuf;
 use value_traits::slices::SliceByValue;
@@ -118,11 +118,10 @@ fn run_and_store<G: RandomAccessGraph + Sync + Send, V: SliceByValue<Value = f64
     pr: &mut PageRank<G, V>,
     predicate: impl predicates::Predicate<PredParams> + Send,
     pl: &mut (impl dsi_progress_logger::ProgressLog + Send),
-    cpl: &mut impl dsi_progress_logger::ConcurrentProgressLog,
     thread_pool: &rayon::ThreadPool,
     args: &CliArgs,
 ) -> Result<()> {
-    thread_pool.install(|| pr.run_with_logging(predicate, pl, cpl));
+    thread_pool.install(|| pr.run_with_logging(predicate, pl));
 
     log::info!(
         "Completed after {} iteration(s), norm delta = {}",
@@ -137,12 +136,7 @@ fn run_and_store<G: RandomAccessGraph + Sync + Send, V: SliceByValue<Value = f64
 pub fn pagerank<E: Endianness>(args: CliArgs) -> Result<()> {
     let mut pl = progress_logger![
         display_memory = true,
-        log_interval = args.log_interval.log_interval
-    ];
-
-    let mut cpl = concurrent_progress_logger![
-        display_memory = true,
-        log_interval = args.log_interval.log_interval
+        log_interval = args.log_interval.log_interval,
     ];
 
     let thread_pool = get_thread_pool(args.num_threads.num_threads);
@@ -172,13 +166,13 @@ pub fn pagerank<E: Endianness>(args: CliArgs) -> Result<()> {
         pr.alpha(args.alpha)
             .mode(args.mode.into())
             .granularity(args.granularity.into_granularity());
-        run_and_store(&mut pr, predicate, &mut pl, &mut cpl, &thread_pool, &args)?;
+        run_and_store(&mut pr, predicate, &mut pl, &thread_pool, &args)?;
     } else {
         let mut pr = PageRank::new(&transpose);
         pr.alpha(args.alpha)
             .mode(args.mode.into())
             .granularity(args.granularity.into_granularity());
-        run_and_store(&mut pr, predicate, &mut pl, &mut cpl, &thread_pool, &args)?;
+        run_and_store(&mut pr, predicate, &mut pl, &thread_pool, &args)?;
     }
 
     Ok(())

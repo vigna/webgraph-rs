@@ -6,7 +6,7 @@
  */
 
 use super::{ExactSumSweep, output, output_symm};
-use dsi_progress_logger::ConcurrentProgressLog;
+use dsi_progress_logger::ProgressLog;
 use sux::bits::AtomicBitVec;
 use webgraph::traits::RandomAccessGraph;
 
@@ -121,7 +121,7 @@ pub trait Level: Sync {
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
         use_tot: bool,
-        pl: &mut impl ConcurrentProgressLog,
+        pl: &mut impl ProgressLog,
     ) -> Self::Output;
 
     /// Runs the ExactSumSweep algorithm on the specified symmetric graph.
@@ -140,7 +140,7 @@ pub trait Level: Sync {
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
         use_tot: bool,
-        pl: &mut impl ConcurrentProgressLog,
+        pl: &mut impl ProgressLog,
     ) -> Self::OutputSymm;
 
     #[doc(hidden)]
@@ -162,7 +162,7 @@ impl Level for All {
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
         use_tot: bool,
-        pl: &mut impl ConcurrentProgressLog,
+        pl: &mut impl ProgressLog,
     ) -> Self::Output {
         dispatch!(
             new(&graph, &transpose, radial_vertices, pl),
@@ -193,7 +193,7 @@ impl Level for All {
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
         use_tot: bool,
-        pl: &mut impl ConcurrentProgressLog,
+        pl: &mut impl ProgressLog,
     ) -> Self::OutputSymm {
         dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| {
             assert!(computer.forward_iter.is_some());
@@ -231,7 +231,7 @@ impl Level for AllForward {
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
         use_tot: bool,
-        pl: &mut impl ConcurrentProgressLog,
+        pl: &mut impl ProgressLog,
     ) -> Self::Output {
         dispatch!(
             new(&graph, &transpose, radial_vertices, pl),
@@ -260,7 +260,7 @@ impl Level for AllForward {
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
         use_tot: bool,
-        pl: &mut impl ConcurrentProgressLog,
+        pl: &mut impl ProgressLog,
     ) -> Self::OutputSymm {
         All::run_symm(graph, use_tot, pl)
     }
@@ -283,7 +283,7 @@ impl Level for RadiusDiameter {
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
         use_tot: bool,
-        pl: &mut impl ConcurrentProgressLog,
+        pl: &mut impl ProgressLog,
     ) -> Self::Output {
         dispatch!(
             new(&graph, &transpose, radial_vertices, pl),
@@ -308,7 +308,7 @@ impl Level for RadiusDiameter {
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
         use_tot: bool,
-        pl: &mut impl ConcurrentProgressLog,
+        pl: &mut impl ProgressLog,
     ) -> Self::OutputSymm {
         dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| {
             assert!(computer.diameter_iterations.is_some());
@@ -343,7 +343,7 @@ impl Level for Diameter {
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
         use_tot: bool,
-        pl: &mut impl ConcurrentProgressLog,
+        pl: &mut impl ProgressLog,
     ) -> Self::Output {
         dispatch!(
             new(&graph, &transpose, radial_vertices, pl),
@@ -364,7 +364,7 @@ impl Level for Diameter {
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
         use_tot: bool,
-        pl: &mut impl ConcurrentProgressLog,
+        pl: &mut impl ProgressLog,
     ) -> Self::OutputSymm {
         dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| {
             assert!(computer.diameter_iterations.is_some());
@@ -395,7 +395,7 @@ impl Level for Radius {
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
         use_tot: bool,
-        pl: &mut impl ConcurrentProgressLog,
+        pl: &mut impl ProgressLog,
     ) -> Self::Output {
         dispatch!(
             new(&graph, &transpose, radial_vertices, pl),
@@ -416,7 +416,7 @@ impl Level for Radius {
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
         use_tot: bool,
-        pl: &mut impl ConcurrentProgressLog,
+        pl: &mut impl ProgressLog,
     ) -> Self::OutputSymm {
         dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| {
             assert!(computer.radius_iterations.is_some());

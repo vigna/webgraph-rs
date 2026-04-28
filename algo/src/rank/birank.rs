@@ -148,7 +148,7 @@ impl HasLInfNorm for PredParams {
 }
 
 use super::pagerank::UniformPreference;
-use dsi_progress_logger::{ConcurrentProgressLog, ProgressLog, no_logging};
+use dsi_progress_logger::{ProgressLog, no_logging};
 use kahan::KahanSum;
 use lender::prelude::*;
 use predicates::Predicate;
@@ -415,20 +415,19 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
 {
     /// Runs the BiRank computation until the given predicate is satisfied.
     pub fn run(&mut self, predicate: impl Predicate<PredParams>) {
-        self.run_with_logging(predicate, no_logging![], no_logging![]);
+        self.run_with_logging(predicate, no_logging![]);
     }
 
     /// Runs the BiRank computation until the given predicate is satisfied,
     /// logging progress.
     ///
-    /// `pl` is a sequential [`ProgressLog`] used for degree computation and
-    /// iteration counting. `cpl` is a [`ConcurrentProgressLog`] used for
-    /// node-level progress inside each iteration phase.
+    /// A concurrent progress logger is derived internally via
+    /// [`ProgressLog::concurrent`]; `display_memory` is disabled on it because
+    /// sysinfo can deadlock in concurrent contexts.
     pub fn run_with_logging(
         &mut self,
         predicate: impl Predicate<PredParams>,
         pl: &mut impl ProgressLog,
-        cpl: &mut impl ConcurrentProgressLog,
     ) {
         let n = self.graph.num_nodes();
         let num_u = self.num_sources;
@@ -497,6 +496,10 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
             .granularity
             .node_granularity(n, Some(self.graph.num_arcs()))
             .max(1);
+
+        // display_memory uses sysinfo, which can deadlock in concurrent contexts
+        let mut cpl = pl.concurrent();
+        cpl.display_memory(false);
 
         pl.item_name("iteration");
         pl.expected_updates(None);

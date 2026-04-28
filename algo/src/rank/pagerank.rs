@@ -205,7 +205,7 @@ impl std::fmt::Display for Mode {
     }
 }
 
-use dsi_progress_logger::{ConcurrentProgressLog, ProgressLog, no_logging};
+use dsi_progress_logger::{ProgressLog, no_logging};
 use kahan::KahanSum;
 use lender::prelude::*;
 use predicates::Predicate;
@@ -495,26 +495,19 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64>> PageRank<'a,
 impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64> + Sync> PageRank<'a, G, V> {
     /// Runs the PageRank computation until the given predicate is satisfied.
     pub fn run(&mut self, predicate: impl Predicate<PredParams>) {
-        self.run_with_logging(predicate, no_logging![], no_logging![]);
+        self.run_with_logging(predicate, no_logging![]);
     }
 
     /// Runs the PageRank computation until the given predicate is satisfied,
     /// logging progress.
     ///
-    /// `pl` is a sequential [`ProgressLog`] used for outdegree computation and
-    /// iteration counting. `cpl` is a [`ConcurrentProgressLog`] used for
-    /// node-level progress inside each iteration. Their options will be preserved,
-    /// making thus possible to customize the logs.
-    ///
-    /// It is possible to specify either `pl` or `cpl` as
-    /// [`no_logging![]`](dsi_progress_logger::no_logging) if you don't want to
-    /// log the corresponding part of the computation, albeit having the latter
-    /// one and not the first one will lead to confusing logs.
+    /// A concurrent progress logger is derived internally via
+    /// [`ProgressLog::concurrent`]; `display_memory` is disabled on it because
+    /// sysinfo can deadlock in concurrent contexts.
     pub fn run_with_logging(
         &mut self,
         predicate: impl Predicate<PredParams>,
         pl: &mut impl ProgressLog,
-        cpl: &mut impl ConcurrentProgressLog,
     ) {
         let n = self.transpose.num_nodes();
         if n == 0 {
@@ -586,6 +579,10 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64> + Sync> PageR
             .granularity
             .node_granularity(n, Some(self.transpose.num_arcs()))
             .max(1);
+
+        // display_memory uses sysinfo, which can deadlock in concurrent contexts
+        let mut cpl = pl.concurrent();
+        cpl.display_memory(false);
 
         // Phase 3: Iteration loop
         pl.item_name("iteration");

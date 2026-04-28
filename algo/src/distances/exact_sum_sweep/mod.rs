@@ -599,7 +599,9 @@ impl<
         }
 
         pl.start("Running ExactSumSweep...");
+        // display_memory uses sysinfo, which can deadlock in concurrent contexts
         let mut cpl = pl.concurrent();
+        cpl.display_memory(false);
 
         if self.compute_radial_vertices {
             self.compute_radial_vertices(&mut cpl);

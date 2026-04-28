@@ -928,7 +928,7 @@ impl<
     /// # Arguments
     ///
     /// * `pl` - A progress logger.
-    pub fn build(self, pl: &mut impl ConcurrentProgressLog) -> HyperBall<'a, G1, G2, D, L, A, N> {
+    pub fn build(self, pl: &mut impl ProgressLog) -> HyperBall<'a, G1, G2, D, L, A, N> {
         let num_nodes = self.graph.num_nodes();
 
         let sum_of_distances = if self.do_sum_of_dists {
@@ -1172,7 +1172,7 @@ where
         upper_bound: usize,
         threshold: Option<f64>,
         rng: impl rand::RngExt,
-        pl: &mut impl ConcurrentProgressLog,
+        pl: &mut impl ProgressLog,
     ) -> Result<()> {
         let upper_bound = std::cmp::min(upper_bound, self.graph.num_nodes());
 
@@ -1230,7 +1230,7 @@ where
         &mut self,
         upper_bound: usize,
         rng: impl rand::RngExt,
-        pl: &mut impl ConcurrentProgressLog,
+        pl: &mut impl ProgressLog,
     ) -> Result<()> {
         self.run(upper_bound, None, rng, pl)
             .with_context(|| "Could not complete run_until_stable")
@@ -1246,7 +1246,7 @@ where
     pub fn run_until_done(
         &mut self,
         rng: impl rand::RngExt,
-        pl: &mut impl ConcurrentProgressLog,
+        pl: &mut impl ProgressLog,
     ) -> Result<()> {
         self.run_until_stable(usize::MAX, rng, pl)
             .with_context(|| "Could not complete run_until_done")
@@ -1407,7 +1407,7 @@ where
     ///
     /// # Arguments
     /// * `pl` - A progress logger.
-    fn iterate(&mut self, pl: &mut impl ConcurrentProgressLog) -> Result<()> {
+    fn iterate(&mut self, pl: &mut impl ProgressLog) -> Result<()> {
         let ic = &mut self.iteration_context;
 
         pl.info(format_args!("Performing iteration {}", ic.iteration + 1));
@@ -1509,7 +1509,9 @@ where
 
         ic.reset(node_granularity);
 
-        let mut arc_pl = pl.dup();
+        // display_memory uses sysinfo, which can deadlock in concurrent contexts
+        let mut arc_pl = pl.concurrent();
+        arc_pl.display_memory(false);
         arc_pl.item_name("arc");
         arc_pl.expected_updates(if ic.local || ic.systolic {
             None
@@ -1922,11 +1924,7 @@ where
     }
 
     /// Initializes HyperBall.
-    fn init(
-        &mut self,
-        mut rng: impl rand::RngExt,
-        pl: &mut impl ConcurrentProgressLog,
-    ) -> Result<()> {
+    fn init(&mut self, mut rng: impl rand::RngExt, pl: &mut impl ProgressLog) -> Result<()> {
         pl.start("Initializing estimators...");
 
         let num_nodes = self.graph.num_nodes();

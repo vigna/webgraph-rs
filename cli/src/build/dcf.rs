@@ -139,9 +139,9 @@ where
         .into_granularity()
         .node_granularity(num_nodes, Some(num_arcs));
 
+    // display_memory uses sysinfo, which can deadlock in concurrent contexts
     let mut pl = concurrent_progress_logger![
         item_name = "node",
-        display_memory = true,
         expected_updates = Some(num_nodes),
         log_interval = args.log_interval.log_interval,
     ];
