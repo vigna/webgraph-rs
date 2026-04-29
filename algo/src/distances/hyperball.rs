@@ -1511,13 +1511,15 @@ where
 
         // display_memory uses sysinfo, which can deadlock in concurrent contexts
         let mut arc_pl = pl.concurrent();
-        arc_pl.display_memory(false);
-        arc_pl.item_name("arc");
-        arc_pl.expected_updates(if ic.local || ic.systolic {
-            None
-        } else {
-            Some(num_arcs as _)
-        });
+        arc_pl
+            .display_memory(false)
+            .local_speed(true)
+            .item_name("arc")
+            .expected_updates(if ic.local || ic.systolic {
+                None
+            } else {
+                Some(num_arcs as _)
+            });
 
         // We're just gonna read this
         // TODO: put back once we release the new sux
