@@ -771,7 +771,7 @@ impl<
             ));
         } else {
             pl.info(format_args!(
-                "Missing bounds: {} out of 2 · {} = {} ({:3}%); {} ≤ diameter ≤ {}, {} ≤ radius ≤ {}",
+                "Missing bounds: {} out of 2·{} = {} ({:3}%); {} ≤ diameter ≤ {}, {} ≤ radius ≤ {}",
                 missing_nodes,
                 self.num_nodes,
                 self.num_nodes * 2,

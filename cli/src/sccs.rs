@@ -4,7 +4,10 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-use crate::{IntSliceFormat, LogIntervalArg, build_info, num_threads_parser, pretty_print_elapsed};
+use crate::{
+    IntSliceFormat, LogIntervalArg, build_info, get_thread_pool, num_threads_parser,
+    pretty_print_elapsed,
+};
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::factory::CodesReaderFactoryHelper;
@@ -107,8 +110,9 @@ where
             log::debug!("Using sequential algorithm");
             sccs.sort_by_size()
         } else {
+            let thread_pool = get_thread_pool(args.num_threads);
             log::debug!("Using parallel algorithm with {} threads", args.num_threads);
-            sccs.par_sort_by_size()
+            thread_pool.install(|| sccs.par_sort_by_size())
         };
         if let Some(sizes_path) = &args.sizes {
             let max = component_sizes.first().copied();

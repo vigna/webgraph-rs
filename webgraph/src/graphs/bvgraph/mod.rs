@@ -147,6 +147,7 @@ pub const EF_EXTENSION: &str = "ef";
 pub const LABELS_EXTENSION: &str = "labels";
 pub const LABELS_BASENAME_SUFFIX: &str = "-labels";
 pub const DEG_CUMUL_EXTENSION: &str = "dcf";
+pub const CSR_EXTENSION: &str = "csr";
 
 mod offset_deg_iter;
 use dsi_bitstream::{

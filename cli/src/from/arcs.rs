@@ -226,7 +226,7 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
         let mut file = std::fs::File::create(&nodes_file).unwrap();
         let mut buf = std::io::BufWriter::new(&mut file);
         let mut nodes = nodes.into_iter().collect::<Vec<_>>();
-        nodes.par_sort_by(|(_, a), (_, b)| a.cmp(b));
+        thread_pool.install(|| nodes.par_sort_by(|(_, a), (_, b)| a.cmp(b)));
         pl.start(format!("Storing the nodes to {}...", nodes_file.display()));
         for (node, _) in nodes {
             buf.write_all(node.as_bytes()).unwrap();

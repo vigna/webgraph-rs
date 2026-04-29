@@ -103,9 +103,7 @@ where
         ];
         pl.start("Scanning...");
 
-        let thread_pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(args.num_threads.num_threads)
-            .build()?;
+        let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
 
         let node_granularity = args
             .granularity

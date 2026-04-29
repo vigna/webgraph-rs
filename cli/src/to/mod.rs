@@ -11,6 +11,7 @@ use clap::Subcommand;
 pub mod arcs;
 pub mod ascii;
 pub mod bvgraph;
+pub mod csr;
 pub mod endianness;
 
 #[derive(Subcommand, Debug)]
@@ -19,6 +20,7 @@ pub mod endianness;
 pub enum SubCommands {
     Ascii(ascii::CliArgs),
     Bvgraph(bvgraph::CliArgs),
+    Csr(csr::CliArgs),
     Arcs(arcs::CliArgs),
     Endianness(endianness::CliArgs),
 }
@@ -27,6 +29,7 @@ pub fn main(subcommand: SubCommands) -> Result<()> {
     match subcommand {
         SubCommands::Ascii(args) => ascii::main(args),
         SubCommands::Bvgraph(args) => bvgraph::main(args),
+        SubCommands::Csr(args) => csr::main(args),
         SubCommands::Arcs(args) => arcs::main(args),
         SubCommands::Endianness(args) => endianness::main(args),
     }
