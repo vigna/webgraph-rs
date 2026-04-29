@@ -1011,6 +1011,7 @@ impl<
                 node_cursor: AtomicUsize::new(0).into(),
                 arc_cursor: Mutex::new((0, 0)),
                 visited_arcs: AtomicU64::new(0).into(),
+                last_visited_arcs: self.graph.num_arcs() as usize,
                 modified_estimators: AtomicU64::new(0).into(),
                 systolic: false,
                 local: false,
@@ -1055,6 +1056,8 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
     arc_cursor: Mutex<(usize, u64)>,
     /// The number of arcs visited during the current iteration.
     visited_arcs: CachePadded<AtomicU64>,
+    /// The number of arcs visited during the previous iteration.
+    last_visited_arcs: usize,
     /// The number of estimators modified during the current iteration.
     modified_estimators: CachePadded<AtomicU64>,
     /// `true` if we started a systolic computation.
@@ -1515,11 +1518,7 @@ where
             .display_memory(false)
             .local_speed(true)
             .item_name("arc")
-            .expected_updates(if ic.local || ic.systolic {
-                None
-            } else {
-                Some(num_arcs as _)
-            });
+            .expected_updates(ic.last_visited_arcs);
 
         // We're just gonna read this
         // TODO: put back once we release the new sux
@@ -1562,7 +1561,8 @@ where
             });
         }
 
-        arc_pl.done_with_count(ic.visited_arcs.load(Ordering::Relaxed) as usize);
+        ic.last_visited_arcs = ic.visited_arcs.load(Ordering::Relaxed) as usize;
+        arc_pl.done_with_count(ic.last_visited_arcs);
         let modified_estimators = ic.modified_estimators.load(Ordering::Relaxed);
 
         pl.info(format_args!(

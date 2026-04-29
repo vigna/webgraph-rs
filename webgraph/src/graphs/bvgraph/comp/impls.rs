@@ -997,13 +997,13 @@ impl<PL: ProgressLog> BvCompConf<PL> {
             }
 
             log::info!(
-                "Compressed {} arcs into {} bits at {:.4} bits/arc",
+                "Compressed {} arcs into {} bits at {:.3} bits/arc",
                 total_stats.num_arcs,
                 total_stats.written_bits,
                 total_stats.written_bits as f64 / total_stats.num_arcs as f64
             );
             log::info!(
-                "Created offsets file with {} bits at {:.4} bits/node",
+                "Created offsets file with {} bits at {:.3} bits/node",
                 total_stats.offsets_written_bits,
                 total_stats.offsets_written_bits as f64 / num_nodes as f64
             );
