@@ -1061,9 +1061,8 @@ pub enum SubCommands {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "webgraph", version=build_info::version_string(), max_term_width = 100)]
+#[command(name = "webgraph", version=build_info::version_string(), max_term_width = 100, after_help = include_str!("common_env.txt"))]
 /// WebGraph tools to build, convert, modify, and analyze graphs.​
-#[doc = include_str!("common_env.txt")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: SubCommands,

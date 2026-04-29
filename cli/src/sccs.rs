@@ -15,10 +15,8 @@ use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "webgraph-sccs", version=build_info::version_string(), max_term_width = 100, next_line_help = true)]
+#[command(name = "webgraph-sccs", version=build_info::version_string(), max_term_width = 100, next_line_help = true, after_help = include_str!("common_env.txt"))]
 /// Computes the strongly connected components of a graph.​
-#[doc = include_str!("common_ps.txt")]
-#[doc = include_str!("common_env.txt")]
 pub struct Cli {
     #[clap(flatten)]
     args: CliArgs,

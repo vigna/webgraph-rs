@@ -1930,7 +1930,7 @@ where
         let num_nodes = self.graph.num_nodes();
 
         if let Some(w) = &self.weight {
-            pl.info(format_args!("Loading weights (sequential)"));
+            pl.info(format_args!("Loading weights (sequential)..."));
             for (i, &node_weight) in w.iter().enumerate() {
                 let mut estimator = self.curr_state.get_estimator_mut(i);
                 estimator.clear();
@@ -1939,7 +1939,7 @@ where
                 }
             }
         } else {
-            pl.info(format_args!("Initializing registers (parallel)"));
+            pl.info(format_args!("Initializing registers (parallel)..."));
             let sync_array = self.curr_state.as_sync_array();
             let logic = sync_array.logic();
             rayon::broadcast(|ctx| {
