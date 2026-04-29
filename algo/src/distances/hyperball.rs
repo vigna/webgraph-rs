@@ -1456,7 +1456,7 @@ where
                 ic.next_modified.set(node, false, Ordering::Relaxed);
             }
         } else {
-            ic.next_modified.fill(false, Ordering::Relaxed);
+            ic.next_modified.par_fill(false, Ordering::Relaxed);
         }
 
         if ic.local {
@@ -1479,12 +1479,12 @@ where
             rayon::join(
                 || {
                     // Systolic, non-local computations store the could-be-modified set implicitly into Self::next_must_be_checked.
-                    ic.next_must_be_checked.fill(false, Ordering::Relaxed);
+                    ic.next_must_be_checked.par_fill(false, Ordering::Relaxed);
                 },
                 || {
                     // If the previous computation wasn't systolic, we must assume that all registers could have changed.
                     if !prev_was_systolic {
-                        ic.must_be_checked.fill(true, Ordering::Relaxed);
+                        ic.must_be_checked.par_fill(true, Ordering::Relaxed);
                     }
                 },
             );
@@ -1969,14 +1969,23 @@ where
 
         pl.debug(format_args!("Initializing distances"));
         if let Some(distances) = &mut self.sum_of_dists {
-            distances.fill(0.0);
+            distances
+                .par_iter_mut()
+                .with_min_len(sux::RAYON_MIN_LEN)
+                .for_each(|d| *d = 0.0);
         }
         if let Some(distances) = &mut self.sum_of_inv_dists {
-            distances.fill(0.0);
+            distances
+                .par_iter_mut()
+                .with_min_len(sux::RAYON_MIN_LEN)
+                .for_each(|d| *d = 0.0);
         }
         pl.debug(format_args!("Initializing centralities"));
         for centralities in self.discounted_centralities.iter_mut() {
-            centralities.fill(0.0);
+            centralities
+                .par_iter_mut()
+                .with_min_len(sux::RAYON_MIN_LEN)
+                .for_each(|d| *d = 0.0);
         }
 
         self.last = self.graph.num_nodes() as f64;
@@ -1985,7 +1994,7 @@ where
         self.neighborhood_function.push(self.last);
 
         pl.debug(format_args!("Initializing modified estimators"));
-        self.curr_modified.fill(true, Ordering::Relaxed);
+        self.curr_modified.par_fill(true, Ordering::Relaxed);
 
         pl.done();
 
