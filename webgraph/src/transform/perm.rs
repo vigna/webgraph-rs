@@ -14,13 +14,13 @@ use value_traits::slices::SliceByValue;
 
 /// Returns a [`ParSortedGraph`] representing the permuted graph.
 ///
-/// Note that if the graph implements [`IntoParLenders`], [`permute_par`] will
-/// be much faster.
+/// Note that if the graph implements [`IntoParLenders`], [`permute_par`] will be
+/// much faster.
 ///
 /// The permutation is assumed to be bijective. For the meaning of the
 /// additional parameter, see
 /// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
-pub fn permute<G: SequentialGraph, P: SliceByValue<Value = usize>>(
+pub fn permute_seq<G: SequentialGraph, P: SliceByValue<Value = usize>>(
     graph: &G,
     perm: &P,
     memory_usage: MemoryUsage,

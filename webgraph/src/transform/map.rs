@@ -25,7 +25,7 @@ use value_traits::slices::SliceByValue;
 ///
 /// For the meaning of the additional parameter, see
 /// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
-pub fn map(
+pub fn map_seq(
     graph: &impl SequentialGraph,
     map: &impl SliceByValue<Value = usize>,
     num_nodes: usize,

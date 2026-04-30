@@ -96,7 +96,7 @@ where
             log_interval = args.log_interval.log_interval
         ];
         let transposed =
-            webgraph::transform::transpose(graph, args.memory_usage.memory_usage, &mut pl)?;
+            webgraph::transform::transpose_seq(graph, args.memory_usage.memory_usage, &mut pl)?;
 
         // Reload the graph for comparison (transpose consumed it)
         let graph =

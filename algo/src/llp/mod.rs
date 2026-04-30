@@ -16,9 +16,9 @@
 //! # Requirements
 //!
 //! The graph provided should be _symmetric_ and _loopless_. If this is not the
-//! case, please use [`symmetrize`] to generate a suitable graph.
+//! case, please use [`symmetrize_seq`] to generate a suitable graph.
 //!
-//! [`symmetrize`]: webgraph::transform::symmetrize
+//! [`symmetrize_seq`]: webgraph::transform::symmetrize_seq
 //!
 //! # Memory Requirements
 //!
@@ -41,7 +41,7 @@
 //! co-located in the graph, so [permuting the graph] in label order will
 //! increase locality, yielding better compression.
 //!
-//! [permuting the graph]: webgraph::transform::permute
+//! [permuting the graph]: webgraph::transform::permute_seq
 //!
 //! # Functions
 //!
@@ -53,9 +53,9 @@
 //! - [`combine_labels`]: combines the per-ɣ labels stored on disk by a
 //!   previous call to [`layered_label_propagation_labels_only`];
 //! - [`labels_to_ranks`]: converts labels to ranks by their natural order,
-//!   yielding a permutation that can be passed to [`permute`].
+//!   yielding a permutation that can be passed to [`permute_seq`].
 //!
-//! [`permute`]: webgraph::transform::permute
+//! [`permute_seq`]: webgraph::transform::permute_seq
 //!
 //! # Choosing ɣ Values
 //!

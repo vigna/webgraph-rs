@@ -189,7 +189,7 @@ where
     log::info!("Permuting graph with memory usage {}", memory_usage);
     let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
     let start = std::time::Instant::now();
-    let permuted = webgraph::transform::permute(&seq_graph, perm, memory_usage, &mut pl)?;
+    let permuted = webgraph::transform::permute_seq(&seq_graph, perm, memory_usage, &mut pl)?;
     log::info!(
         "Permuted the graph. It took {:.3} seconds",
         start.elapsed().as_secs_f64()

@@ -80,7 +80,8 @@
 - `SortPairs` is gone, replaced by `*_seq` equivalent methods in `ParSortPairs`
   which can additionally partition the output. Thus it is possible, say, to
   transpose a graph that cannot be split sequentially but then compress it in
-  parallel.
+  parallel. Consequently, the module `sort_pairs` has been renamed
+  `k_merge_iters`.
 
 - `UnitLender` has been renamed `UnitLabelLender`, and `UnitSucc` has
   been renamed `UnitLabelSucc` for consistency.
@@ -92,10 +93,6 @@
   implementation was unsound.
 
 - `MemoryUsage::default` has now a more sensible, nonlinear growth strategy.
-
-- `SortPairs` has been removed, replaced by `*_seq` equivalent methods in
-  `ParSortPairs`; they can additionally partition the output. Consequently, the
-  module `sort_pairs` has been renamed `k_merge_iters`.
 
 - The setters in `BvCompConfig` dropped the `with_` prefix.
 

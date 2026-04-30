@@ -217,7 +217,8 @@ fn test_er() -> Result<()> {
             let graph = VecGraph::from_lender(ErdosRenyi::new(n, (d as f64) / 10.0, 0).iter());
 
             let transpose = VecGraph::from_lender(
-                transform::transpose(&graph, MemoryUsage::BatchSize(10000), no_logging![])?.iter(),
+                transform::transpose_seq(&graph, MemoryUsage::BatchSize(10000), no_logging![])?
+                    .iter(),
             );
             let kosaraju = sccs::kosaraju(&graph, &transpose, no_logging![]);
             let tarjan = sccs::tarjan(&graph, no_logging![]);

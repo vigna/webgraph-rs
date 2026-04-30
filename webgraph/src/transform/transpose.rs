@@ -21,7 +21,7 @@ use dsi_progress_logger::ProgressLog;
 ///
 /// For the meaning of the additional parameters, see
 /// [`ParSortedLabeledGraphConf`](crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf).
-pub fn transpose_labeled<SD>(
+pub fn transpose_labeled_seq<SD>(
     graph: &impl LabeledSequentialGraph<SD::SerType>,
     memory_usage: MemoryUsage,
     sd: SD,
@@ -52,7 +52,7 @@ where
 ///
 /// For the meaning of the additional parameter, see
 /// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
-pub fn transpose(
+pub fn transpose_seq(
     graph: impl SequentialGraph,
     memory_usage: MemoryUsage,
     pl: &mut impl ProgressLog,

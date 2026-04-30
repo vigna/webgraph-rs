@@ -18,7 +18,7 @@ use webgraph::{graphs::vec_graph::VecGraph, prelude::*, transform};
 #[test]
 fn test_transpose() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
-    let t = transform::transpose(&g, MemoryUsage::BatchSize(2), no_logging![])?;
+    let t = transform::transpose_seq(&g, MemoryUsage::BatchSize(2), no_logging![])?;
     let t = VecGraph::from_lender(&t);
     assert_eq!(t.num_nodes(), 3);
 
@@ -36,9 +36,9 @@ fn test_transpose() -> Result<()> {
 #[test]
 fn test_transpose_round_trip() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 3), (3, 0)]);
-    let t = transform::transpose(&g, MemoryUsage::BatchSize(2), no_logging![])?;
+    let t = transform::transpose_seq(&g, MemoryUsage::BatchSize(2), no_logging![])?;
     let t = VecGraph::from_lender(&t);
-    let tt = transform::transpose(&t, MemoryUsage::BatchSize(2), no_logging![])?;
+    let tt = transform::transpose_seq(&t, MemoryUsage::BatchSize(2), no_logging![])?;
     let tt = VecGraph::from_lender(&tt);
     webgraph::traits::graph::eq(&g, &tt)?;
     Ok(())
@@ -91,14 +91,14 @@ fn test_transpose_par_bvgraph() -> Result<()> {
 
 #[test]
 fn test_transpose_labeled() -> Result<()> {
-    use webgraph::transform::transpose_labeled;
+    use webgraph::transform::transpose_labeled_seq;
 
     let g = webgraph::graphs::vec_graph::LabeledVecGraph::<()>::from_arcs([
         ((0, 1), ()),
         ((0, 2), ()),
         ((1, 2), ()),
     ]);
-    let t = transpose_labeled(&g, MemoryUsage::BatchSize(2), (), no_logging![])?;
+    let t = transpose_labeled_seq(&g, MemoryUsage::BatchSize(2), (), no_logging![])?;
     assert_eq!(t.num_nodes(), 3);
     let mut iter = t.iter();
     while let Some((node, succ)) = iter.next() {
@@ -120,7 +120,7 @@ fn test_transpose_labeled() -> Result<()> {
 fn test_permute() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
     let perm = [2, 0, 1]; // 0->2, 1->0, 2->1
-    let p = transform::permute(&g, &perm, MemoryUsage::BatchSize(2), no_logging![])?;
+    let p = transform::permute_seq(&g, &perm, MemoryUsage::BatchSize(2), no_logging![])?;
     let p = VecGraph::from_lender(&p);
     assert_eq!(p.num_nodes(), 3);
 
@@ -137,7 +137,7 @@ fn test_permute() -> Result<()> {
 fn test_permute_identity() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
     let id = [0, 1, 2];
-    let p = transform::permute(&g, &id, MemoryUsage::BatchSize(2), no_logging![])?;
+    let p = transform::permute_seq(&g, &id, MemoryUsage::BatchSize(2), no_logging![])?;
     let p = VecGraph::from_lender(&p);
     webgraph::traits::graph::eq(&g, &p)?;
     Ok(())
@@ -147,7 +147,7 @@ fn test_permute_identity() -> Result<()> {
 fn test_permute_reverse() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3)]);
     let perm = [3, 2, 1, 0]; // reverse
-    let p = transform::permute(&g, &perm, MemoryUsage::BatchSize(2), no_logging![])?;
+    let p = transform::permute_seq(&g, &perm, MemoryUsage::BatchSize(2), no_logging![])?;
     let p = VecGraph::from_lender(&p);
     assert_eq!(p.num_nodes(), 4);
     // Arc (0,1) -> (3,2), (1,2) -> (2,1), (2,3) -> (1,0)
@@ -162,7 +162,7 @@ fn test_permute_reverse() -> Result<()> {
 fn test_permute_size_mismatch() {
     let g = VecGraph::from_arcs([(0, 1), (1, 2)]);
     let perm = vec![0, 1]; // 2 elements but graph has 3 nodes
-    let result = transform::permute(&g, &perm, MemoryUsage::BatchSize(2), no_logging![]);
+    let result = transform::permute_seq(&g, &perm, MemoryUsage::BatchSize(2), no_logging![]);
     assert!(result.is_err());
 }
 
@@ -194,7 +194,7 @@ fn test_permute_par() -> Result<()> {
 #[test]
 fn test_symmetrize_no_loops() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (0, 0)]); // includes self-loop
-    let s = transform::symmetrize::<true>(&g, MemoryUsage::BatchSize(2), no_logging![])?;
+    let s = transform::symmetrize_seq::<true>(&g, MemoryUsage::BatchSize(2), no_logging![])?;
     let s = VecGraph::from_lender(&s);
     assert_eq!(s.num_nodes(), 3);
 
@@ -214,7 +214,7 @@ fn test_symmetrize_no_loops() -> Result<()> {
 #[test]
 fn test_symmetrize_keep_loops() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (0, 0)]); // includes self-loop
-    let s = transform::symmetrize::<false>(&g, MemoryUsage::BatchSize(2), no_logging![])?;
+    let s = transform::symmetrize_seq::<false>(&g, MemoryUsage::BatchSize(2), no_logging![])?;
     let s = VecGraph::from_lender(&s);
     assert_eq!(s.num_nodes(), 3);
 
@@ -234,7 +234,7 @@ fn test_symmetrize_keep_loops() -> Result<()> {
 #[test]
 fn test_symmetrize_with_batch_size() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0)]);
-    let s = transform::symmetrize::<true>(&g, MemoryUsage::BatchSize(2), no_logging![])?;
+    let s = transform::symmetrize_seq::<true>(&g, MemoryUsage::BatchSize(2), no_logging![])?;
     let s = VecGraph::from_lender(&s);
     assert_eq!(s.num_nodes(), 4);
     // Each node in a 4-cycle has exactly 2 neighbors after symmetrization
@@ -247,14 +247,14 @@ fn test_symmetrize_with_batch_size() -> Result<()> {
 
 #[test]
 fn test_symmetrize_sorted() -> Result<()> {
-    use webgraph::transform::symmetrize_sorted;
+    use webgraph::transform::symmetrize_sorted_seq;
 
     let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let s = symmetrize_sorted::<true, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
+    let s = symmetrize_sorted_seq::<true, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
     let s = VecGraph::from_lender(s.iter());
     // Every edge becomes bidirectional, no self-loops
     assert_eq!(s.successors(0).collect::<Vec<_>>(), vec![1, 2]);
@@ -339,7 +339,7 @@ fn test_map() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 3)]);
     // Map: 0->0, 1->0, 2->1, 3->1 (merges 0,1 into 0 and 2,3 into 1)
     let m = [0, 0, 1, 1];
-    let mapped = transform::map(&g, &m, 2, MemoryUsage::BatchSize(2), no_logging![])?;
+    let mapped = transform::map_seq(&g, &m, 2, MemoryUsage::BatchSize(2), no_logging![])?;
     let mapped = VecGraph::from_lender(&mapped);
     assert_eq!(mapped.num_nodes(), 2);
     // Arcs: (0,0),(0,1),(0,1),(1,1) → deduped: (0,0),(0,1),(1,1)
@@ -352,7 +352,7 @@ fn test_map() -> Result<()> {
 fn test_map_identity() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
     let id = [0, 1, 2];
-    let mapped = transform::map(&g, &id, 3, MemoryUsage::BatchSize(2), no_logging![])?;
+    let mapped = transform::map_seq(&g, &id, 3, MemoryUsage::BatchSize(2), no_logging![])?;
     let mapped = VecGraph::from_lender(&mapped);
     webgraph::traits::graph::eq(&g, &mapped)?;
     Ok(())
@@ -363,7 +363,7 @@ fn test_map_enlarges() -> Result<()> {
     // Map to a larger node space
     let g = VecGraph::from_arcs([(0, 1), (1, 0)]);
     let m = [5, 10];
-    let mapped = transform::map(&g, &m, 11, MemoryUsage::BatchSize(2), no_logging![])?;
+    let mapped = transform::map_seq(&g, &m, 11, MemoryUsage::BatchSize(2), no_logging![])?;
     let mapped = VecGraph::from_lender(&mapped);
     assert_eq!(mapped.num_nodes(), 11);
     assert_eq!(mapped.successors(5).collect::<Vec<_>>(), vec![10]);
@@ -375,7 +375,7 @@ fn test_map_enlarges() -> Result<()> {
 fn test_map_size_mismatch() {
     let g = VecGraph::from_arcs([(0, 1), (1, 2)]);
     let m = vec![0, 1]; // 2 elements but graph has 3 nodes
-    let result = transform::map(&g, &m, 3, MemoryUsage::BatchSize(2), no_logging![]);
+    let result = transform::map_seq(&g, &m, 3, MemoryUsage::BatchSize(2), no_logging![]);
     assert!(result.is_err());
 }
 

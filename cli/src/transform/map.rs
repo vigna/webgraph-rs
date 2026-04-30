@@ -203,7 +203,7 @@ where
         let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
         let start = std::time::Instant::now();
         let sorted =
-            webgraph::transform::map(&seq_graph, &node_map, num_nodes, memory_usage, &mut pl)?;
+            webgraph::transform::map_seq(&seq_graph, &node_map, num_nodes, memory_usage, &mut pl)?;
         log::info!(
             "Mapped the graph. It took {:.3} seconds",
             start.elapsed().as_secs_f64()

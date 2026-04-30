@@ -11,37 +11,37 @@
 //!
 //! # Transpose
 //!
-//! - [`transpose()`]: returns the transpose of a graph;
-//! - [`transpose_labeled`]: returns the transpose of a labeled graph;
+//! - [`transpose_seq()`]: returns the transpose of a graph;
+//! - [`transpose_labeled_seq`]: returns the transpose of a labeled graph;
 //! - [`transpose_par`]: same, sorting in parallel (requires
 //!   [`IntoParLenders`]);
 //! - [`transpose_labeled_par`]: same, for labeled graphs.
 //!
 //! # Symmetrize
 //!
-//! - [`symmetrize()`]: returns a symmetrized version of a graph, optionally
+//! - [`symmetrize_seq()`]: returns a symmetrized version of a graph, optionally
 //!   removing self-loops;
-//! - [`symmetrize_sorted`]: same, but exploits the fact that the input is
+//! - [`symmetrize_sorted_seq`]: same, but exploits the fact that the input is
 //!   already sorted, halving the number of arcs to sort;
 //! - [`symmetrize_par`]: same, sorting in parallel (requires
 //!   [`IntoParLenders`]);
-//! - [`symmetrize_sorted_par`]: same as `symmetrize_sorted`, but sorting the
-//!   transpose arcs in parallel (requires [`SplitLabeling`]).
+//! - [`symmetrize_sorted_par`]: same as `symmetrize_sorted_seq`, but sorting
+//!   the transpose arcs in parallel (requires [`SplitLabeling`]).
 //!
 //! The order above is in general from slower to faster, but the actual
 //! performance depends on the graph and the hardware.
 //!
 //! # Permute
 //!
-//! - [`permute`]: returns the graph with nodes permuted according to a given
-//!   permutation;
+//! - [`permute_seq`]: returns the graph with nodes permuted according to a
+//!   given permutation;
 //! - [`permute_par`]: same, sorting in parallel (requires
 //!   [`IntoParLenders`]).
 //!
 //! # Map
 //!
-//! - [`map()`]: returns the graph with nodes mapped through an arbitrary (not
-//!   necessarily bijective) function, deduplicating arcs;
+//! - [`map_seq()`]: returns the graph with nodes mapped through an arbitrary
+//!   (not necessarily bijective) function, deduplicating arcs;
 //! - [`map_par`]: same, sorting in parallel (requires [`IntoParLenders`]).
 //!
 //! # Memory Usage

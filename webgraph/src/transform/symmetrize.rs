@@ -92,7 +92,7 @@ where
 ///
 /// For the meaning of the additional parameter, see
 /// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
-pub fn symmetrize_sorted<const NO_LOOPS: bool, G: SequentialGraph>(
+pub fn symmetrize_sorted_seq<const NO_LOOPS: bool, G: SequentialGraph>(
     graph: &G,
     memory_usage: MemoryUsage,
     pl: &mut impl ProgressLog,
@@ -107,6 +107,8 @@ pub fn symmetrize_sorted<const NO_LOOPS: bool, G: SequentialGraph>(
     conf.sort_pairs(
         num_nodes,
         graph.iter().into_pairs().flat_map(|(src, dst)| {
+            // The two-element iterator is fully inlined by LLVM,
+            // generating the same code as a hand-written loop.
             if src != dst {
                 Some((src, dst)).into_iter().chain(Some((dst, src)))
             } else if !NO_LOOPS {
@@ -197,11 +199,11 @@ where
 /// If `NO_LOOPS` is true, self-loops are removed from the result.
 ///
 /// Note that if the graph is sorted (both on nodes and successors), it is
-/// recommended to use [`symmetrize_sorted`].
+/// recommended to use [`symmetrize_sorted_seq`].
 ///
 /// For the meaning of the additional parameter, see
 /// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
-pub fn symmetrize<const NO_LOOPS: bool>(
+pub fn symmetrize_seq<const NO_LOOPS: bool>(
     graph: &impl SequentialGraph,
     memory_usage: MemoryUsage,
     pl: &mut impl ProgressLog,

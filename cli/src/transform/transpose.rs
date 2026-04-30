@@ -86,7 +86,7 @@ where
         log_interval = args.log_interval.log_interval
     ];
     let sorted =
-        webgraph::transform::transpose(&seq_graph, args.memory_usage.memory_usage, &mut pl)?;
+        webgraph::transform::transpose_seq(&seq_graph, args.memory_usage.memory_usage, &mut pl)?;
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;

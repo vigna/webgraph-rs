@@ -304,7 +304,7 @@ where
                     ($no_loops:expr) => {{
                         let mut pl =
                             progress_logger![display_memory = true, log_interval = log_interval];
-                        let sorted = webgraph::transform::symmetrize::<$no_loops>(
+                        let sorted = webgraph::transform::symmetrize_seq::<$no_loops>(
                             &perm_graph,
                             memory_usage,
                             &mut pl,
@@ -334,7 +334,7 @@ where
                 ($no_loops:expr) => {{
                     let mut pl =
                         progress_logger![display_memory = true, log_interval = log_interval];
-                    let symmetrized = webgraph::transform::symmetrize::<$no_loops>(
+                    let symmetrized = webgraph::transform::symmetrize_seq::<$no_loops>(
                         &seq_graph,
                         args.memory_usage.memory_usage,
                         &mut pl,

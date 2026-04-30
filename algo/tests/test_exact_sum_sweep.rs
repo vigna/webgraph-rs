@@ -16,7 +16,7 @@ use webgraph::graphs::random::ErdosRenyi;
 use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::prelude::BTreeGraph;
 use webgraph::traits::SequentialLabeling;
-use webgraph::transform::transpose;
+use webgraph::transform::transpose_seq;
 use webgraph::utils::MemoryUsage;
 use webgraph::visits::Sequential;
 use webgraph::visits::breadth_first::{EventPred, Seq};
@@ -350,7 +350,7 @@ fn test_er() -> Result<()> {
         let graph = VecGraph::from_lender(ErdosRenyi::new(100, (d as f64) / 100.0, 0).iter());
 
         let trans = VecGraph::from_lender(
-            transpose(&graph, MemoryUsage::BatchSize(1000), no_logging![])?.iter(),
+            transpose_seq(&graph, MemoryUsage::BatchSize(1000), no_logging![])?.iter(),
         );
 
         for ess in [

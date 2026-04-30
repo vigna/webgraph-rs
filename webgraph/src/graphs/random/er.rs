@@ -182,7 +182,7 @@ mod tests {
         // This is just to test that we implemented correctly
         // the SortedIterator and SortedLender traits.
         let er = ErdosRenyi::new(100, 0.1, 0);
-        transform::symmetrize_sorted::<false, _>(
+        transform::symmetrize_sorted_seq::<false, _>(
             &er,
             MemoryUsage::BatchSize(100),
             dsi_progress_logger::no_logging![],

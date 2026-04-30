@@ -10,14 +10,14 @@ use dsi_bitstream::traits::Endianness;
 use dsi_bitstream::traits::{BitRead, BitWrite};
 use dsi_progress_logger::no_logging;
 use webgraph::graphs::vec_graph::LabeledVecGraph;
-use webgraph::prelude::transpose_labeled;
+use webgraph::prelude::transpose_labeled_seq;
 use webgraph::traits::labels::SequentialLabeling;
 use webgraph::traits::{BitDeserializer, BitSerDeser, BitSerializer, graph};
 use webgraph::utils::MemoryUsage;
 use webgraph::utils::{BitReader, BitWriter};
 
 #[test]
-fn test_transpose_labeled() -> anyhow::Result<()> {
+fn test_transpose_labeled_seq() -> anyhow::Result<()> {
     #[derive(Clone, Copy, PartialEq, Debug)]
     struct Payload(f64);
 
@@ -81,7 +81,7 @@ fn test_transpose_labeled() -> anyhow::Result<()> {
     ];
     let g = LabeledVecGraph::<Payload>::from_arcs(arcs);
 
-    let trans = transpose_labeled(
+    let trans = transpose_labeled_seq(
         &g,
         MemoryUsage::BatchSize(3),
         BitSerDeser(BS, BD),
@@ -89,7 +89,7 @@ fn test_transpose_labeled() -> anyhow::Result<()> {
     )?;
     let g2 = LabeledVecGraph::<Payload>::from_lender(trans.iter());
 
-    let trans = transpose_labeled(
+    let trans = transpose_labeled_seq(
         &g2,
         MemoryUsage::BatchSize(3),
         BitSerDeser(BS, BD),
