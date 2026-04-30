@@ -402,6 +402,9 @@ pub type Labels<'succ, 'node, S> =
 /// ```
 pub unsafe trait SortedLender: Lender {}
 
+// SAFETY: taking a prefix of a sorted lender is still sorted.
+unsafe impl<L: SortedLender> SortedLender for lender::Take<L> {}
+
 /// A transparent wrapper for a [`NodeLabelsLender`] unsafely implementing
 /// [`SortedLender`].
 ///

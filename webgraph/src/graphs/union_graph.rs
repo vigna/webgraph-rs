@@ -43,35 +43,81 @@ where
     }
 }
 
-impl<G: SequentialGraph, H: SequentialGraph> SplitLabeling for UnionGraph<G, H>
+impl<G: SequentialGraph + SplitLabeling, H: SequentialGraph + SplitLabeling> SplitLabeling
+    for UnionGraph<G, H>
 where
-    for<'a> G::Lender<'a>: SortedLender + Clone + Send + Sync,
+    for<'a> G::Lender<'a>: SortedLender,
     for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
-    for<'a> H::Lender<'a>: SortedLender + Clone + Send + Sync,
+    for<'a> H::Lender<'a>: SortedLender,
     for<'a, 'b> LenderIntoIter<'b, H::Lender<'a>>: SortedIterator,
+    for<'a> G::SplitLender<'a>: SortedLender,
+    for<'a, 'b> LenderIntoIter<'b, G::SplitLender<'a>>: SortedIterator,
+    for<'a> H::SplitLender<'a>: SortedLender,
+    for<'a, 'b> LenderIntoIter<'b, H::SplitLender<'a>>: SortedIterator,
 {
     type SplitLender<'a>
-        = split::seq::Lender<'a, UnionGraph<G, H>>
+        = NodeLabels<G::SplitLender<'a>, H::SplitLender<'a>>
     where
         Self: 'a;
     type IntoIterator<'a>
-        = split::seq::IntoIterator<'a, UnionGraph<G, H>>
+        = SplitIter<G::IntoIterator<'a>, H::IntoIterator<'a>>
     where
         Self: 'a;
 
     fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
-        split::seq::Iter::new(self.iter(), cutpoints)
+        let cutpoints: Vec<usize> = cutpoints.into_iter().collect();
+        SplitIter(
+            self.0.split_iter_at(cutpoints.iter().copied()).into_iter(),
+            self.1.split_iter_at(cutpoints).into_iter(),
+        )
     }
 }
 
+#[doc(hidden)]
+pub struct SplitIter<I: IntoIterator, J: IntoIterator>(I::IntoIter, J::IntoIter);
+
+impl<I: IntoIterator, J: IntoIterator> Iterator for SplitIter<I, J> {
+    type Item = NodeLabels<I::Item, J::Item>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match (self.0.next(), self.1.next()) {
+            (Some(a), Some(b)) => Some(NodeLabels::new(a, b)),
+            _ => None,
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
+
+    fn count(self) -> usize {
+        self.0.count()
+    }
+}
+
+impl<I: IntoIterator<IntoIter: ExactSizeIterator>, J: IntoIterator<IntoIter: ExactSizeIterator>>
+    ExactSizeIterator for SplitIter<I, J>
+{
+}
+impl<
+    I: IntoIterator<IntoIter: core::iter::FusedIterator>,
+    J: IntoIterator<IntoIter: core::iter::FusedIterator>,
+> core::iter::FusedIterator for SplitIter<I, J>
+{
+}
+
 impl_parallel_from_split!(
-    [G: SequentialGraph, H: SequentialGraph]
+    [G: SequentialGraph + SplitLabeling, H: SequentialGraph + SplitLabeling]
     UnionGraph<G, H>
     [
-        for<'a> G::Lender<'a>: SortedLender + Clone + ExactSizeLender + lender::FusedLender + Send + Sync,
+        for<'a> G::Lender<'a>: SortedLender,
         for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
-        for<'a> H::Lender<'a>: SortedLender + Clone + ExactSizeLender + lender::FusedLender + Send + Sync,
-        for<'a, 'b> LenderIntoIter<'b, H::Lender<'a>>: SortedIterator
+        for<'a> H::Lender<'a>: SortedLender,
+        for<'a, 'b> LenderIntoIter<'b, H::Lender<'a>>: SortedIterator,
+        for<'a> G::SplitLender<'a>: SortedLender + ExactSizeLender + lender::FusedLender + Send + Sync,
+        for<'a, 'b> LenderIntoIter<'b, G::SplitLender<'a>>: SortedIterator,
+        for<'a> H::SplitLender<'a>: SortedLender + ExactSizeLender + lender::FusedLender + Send + Sync,
+        for<'a, 'b> LenderIntoIter<'b, H::SplitLender<'a>>: SortedIterator
     ]
 );
 
