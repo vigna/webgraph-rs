@@ -553,7 +553,7 @@ impl<
     ///   of weight equal to 1.
     pub fn with_hyper_log_log(
         graph: &'a G1,
-        transposed: Option<&'a G2>,
+        transpose: Option<&'a G2>,
         deg_cumul_func: &'a D,
         log2m: u32,
         weights: Option<&'a [usize]>,
@@ -564,7 +564,7 @@ impl<
             .build()?;
         let array_0 = SliceEstimatorArray::new(logic.clone(), graph.num_nodes());
         let array_1 = SliceEstimatorArray::new(logic, graph.num_nodes());
-        Self::from_parts(graph, transposed, deg_cumul_func, weights, array_0, array_1)
+        Self::from_parts(graph, transpose, deg_cumul_func, weights, array_0, array_1)
     }
 }
 
@@ -602,7 +602,7 @@ impl<
     ///   of weight equal to 1.
     pub fn with_hyper_log_log8(
         graph: &'a G1,
-        transposed: Option<&'a G2>,
+        transpose: Option<&'a G2>,
         deg_cumul_func: &'a D,
         log2m: u32,
         weights: Option<&'a [usize]>,
@@ -612,7 +612,7 @@ impl<
             .build::<usize>();
         let array_0 = SliceEstimatorArray::new(logic.clone(), graph.num_nodes());
         let array_1 = SliceEstimatorArray::new(logic, graph.num_nodes());
-        Self::from_parts(graph, transposed, deg_cumul_func, weights, array_0, array_1)
+        Self::from_parts(graph, transpose, deg_cumul_func, weights, array_0, array_1)
     }
 }
 
@@ -648,7 +648,7 @@ impl<
     /// * `weights` - optional nonnegative integer node weights.
     pub fn with_hyper_log_log_external(
         graph: &'a G1,
-        transposed: Option<&'a G2>,
+        transpose: Option<&'a G2>,
         deg_cumul_func: &'a D,
         log2m: u32,
         weights: Option<&'a [usize]>,
@@ -660,7 +660,7 @@ impl<
         let backend_len = logic.backend_len();
         let array_0 = SliceEstimatorArray::new(logic, graph.num_nodes());
         let array_1 = SpillStore::new(graph.num_nodes(), backend_len);
-        Self::from_parts(graph, transposed, deg_cumul_func, weights, array_0, array_1)
+        Self::from_parts(graph, transpose, deg_cumul_func, weights, array_0, array_1)
     }
 }
 
@@ -692,7 +692,7 @@ impl<
     /// * `weights` - optional nonnegative integer node weights.
     pub fn with_hyper_log_log8_external(
         graph: &'a G1,
-        transposed: Option<&'a G2>,
+        transpose: Option<&'a G2>,
         deg_cumul_func: &'a D,
         log2m: u32,
         weights: Option<&'a [usize]>,
@@ -703,7 +703,7 @@ impl<
         let backend_len = logic.backend_len();
         let array_0 = SliceEstimatorArray::new(logic, graph.num_nodes());
         let array_1 = SpillStore::new(graph.num_nodes(), backend_len);
-        Self::from_parts(graph, transposed, deg_cumul_func, weights, array_0, array_1)
+        Self::from_parts(graph, transpose, deg_cumul_func, weights, array_0, array_1)
     }
 }
 
@@ -838,7 +838,7 @@ impl<
 
     fn from_parts(
         graph: &'a G1,
-        transposed: Option<&'a G2>,
+        transpose: Option<&'a G2>,
         deg_cumul_func: &'a D,
         weights: Option<&'a [usize]>,
         array_0: A,
@@ -852,7 +852,7 @@ impl<
         }
         Ok(Self {
             graph,
-            transpose: transposed,
+            transpose,
             deg_cumul_func,
             do_sum_of_dists: false,
             do_sum_of_inv_dists: false,
@@ -992,7 +992,7 @@ impl<
 
         HyperBall {
             graph: self.graph,
-            transposed: self.transpose,
+            transpose: self.transpose,
             weight: self.weights,
             granularity: self.granularity,
             curr_state: self.array_0,
@@ -1113,7 +1113,7 @@ pub struct HyperBall<
     /// The graph to analyze.
     graph: &'a G1,
     /// The transpose of [`Self::graph`], if any.
-    transposed: Option<&'a G2>,
+    transpose: Option<&'a G2>,
     /// An optional slice of nonnegative node weights.
     weight: Option<&'a [usize]>,
     /// The granularity of parallel tasks.
@@ -1427,7 +1427,7 @@ where
         // If less than one fourth of the nodes have been modified, and we have
         // the transpose, it is time to pass to a systolic computation
         ic.systolic =
-            self.transposed.is_some() && ic.iteration > 0 && modified_estimators < num_nodes / 4;
+            self.transpose.is_some() && ic.iteration > 0 && modified_estimators < num_nodes / 4;
 
         // Non-systolic computations add up the values of all estimators.
         //
@@ -1547,7 +1547,7 @@ where
                 let mut arc_pl = arc_pl.clone();
                 Self::parallel_task(
                     self.graph,
-                    self.transposed,
+                    self.transpose,
                     &self.curr_state,
                     &next_state_sync,
                     ic,

@@ -110,7 +110,7 @@ where
 
 /// Compares a graph with its transpose, checking for symmetry and optionally
 /// for the absence of self-loops.
-fn compare<G0, G1>(graph: &G0, transposed: &G1, check_simple: bool) -> Result<()>
+fn compare<G0, G1>(graph: &G0, transpose: &G1, check_simple: bool) -> Result<()>
 where
     G0: SequentialGraph,
     G1: SequentialGraph,
@@ -123,17 +123,17 @@ where
         log::info!("Checking symmetry...");
     }
 
-    if graph.num_nodes() != transposed.num_nodes() {
+    if graph.num_nodes() != transpose.num_nodes() {
         eprintln!(
             "Number of nodes differ: {} vs {}",
             graph.num_nodes(),
-            transposed.num_nodes()
+            transpose.num_nodes()
         );
         exit(1);
     }
 
     let mut g_iter = graph.iter();
-    let mut t_iter = transposed.iter();
+    let mut t_iter = transpose.iter();
 
     while let Some((node, succ)) = g_iter.next() {
         let (_t_node, t_succ) = t_iter.next().expect("transposed graph has fewer nodes");

@@ -29,7 +29,7 @@ pub struct CliArgs {
     #[arg(long)]
     /// The basename of a pre-computed transposed version of the source graph,
     /// which will be used to speed up the symmetrization.​
-    pub transposed: Option<PathBuf>,
+    pub transpose: Option<PathBuf>,
 
     #[arg(short, long)]
     /// Uses the sequential algorithm (does not need offsets).​
@@ -110,7 +110,7 @@ where
         builder = builder.chunk_size(chunk_size);
     }
 
-    match (args.permutation, args.transposed) {
+    match (args.permutation, args.transpose) {
         // Load the transposed graph and use it to directly compress the graph
         // without doing any sorting
         (None, Some(t_path)) => {
@@ -256,7 +256,7 @@ where
         builder = builder.chunk_size(chunk_size);
     }
 
-    match (args.permutation, args.transposed) {
+    match (args.permutation, args.transpose) {
         (None, Some(t_path)) => {
             log::info!("Transposed graph provided, using it to symmetrize the graph");
 
