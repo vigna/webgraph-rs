@@ -16,6 +16,7 @@ dsi-bitstream = "0.9.1"
 dsi-progress-logger = "0.8"
 sux = { version = "0.14.0", features = ["epserde", "rayon", "mmap"] }
 #sux = { git = "https://github.com/vigna/sux-rs", rev = "35d4eca185f6d3265f5b62f2be511b475d6fc3b7", features = ["epserde", "rayon", "mmap"] }
+dary_heap = "0.3.6"
 num-traits = { version = "0.2", default-features = false }
 lender = "0.6.0"
 log = "0.4.22"

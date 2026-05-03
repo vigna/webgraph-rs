@@ -148,6 +148,7 @@ use dsi_progress_logger::{ConcurrentProgressLog, ProgressLog};
 use kahan::KahanSum;
 use lender::prelude::*;
 use rayon::prelude::*;
+use std::cell::UnsafeCell;
 use std::hash::{BuildHasherDefault, DefaultHasher};
 use std::mem::transmute;
 use std::sync::{Mutex, atomic::*};
@@ -162,6 +163,28 @@ use webgraph::utils::Granularity;
 
 /// Default node granularity for HyperBall parallel tasks.
 pub const DEFAULT_GRANULARITY: usize = 16 * 1024;
+
+/// Merges sorted, deduplicated slices into `dst`, deduplicating on the fly.
+fn kmerge_dedup(buffers: &[&[usize]], dst: &mut Vec<usize>) {
+    let mut heap = dary_heap::QuaternaryHeap::with_capacity(buffers.len());
+    for (i, buf) in buffers.iter().enumerate() {
+        if let Some(&first) = buf.first() {
+            heap.push(std::cmp::Reverse((first, i, 0usize)));
+        }
+    }
+    while let Some(mut top) = heap.peek_mut() {
+        let (val, i, pos) = top.0;
+        if dst.last() != Some(&val) {
+            dst.push(val);
+        }
+        let next = pos + 1;
+        if next < buffers[i].len() {
+            *top = std::cmp::Reverse((buffers[i][next], i, next));
+        } else {
+            dary_heap::PeekMut::pop(top);
+        }
+    }
+}
 
 /// Write-only view of an [`OutputStore`], used during parallel iterations.
 ///
@@ -1017,7 +1040,9 @@ impl<
                 local: false,
                 pre_local: false,
                 local_checklist: Vec::new(),
-                local_next_must_be_checked: Mutex::new(Vec::new()),
+                local_next_must_be_checked: (0..rayon::current_num_threads())
+                    .map(|_| UnsafeCell::new(Vec::new()))
+                    .collect(),
                 must_be_checked,
                 next_must_be_checked,
                 next_modified,
@@ -1071,11 +1096,9 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
     ///
     /// [`local`]: Self::local
     local_checklist: Vec<G1::Label>,
-    /// If [`pre_local`] is `true`, the set of nodes that
-    /// should be scanned on the next iteration.
-    ///
-    /// [`pre_local`]: Self::pre_local
-    local_next_must_be_checked: Mutex<Vec<G1::Label>>,
+    /// Per-thread buffers for nodes that should be scanned on the next
+    /// local iteration, indexed by [`rayon::BroadcastContext::index`].
+    local_next_must_be_checked: Vec<UnsafeCell<Vec<G1::Label>>>,
     /// Used in systolic iterations to keep track of nodes to check.
     must_be_checked: AtomicBitVec,
     /// Used in systolic iterations to keep track of nodes to check in the next
@@ -1086,6 +1109,10 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
     /// Custom discount functions whose sum should be computed.
     discount_functions: Vec<Box<dyn Fn(usize) -> f64 + Send + Sync + 'a>>,
 }
+
+// SAFETY: each thread accesses only its own `UnsafeCell` slot in
+// `local_next_must_be_checked`, indexed by `BroadcastContext::index`.
+unsafe impl<G1: SequentialLabeling, D> Sync for IterationContext<'_, G1, D> {}
 
 impl<G1: SequentialLabeling, D> IterationContext<'_, G1, D> {
     /// Resets the iteration context
@@ -1463,21 +1490,17 @@ where
         }
 
         if ic.local {
-            // In case of a local computation, we convert the set of
-            // must-be-checked for the next iteration into a check list
-            rayon::join(
-                || ic.local_checklist.clear(),
-                || {
-                    let mut local_next_must_be_checked =
-                        ic.local_next_must_be_checked.lock().unwrap();
-                    local_next_must_be_checked.par_sort_unstable();
-                    local_next_must_be_checked.dedup();
-                },
-            );
-            std::mem::swap(
-                &mut ic.local_checklist,
-                &mut ic.local_next_must_be_checked.lock().unwrap(),
-            );
+            // Merge the pre-sorted per-thread buffers into the check list
+            ic.local_checklist.clear();
+            // SAFETY: we are in the single-threaded phase between
+            // broadcast calls.
+            let buffers: Vec<&[usize]> = ic
+                .local_next_must_be_checked
+                .iter()
+                .map(|cell| unsafe { (*cell.get()).as_slice() })
+                .filter(|b| !b.is_empty())
+                .collect();
+            kmerge_dedup(&buffers, &mut ic.local_checklist);
         } else if ic.systolic {
             rayon::join(
                 || {
@@ -1640,6 +1663,7 @@ where
         helper: &mut L::Helper,
         arc_pl: &mut impl ConcurrentProgressLog,
         neighborhood_function_delta: &mut KahanSum<f64>,
+        local_next_must_be_checked: &mut Vec<usize>,
     ) -> (u64, u64) {
         let logic = curr_state.logic();
         let prev_estimator = curr_state.get_backend(node);
@@ -1732,7 +1756,7 @@ where
                 // local iteration if it is modified, as it might need a copy to
                 // the result array at the next iteration.
                 if ic.pre_local {
-                    ic.local_next_must_be_checked.lock().unwrap().push(node);
+                    local_next_must_be_checked.push(node);
                 }
                 ic.next_modified.set(node, true, Ordering::Relaxed);
 
@@ -1749,8 +1773,6 @@ where
                     // SAFETY: ic.systolic is true, so transpose is Some
                     let transpose = unsafe { transpose.unwrap_unchecked() };
                     if ic.pre_local {
-                        let mut local_next_must_be_checked =
-                            ic.local_next_must_be_checked.lock().unwrap();
                         for succ in transpose.successors(node) {
                             local_next_must_be_checked.push(succ);
                         }
@@ -1810,7 +1832,7 @@ where
         sum_of_inv_dists: Option<&[SyncCell<f32>]>,
         discounted_centralities: &[&[SyncCell<f32>]],
         arc_pl: &mut impl ConcurrentProgressLog,
-        _broadcast_context: rayon::BroadcastContext,
+        broadcast_context: rayon::BroadcastContext,
     ) {
         let node_granularity = ic.node_granularity;
         let target_arcs = ((graph.num_arcs() as f64 * node_granularity as f64)
@@ -1835,6 +1857,12 @@ where
         let mut helper = curr_state.logic().new_helper();
         let logic = curr_state.logic();
         let mut next_estimator = logic.new_estimator();
+
+        // SAFETY: each thread accesses only its own slot, indexed by
+        // BroadcastContext::index, so no data race is possible.
+        let local_next_must_be_checked =
+            unsafe { &mut *ic.local_next_must_be_checked[broadcast_context.index()].get() };
+        local_next_must_be_checked.clear();
 
         loop {
             // Get work
@@ -1890,6 +1918,7 @@ where
                         &mut helper,
                         arc_pl,
                         &mut neighborhood_function_delta,
+                        local_next_must_be_checked,
                     );
                     visited_arcs += va;
                     modified_estimators += me;
@@ -1912,12 +1941,16 @@ where
                         &mut helper,
                         arc_pl,
                         &mut neighborhood_function_delta,
+                        local_next_must_be_checked,
                     );
                     visited_arcs += va;
                     modified_estimators += me;
                 }]
             }
         }
+
+        local_next_must_be_checked.sort_unstable();
+        local_next_must_be_checked.dedup();
 
         *ic.current_nf.lock().unwrap() += neighborhood_function_delta.sum();
         ic.visited_arcs.fetch_add(visited_arcs, Ordering::Relaxed);
