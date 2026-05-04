@@ -231,7 +231,7 @@ fn test_arc_list_graph_labeled() -> Result<()> {
 
 // ── JavaPermutation ──
 //
-#[cfg(target_pointer_width = "64")]
+#[cfg(all(target_pointer_width = "64", not(miri)))]
 mod java_permutation {
     use super::*;
 

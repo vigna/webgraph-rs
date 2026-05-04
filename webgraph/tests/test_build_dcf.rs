@@ -12,7 +12,6 @@ mod common;
 use anyhow::Result;
 use common::test_graph;
 use dsi_bitstream::prelude::*;
-use lender::*;
 use value_traits::slices::SliceByValue;
 use webgraph::graphs::bvgraph::DCF;
 use webgraph::prelude::*;
@@ -37,6 +36,7 @@ fn verify_dcf(dcf: &DCF, expected: &[u64]) {
 
 /// Tests the default trait implementation of `build_dcf` using a [`VecGraph`].
 #[test]
+#[cfg(not(miri))]
 fn test_build_dcf_vec_graph() {
     let graph = test_graph();
     let dcf = graph.build_dcf();
@@ -52,6 +52,7 @@ fn test_build_dcf_bvgraph_seq() -> Result<()> {
     BvComp::with_basename(tmp.path()).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(tmp.path())
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
     let dcf = seq.build_dcf();
     verify_dcf(&dcf, &EXPECTED_DCF);
@@ -90,6 +91,7 @@ fn test_build_dcf_cross_check() -> Result<()> {
     BvComp::with_basename(tmp.path()).comp_graph::<BE>(&graph)?;
     let bv_seq = BvGraphSeq::with_basename(tmp.path())
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
 
     let dcf_vec = graph.build_dcf();
@@ -121,7 +123,9 @@ fn test_build_dcf_cross_check() -> Result<()> {
 /// Tests `build_dcf` on the cnr-2000 graph, verifying the [`BvGraphSeq`]
 /// override against a DCF computed via sequential iteration.
 #[test]
+#[cfg(not(miri))]
 fn test_build_dcf_cnr_2000() -> Result<()> {
+    use lender::*;
     let seq = BvGraphSeq::with_basename("../data/cnr-2000")
         .endianness::<BE>()
         .load()?;

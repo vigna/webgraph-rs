@@ -97,6 +97,7 @@ fn test_union_graph_num_arcs_hint() {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_union_graph_eq_original() -> Result<()> {
     use webgraph::traits::graph;
 

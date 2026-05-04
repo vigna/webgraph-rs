@@ -77,6 +77,7 @@ fn test_bvgraph_seq_load_mem() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bvgraph_seq_load_mmap() -> Result<()> {
     let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2)]);
     let tmp = tempfile::NamedTempFile::new()?;
@@ -109,6 +110,7 @@ fn test_static_dispatch_seq_load_default_codes() -> Result<()> {
     // ConstCodesDecoder Decode impl
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .dispatch::<webgraph::graphs::bvgraph::Static>()
         .load()?;
     assert_eq!(seq.num_nodes(), 4);
@@ -131,6 +133,7 @@ fn test_static_dispatch_seq_load_le() -> Result<()> {
     BvComp::with_basename(&basename).comp_graph::<LE>(&graph)?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<LE>()
+        .mode::<LoadMem>()
         .dispatch::<webgraph::graphs::bvgraph::Static>()
         .load()?;
     assert_eq!(seq.num_nodes(), 3);
@@ -165,6 +168,7 @@ fn test_static_dispatch_with_load_mem() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_static_dispatch_with_load_mmap() -> Result<()> {
     let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2)]);
     let tmp = tempfile::tempdir()?;
@@ -186,6 +190,7 @@ fn test_static_dispatch_with_load_mmap() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_static_dispatch_large_graph_with_all_codec_paths() -> Result<()> {
     // Build a graph that exercises reference compression, intervals, blocks, and residuals
     let mut arcs = Vec::new();
@@ -227,6 +232,7 @@ fn test_static_dispatch_large_graph_with_all_codec_paths() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_static_dispatch_verify_same_as_dynamic() -> Result<()> {
     // Build a graph and verify static and dynamic dispatch produce same results
     let mut arcs = Vec::new();
@@ -274,6 +280,7 @@ fn test_static_dispatch_verify_same_as_dynamic() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bvgraph_random_access_all_paths() -> Result<()> {
     // Build a graph that exercises all decompression paths:
     // intervals, blocks, residuals, references
@@ -315,6 +322,7 @@ fn test_bvgraph_random_access_all_paths() -> Result<()> {
 
     let ra = BvGraph::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
 
     // Verify random access matches sequential
@@ -336,6 +344,7 @@ fn test_bvgraph_random_access_all_paths() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bvgraph_random_access_static_dispatch() -> Result<()> {
     let mut arcs = Vec::new();
     for i in 1..15 {
@@ -366,6 +375,7 @@ fn test_bvgraph_random_access_static_dispatch() -> Result<()> {
     // Load with static dispatch for random access
     let ra = BvGraph::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .dispatch::<webgraph::graphs::bvgraph::Static>()
         .load()?;
 
@@ -395,6 +405,7 @@ fn test_bvgraph_le_random_access() -> Result<()> {
 
     let ra = BvGraph::with_basename(&basename)
         .endianness::<LE>()
+        .mode::<LoadMem>()
         .load()?;
 
     assert_eq!(ra.num_nodes(), 4);
@@ -415,7 +426,7 @@ fn test_bvgraph_load_mem_mode() -> Result<()> {
 
     let ra = BvGraph::with_basename(&basename)
         .endianness::<BE>()
-        .graph_mode::<LoadMem>()
+        .mode::<LoadMem>()
         .load()?;
 
     assert_eq!(ra.num_nodes(), 3);
@@ -436,26 +447,11 @@ fn test_bvgraph_file_mode() -> Result<()> {
 
     let ra = BvGraph::with_basename(&basename)
         .endianness::<BE>()
-        .graph_mode::<File>()
+        .mode::<File>()
         .load()?;
 
     assert_eq!(ra.num_nodes(), 3);
     assert_eq!(ra.successors(0).collect::<Vec<_>>(), vec![1]);
-    Ok(())
-}
-
-#[test]
-fn test_load_config_graph_mode() -> Result<()> {
-    // Exercise the graph_mode method
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("graph");
-    BvComp::with_basename(&basename).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .graph_mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 3);
     Ok(())
 }
 
@@ -468,6 +464,7 @@ fn test_check_offsets_with_static_dispatch() -> Result<()> {
     BvComp::with_basename(&basename).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .dispatch::<webgraph::graphs::bvgraph::Static>()
         .load()?;
     webgraph::graphs::bvgraph::check_offsets(&seq, &basename)?;
@@ -475,6 +472,7 @@ fn test_check_offsets_with_static_dispatch() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_split_labeling_bvgraph() -> Result<()> {
     use webgraph::traits::SplitLabeling;
 
@@ -507,7 +505,10 @@ fn test_offset_deg_iter() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     webgraph::graphs::bvgraph::check_offsets(&seq, path)?;
     Ok(())
 }
@@ -538,8 +539,8 @@ fn test_offsets_writer() -> Result<()> {
     writer.flush()?;
 
     // Read back and verify
-    let of = webgraph::utils::MmapHelper::<u32>::mmap(&path, mmap_rs::MmapFlags::SEQUENTIAL)?;
-    let mut reader: BufBitReader<BE, _> = BufBitReader::new(MemWordReader::new(of.as_ref()));
+    let mut reader: BufBitReader<BE, _> =
+        BufBitReader::new(WordAdapter::<u32, _>::new(std::fs::File::open(&path)?));
     assert_eq!(reader.read_gamma()?, 0); // first zero
     assert_eq!(reader.read_gamma()?, 10);
     assert_eq!(reader.read_gamma()?, 20);
@@ -558,8 +559,8 @@ fn test_offsets_writer_no_zero() -> Result<()> {
     drop(writer);
 
     // Read back: no leading zero, just the pushed gamma values
-    let of = webgraph::utils::MmapHelper::<u32>::mmap(&path, mmap_rs::MmapFlags::SEQUENTIAL)?;
-    let mut reader: BufBitReader<BE, _> = BufBitReader::new(MemWordReader::new(of.as_ref()));
+    let mut reader: BufBitReader<BE, _> =
+        BufBitReader::new(WordAdapter::<u32, _>::new(std::fs::File::open(&path)?));
     assert_eq!(reader.read_gamma()?, 5);
     assert_eq!(reader.read_gamma()?, 10);
     Ok(())

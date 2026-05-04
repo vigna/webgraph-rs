@@ -227,6 +227,7 @@ fn test_check_impl_larger_graph() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_check_impl_bvgraph() -> Result<()> {
     let basename = common::cnr_2000_basename();
     let graph = BvGraph::with_basename(&basename).load()?;

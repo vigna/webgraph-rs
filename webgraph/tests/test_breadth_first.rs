@@ -132,6 +132,7 @@ macro_rules! test_bfv_algo_seq {
             }
 
             #[test]
+            #[cfg(not(miri))]
             fn test_cnr_2000() -> Result<()> {
                 let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
                 let mut visit = $bfv(&graph);
@@ -160,6 +161,7 @@ macro_rules! test_bfv_algo_seq {
             }
 
             #[test]
+            #[cfg(not(miri))]
             fn test_distance_event_cnr_2000_single_root() -> Result<()> {
                 let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
                 let mut visit = $bfv(&graph);
@@ -184,6 +186,7 @@ macro_rules! test_bfv_algo_seq {
             }
 
             #[test]
+            #[cfg(not(miri))]
             fn test_distance_event_cnr_2000_multi_root() -> Result<()> {
                 let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
                 let mut visit = $bfv(&graph);
@@ -212,6 +215,7 @@ macro_rules! test_bfv_algo_seq {
 
 macro_rules! test_bfv_algo_par {
     ($bfv:expr, $name:ident) => {
+        #[cfg(not(miri))]
         mod $name {
             use super::*;
             use std::collections::BTreeMap;

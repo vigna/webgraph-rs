@@ -149,6 +149,7 @@ fn test_parallel_graph_graph_equality() -> Result<()> {
 // ── Integration: par_comp roundtrips ──
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_comp_with_sorted_graph() -> Result<()> {
     let g = test_graph();
     let sorted = ParSortedGraph::par_from_graph(&g)?;
@@ -159,6 +160,7 @@ fn test_par_comp_with_sorted_graph() -> Result<()> {
 
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 5);
     assert_eq!(seq.num_arcs_hint(), Some(7));
@@ -167,6 +169,7 @@ fn test_par_comp_with_sorted_graph() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_comp_with_parallel_graph() -> Result<()> {
     let g = test_graph();
     let pg = ParGraph::new(g.clone(), 2);
@@ -176,7 +179,7 @@ fn test_par_comp_with_parallel_graph() -> Result<()> {
     BvComp::with_basename(&basename).par_comp::<BE, _>(&pg)?;
 
     build_ef(&basename)?;
-    let loaded = BvGraph::with_basename(&basename).load()?;
+    let loaded = BvGraph::with_basename(&basename).mode::<LoadMem>().load()?;
     assert_eq!(loaded.num_nodes(), 5);
     assert_eq!(loaded.num_arcs(), 7);
     labels::eq_sorted(&g, &loaded)?;

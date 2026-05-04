@@ -2148,10 +2148,12 @@ mod test {
         };
     }
 
+    #[cfg(not(miri))]
     cnr_2000_test!(test_cnr_2000, |n| HyperLogLogBuilder::new(n)
         .log2_num_regs(6)
         .build());
 
+    #[cfg(not(miri))]
     cnr_2000_test!(test_cnr_2000_hll8, |_| Ok::<_, anyhow::Error>(
         HyperLogLog8Builder::new().log2_num_regs(6).build::<usize>()
     ));
@@ -2233,6 +2235,7 @@ mod test {
         };
     }
 
+    #[cfg(not(miri))]
     cnr_2000_external_test!(test_cnr_2000_external, |graph, transpose, dcf, n| {
         let logic = HyperLogLogBuilder::new(n)
             .log2_num_regs(6)
@@ -2244,6 +2247,7 @@ mod test {
         Ok::<_, anyhow::Error>((hb, seq_logic))
     });
 
+    #[cfg(not(miri))]
     cnr_2000_external_test!(test_cnr_2000_hll8_external, |graph, transpose, dcf, _n| {
         let logic = HyperLogLog8Builder::new().log2_num_regs(6).build::<usize>();
         let seq_logic = logic.clone();

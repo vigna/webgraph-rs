@@ -56,6 +56,7 @@ fn test_serde() -> anyhow::Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_epserde() -> anyhow::Result<()> {
     let arcs = [(0, 1), (0, 2), (1, 2)];
     let g = VecGraph::from_arcs(arcs);

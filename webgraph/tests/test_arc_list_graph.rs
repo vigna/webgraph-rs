@@ -7,17 +7,17 @@
 
 mod common;
 
-use dsi_bitstream::traits::BE;
 use lender::prelude::*;
 
+#[cfg(not(miri))]
+use webgraph::traits::NodeLabelsLender;
 use webgraph::{
     graphs::{
         arc_list_graph::{ArcListGraph, NodeLabels},
         btree_graph::LabeledBTreeGraph,
         vec_graph::LabeledVecGraph,
     },
-    prelude::BvGraph,
-    traits::{NodeLabelsLender, RandomAccessLabeling, SequentialLabeling, SplitLabeling, graph},
+    traits::{SequentialLabeling, graph},
     utils::SplitIters,
 };
 
@@ -36,6 +36,7 @@ fn test_arc_list_graph_iter_empty() {
     assert_eq!(count, 0);
 }
 
+#[cfg(not(miri))]
 fn test_graph_iters<I1, I2>(mut iter: I1, mut truth_iter: I2)
 where
     I1: for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender,
@@ -75,9 +76,13 @@ where
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_arc_list_graph_cnr2000() {
+    use dsi_bitstream::traits::BE;
+    use webgraph::traits::{RandomAccessLabeling, SplitLabeling};
+
     let basename = common::cnr_2000_basename();
-    let graph = BvGraph::with_basename(&basename)
+    let graph = webgraph::prelude::BvGraph::with_basename(&basename)
         .endianness::<BE>()
         .load()
         .unwrap();

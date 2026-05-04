@@ -52,7 +52,10 @@ fn test_transpose_par() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     let sorted = transpose_par(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
     assert_eq!(sorted.num_nodes(), 3);
     // Verify transposed content: (0,1),(1,2),(2,0) transposed is (2,0),(0,1),(1,2)
@@ -68,6 +71,7 @@ fn test_transpose_par() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_transpose_par_bvgraph() -> Result<()> {
     use webgraph::traits::SequentialLabeling;
     let basename = common::cnr_2000_basename();
@@ -174,7 +178,10 @@ fn test_permute_par() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     let perm = vec![2, 0, 1];
     let sorted = permute_par(&seq, &perm, MemoryUsage::BatchSize(2), no_logging![])?;
     let mut arcs = vec![];
@@ -253,7 +260,10 @@ fn test_symmetrize_sorted() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     let s = symmetrize_sorted_seq::<true, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
     let s = VecGraph::from_lender(s.iter());
     // Every edge becomes bidirectional, no self-loops
@@ -271,7 +281,10 @@ fn test_symmetrize_sorted_par() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     let sorted = symmetrize_sorted_par::<true, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
     let arcs: Vec<_> = sorted
         .into_par_lenders()
@@ -294,7 +307,10 @@ fn test_symmetrize_sorted_par_with_loops() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     let sorted = symmetrize_sorted_par::<false, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
     let arcs: Vec<_> = sorted
         .into_par_lenders()
@@ -317,7 +333,10 @@ fn test_symmetrize_par_no_loops() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     let sorted = symmetrize_par::<true, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
     let mut arcs = vec![];
     for_!((node, succs) in sorted.iter() {
@@ -388,7 +407,10 @@ fn test_map_par() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     let m = vec![2, 0, 1];
     let sorted = map_par(&seq, &m, 3, MemoryUsage::BatchSize(2), no_logging![])?;
     let mut arcs = vec![];
@@ -412,7 +434,10 @@ fn test_map_par_shrinks() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     let m = vec![0, 1, 1]; // 0->0, 1->1, 2->1
     let sorted = map_par(&seq, &m, 2, MemoryUsage::BatchSize(2), no_logging![])?;
     let mut arcs = vec![];

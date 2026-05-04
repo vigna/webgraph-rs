@@ -10,10 +10,14 @@ use anyhow::Result;
 use common::build_ef;
 use dsi_bitstream::dispatch::Codes;
 use dsi_bitstream::prelude::*;
+#[cfg(not(miri))]
 use webgraph::graphs::vec_graph::LabeledVecGraph;
+#[cfg(not(miri))]
 use webgraph::labels::BitStreamLabeling;
+#[cfg(not(miri))]
 use webgraph::labels::bitstream::BitStreamStoreLabelsConf;
 use webgraph::prelude::*;
+#[cfg(not(miri))]
 use webgraph::traits::FixedWidth;
 
 #[test]
@@ -23,7 +27,10 @@ fn test_bvcomp_default_codes_be() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(seq.num_nodes(), 4);
     assert_eq!(seq.num_arcs_hint(), Some(5));
     labels::eq_sorted(&graph, &seq)?;
@@ -37,7 +44,10 @@ fn test_bvcomp_default_codes_le() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<LE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<LE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<LE>()
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(seq.num_nodes(), 3);
     labels::eq_sorted(&graph, &seq)?;
     webgraph::graphs::bvgraph::check_offsets(&seq, path)?;
@@ -62,7 +72,10 @@ fn test_bvcomp_delta_codes() -> Result<()> {
     BvComp::with_basename(path)
         .comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(seq.num_nodes(), 11);
     assert_eq!(seq.num_arcs_hint(), Some(5));
     labels::eq_sorted(&graph, &seq)?;
@@ -87,7 +100,10 @@ fn test_bvcomp_zeta_codes() -> Result<()> {
     BvComp::with_basename(path)
         .comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(seq.num_nodes(), 6);
     labels::eq_sorted(&graph, &seq)?;
     Ok(())
@@ -99,7 +115,10 @@ fn test_bvcomp_empty_graph() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(seq.num_nodes(), 5);
     assert_eq!(seq.num_arcs_hint(), Some(0));
     labels::eq_sorted(&graph, &seq)?;
@@ -119,7 +138,10 @@ fn test_bvcomp_no_reference_compression() -> Result<()> {
     BvComp::with_basename(path)
         .comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(seq.num_nodes(), 4);
     assert_eq!(seq.num_arcs_hint(), Some(5));
     labels::eq_sorted(&graph, &seq)?;
@@ -138,7 +160,10 @@ fn test_bvcomp_no_intervals() -> Result<()> {
     BvComp::with_basename(path)
         .comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(seq.num_nodes(), 3);
     labels::eq_sorted(&graph, &seq)?;
     Ok(())
@@ -161,7 +186,10 @@ fn test_bvcomp_interval_encoding() -> Result<()> {
             ..CompFlags::default()
         })
         .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(seq.num_nodes(), 30);
     labels::eq_sorted(&graph, &seq)?;
     Ok(())
@@ -186,7 +214,10 @@ fn test_bvcomp_large_window() -> Result<()> {
             ..CompFlags::default()
         })
         .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(seq.num_nodes(), 25);
     labels::eq_sorted(&graph, &seq)?;
     Ok(())
@@ -199,7 +230,10 @@ fn test_bvcomp_par_comp() -> Result<()> {
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).par_comp::<BE, _>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(seq.num_nodes(), 4);
     assert_eq!(seq.num_arcs_hint(), Some(5));
     labels::eq_sorted(&graph, &seq)?;
@@ -215,7 +249,10 @@ fn test_bvcomp_bvcompz() -> Result<()> {
     BvCompZ::with_basename(path)
         .chunk_size(2)
         .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(seq.num_nodes(), 4);
     labels::eq_sorted(&graph, &seq)?;
     Ok(())
@@ -232,6 +269,7 @@ fn test_bvcomp_config_with_tmp_dir() -> Result<()> {
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 3);
     labels::eq_sorted(&graph, &seq)?;
@@ -248,6 +286,7 @@ fn test_bvcomp_recompress_with_different_flags() -> Result<()> {
     // Load and recompress with different flags
     let seq = BvGraphSeq::with_basename(&basename1)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
     let basename2 = tmp.path().join("test_recomp");
     BvComp::with_basename(&basename2)
@@ -260,6 +299,7 @@ fn test_bvcomp_recompress_with_different_flags() -> Result<()> {
 
     let seq2 = BvGraphSeq::with_basename(&basename2)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq2.num_nodes(), 4);
     assert_eq!(seq2.num_arcs_hint(), Some(3));
@@ -278,12 +318,14 @@ fn test_bvcomp_par_comp_lenders() -> Result<()> {
     BvComp::with_basename(&basename).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
     // Now use par_comp which calls par_comp_lenders internally
     let basename2 = tmp.path().join("test_par2");
     BvComp::with_basename(&basename2).par_comp::<BE, _>(&seq)?;
     let seq2 = BvGraphSeq::with_basename(&basename2)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq2.num_nodes(), 4);
     assert_eq!(seq2.num_arcs_hint(), Some(5));
@@ -301,6 +343,7 @@ fn test_bvcomp_with_chunk_size() -> Result<()> {
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 3);
     labels::eq_sorted(&graph, &seq)?;
@@ -327,7 +370,10 @@ fn test_bvcomp_large_graph_with_reference_compression() -> Result<()> {
             ..CompFlags::default()
         })
         .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(seq.num_nodes(), 55);
     labels::eq_sorted(&graph, &seq)?;
     webgraph::graphs::bvgraph::check_offsets(&seq, path)?;
@@ -355,7 +401,10 @@ fn test_bvcomp_pi_codes() -> Result<()> {
     BvComp::with_basename(path)
         .comp_flags(flags)
         .comp_graph::<LE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<LE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<LE>()
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(seq.num_nodes(), 20);
     labels::eq_sorted(&graph, &seq)?;
     Ok(())
@@ -379,7 +428,10 @@ fn test_bvcomp_unary_codes() -> Result<()> {
     BvComp::with_basename(path)
         .comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(seq.num_nodes(), 4);
     labels::eq_sorted(&graph, &seq)?;
     Ok(())
@@ -402,6 +454,7 @@ fn test_bvcomp_dense_graph() -> Result<()> {
     BvComp::with_basename(&basename).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 10);
     assert_eq!(seq.num_arcs_hint(), Some(90));
@@ -419,6 +472,7 @@ fn test_bvcomp_chain_graph() -> Result<()> {
     BvComp::with_basename(&basename).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 101);
     assert_eq!(seq.num_arcs_hint(), Some(100));
@@ -427,6 +481,7 @@ fn test_bvcomp_chain_graph() -> Result<()> {
     let seq_static = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .dispatch::<webgraph::graphs::bvgraph::Static>()
+        .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq_static.num_nodes(), 101);
     labels::eq_sorted(&graph, &seq_static)?;
@@ -448,6 +503,7 @@ fn test_bvcomp_star_graph() -> Result<()> {
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 50);
     assert_eq!(seq.num_arcs_hint(), Some(49));
@@ -473,6 +529,7 @@ fn test_bvcomp_with_delta_codes() -> Result<()> {
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 4);
     assert_eq!(seq.num_arcs_hint(), Some(5));
@@ -495,6 +552,7 @@ fn test_bvcomp_with_zeta_codes() -> Result<()> {
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 8);
     assert_eq!(seq.num_arcs_hint(), Some(5));
@@ -523,6 +581,7 @@ fn test_bvcomp_with_no_intervals() -> Result<()> {
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 20);
     labels::eq_sorted(&graph, &seq)?;
@@ -549,6 +608,7 @@ fn test_bvcomp_with_no_references() -> Result<()> {
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 14);
     labels::eq_sorted(&graph, &seq)?;
@@ -565,7 +625,9 @@ fn test_bvcomp_config_basic() -> Result<()> {
     assert!(bits_written > 0);
 
     // Verify the graph was written correctly (use sequential access, no EF needed)
-    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename).load()?;
+    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename)
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(loaded.num_nodes(), 4);
     labels::eq_sorted(&graph, &loaded)?;
     Ok(())
@@ -586,7 +648,9 @@ fn test_bvcomp_config_with_flags() -> Result<()> {
         .comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
     assert!(bits_written > 0);
-    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename).load()?;
+    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename)
+        .mode::<LoadMem>()
+        .load()?;
     labels::eq_sorted(&graph, &loaded)?;
     Ok(())
 }
@@ -602,7 +666,9 @@ fn test_bvcomp_config_with_explicit_tmp_dir() -> Result<()> {
         .tmp_dir(tmp.path())
         .comp_graph::<BE>(&graph)?;
     assert!(bits_written > 0);
-    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename).load()?;
+    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename)
+        .mode::<LoadMem>()
+        .load()?;
     labels::eq_sorted(&graph, &loaded)?;
     Ok(())
 }
@@ -619,7 +685,7 @@ fn test_par_comp() -> Result<()> {
 
     // Build EF for loaded graph
     build_ef(&basename)?;
-    let loaded = BvGraph::with_basename(&basename).load()?;
+    let loaded = BvGraph::with_basename(&basename).mode::<LoadMem>().load()?;
     assert_eq!(loaded.num_nodes(), 5);
     assert_eq!(loaded.num_arcs(), 5);
     labels::eq_sorted(&graph, &loaded)?;
@@ -627,6 +693,7 @@ fn test_par_comp() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_comp_from_parts() -> Result<()> {
     use webgraph::graphs::par_sorted_graph::ParSortedGraph;
     use webgraph::traits::SequentialLabeling;
@@ -653,7 +720,7 @@ fn test_par_comp_from_parts() -> Result<()> {
 
     // Build EF and load
     build_ef(&basename)?;
-    let loaded = BvGraph::with_basename(&basename).load()?;
+    let loaded = BvGraph::with_basename(&basename).mode::<LoadMem>().load()?;
     assert_eq!(loaded.num_nodes(), num_nodes);
     assert_eq!(loaded.num_arcs(), 5);
     labels::eq_sorted(&graph, &loaded)?;
@@ -670,7 +737,9 @@ fn test_comp_lender() -> Result<()> {
     assert!(bits_written > 0);
 
     // Verify with sequential access (no EF needed)
-    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename).load()?;
+    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename)
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(loaded.num_nodes(), 3);
     labels::eq_sorted(&graph, &loaded)?;
     Ok(())
@@ -689,6 +758,7 @@ fn test_bvcomp_le_endianness() -> Result<()> {
     // Load with sequential access (no EF needed)
     let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename)
         .endianness::<LE>()
+        .mode::<LoadMem>()
         .load()?;
     assert_eq!(loaded.num_nodes(), 4);
     labels::eq_sorted(&graph, &loaded)?;
@@ -719,13 +789,16 @@ fn test_bvcomp_with_custom_comp_flags() -> Result<()> {
     assert!(bits > 0);
 
     // Load and verify
-    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename).load()?;
+    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename)
+        .mode::<LoadMem>()
+        .load()?;
     assert_eq!(loaded.num_nodes(), 3);
     labels::eq_sorted(&graph, &loaded)?;
     Ok(())
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bvcomp_labeled_roundtrip() -> Result<()> {
     use webgraph::graphs::vec_graph::LabeledVecGraph;
     use webgraph::labels::BitStreamLabeling;
@@ -763,6 +836,7 @@ fn test_bvcomp_labeled_roundtrip() -> Result<()> {
 
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
 
     let labeling =
@@ -774,6 +848,7 @@ fn test_bvcomp_labeled_roundtrip() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_comp_labeled_roundtrip() -> Result<()> {
     let graph = LabeledVecGraph::from_arcs([
         ((0, 1), 10u32),
@@ -800,6 +875,7 @@ fn test_par_comp_labeled_roundtrip() -> Result<()> {
 
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
 
     let labeling =
@@ -811,6 +887,7 @@ fn test_par_comp_labeled_roundtrip() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_comp_labeled_seq_roundtrip() -> Result<()> {
     let graph = LabeledVecGraph::from_arcs([
         ((0, 1), 10u32),
@@ -832,6 +909,7 @@ fn test_par_comp_labeled_seq_roundtrip() -> Result<()> {
     // No EF needed — BitStreamLabelingSeq reads offsets from the .offsets file
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
 
     let labeling =
@@ -843,6 +921,7 @@ fn test_par_comp_labeled_seq_roundtrip() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_comp_labeled_roundtrip_zstd() -> Result<()> {
     let graph = LabeledVecGraph::from_arcs([
         ((0, 1), 10u32),
@@ -869,6 +948,7 @@ fn test_par_comp_labeled_roundtrip_zstd() -> Result<()> {
 
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
 
     let labeling =
@@ -879,11 +959,13 @@ fn test_par_comp_labeled_roundtrip_zstd() -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(miri))]
 fn build_labeled_cnr2000() -> Result<webgraph::graphs::vec_graph::LabeledVecGraph<u32>> {
     use lender::prelude::*;
 
     let cnr = BvGraphSeq::with_basename(common::cnr_2000_basename())
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
 
     let mut arcs = Vec::new();
@@ -897,6 +979,7 @@ fn build_labeled_cnr2000() -> Result<webgraph::graphs::vec_graph::LabeledVecGrap
     ))
 }
 
+#[cfg(not(miri))]
 #[cfg_attr(feature = "slow_tests", test)]
 #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
 fn test_comp_labeled_cnr2000() -> Result<()> {
@@ -925,6 +1008,7 @@ fn test_comp_labeled_cnr2000() -> Result<()> {
 
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
 
     let labeling =
@@ -935,6 +1019,7 @@ fn test_comp_labeled_cnr2000() -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(miri))]
 #[cfg_attr(feature = "slow_tests", test)]
 #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
 fn test_par_comp_labeled_cnr2000() -> Result<()> {
@@ -963,6 +1048,7 @@ fn test_par_comp_labeled_cnr2000() -> Result<()> {
 
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
+        .mode::<LoadMem>()
         .load()?;
 
     let labeling =

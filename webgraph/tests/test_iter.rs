@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+#![cfg(not(miri))]
+
 mod common;
 
 use anyhow::{Result, bail};
