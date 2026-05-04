@@ -139,7 +139,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 pub struct ParSortPairs<const DEDUP: bool = false> {
     num_nodes: usize,
     num_partitions: usize,
-    memory_usage: MemoryUsage,
+    memory_usage: Option<MemoryUsage>,
 }
 
 impl<const DEDUP: bool> ParSortPairs<DEDUP> {
@@ -194,7 +194,7 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
         Ok(Self {
             num_nodes,
             num_partitions: rayon::current_num_threads(),
-            memory_usage: MemoryUsage::default(),
+            memory_usage: None,
         })
     }
 }
@@ -250,7 +250,7 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
     /// memory. The default is the default of [`MemoryUsage`].
     pub const fn memory_usage(self, memory_usage: MemoryUsage) -> Self {
         Self {
-            memory_usage,
+            memory_usage: Some(memory_usage),
             ..self
         }
     }
@@ -298,6 +298,7 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
         let num_buffers = rayon::current_num_threads() * num_partitions;
         let batch_size = self
             .memory_usage
+            .unwrap_or_default()
             .batch_size::<((usize, usize), C::Label)>()
             .div_ceil(num_buffers);
         let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);

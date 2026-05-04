@@ -532,13 +532,9 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels> BvCompZ<E, W, SL> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use dsi_bitstream::prelude::*;
-    use tempfile::Builder;
-
     #[test]
-    #[cfg_attr(miri, ignore)]
-    fn test_writer_window_zero() -> anyhow::Result<()> {
+    #[cfg(not(miri))]
+    fn egst_writer_window_zero() -> anyhow::Result<()> {
         test_compression(0, 0)?;
         test_compression(0, 1)?;
         test_compression(0, 2)?;
@@ -546,8 +542,8 @@ mod test {
     }
 
     #[test]
-    #[cfg_attr(miri, ignore)]
-    fn test_writer_window_one() -> anyhow::Result<()> {
+    #[cfg(not(miri))]
+    fn egst_writer_window_one() -> anyhow::Result<()> {
         test_compression(1, 0)?;
         test_compression(1, 1)?;
         test_compression(1, 2)?;
@@ -555,8 +551,8 @@ mod test {
     }
 
     #[test]
-    #[cfg_attr(miri, ignore)]
-    fn test_writer_window_two() -> anyhow::Result<()> {
+    #[cfg(not(miri))]
+    fn egst_writer_window_two() -> anyhow::Result<()> {
         test_compression(2, 0)?;
         test_compression(2, 1)?;
         test_compression(2, 2)?;
@@ -564,13 +560,16 @@ mod test {
     }
 
     #[test]
-    #[cfg_attr(miri, ignore)]
-    fn test_writer_cnr() -> anyhow::Result<()> {
+    #[cfg(not(miri))]
+    fn egst_writer_cnr() -> anyhow::Result<()> {
+        use super::*;
+        use dsi_bitstream::traits::BE;
+
         let cnr_2000 = BvGraphSeq::with_basename("../data/cnr-2000")
             .endianness::<BE>()
             .load()?;
 
-        let tmp_dir = Builder::new().prefix("bvcomp_test").tempdir()?;
+        let tmp_dir = tempfile::Builder::new().prefix("bvcomp_test").tempdir()?;
         let basename = tmp_dir.path().join("cnr-2000");
 
         BvCompZ::with_basename(&basename).comp_graph::<BE>(&cnr_2000)?;
@@ -584,13 +583,17 @@ mod test {
         Ok(())
     }
 
+    #[cfg(not(miri))]
     fn test_compression(
         compression_window: usize,
         min_interval_length: usize,
     ) -> anyhow::Result<()> {
+        use super::*;
+        use dsi_bitstream::traits::BE;
+
         let cnr_2000 = BvGraphSeq::with_basename("../data/cnr-2000").load()?;
 
-        let tmp_dir = Builder::new().prefix("bvcomp_test").tempdir()?;
+        let tmp_dir = tempfile::Builder::new().prefix("bvcomp_test").tempdir()?;
         let basename = tmp_dir.path().join("cnr-2000");
 
         BvCompZ::with_basename(&basename)

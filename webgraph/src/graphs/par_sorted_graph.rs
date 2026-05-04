@@ -1039,7 +1039,7 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedGraphConf<PL, DEDUP> {
 /// to enable deduplication.
 pub struct ParSortedLabeledGraphConf<PL = Option<ProgressLogger>, const DEDUP: bool = false> {
     num_partitions: usize,
-    memory_usage: MemoryUsage,
+    memory_usage: Option<MemoryUsage>,
     pl: PL,
 }
 
@@ -1052,7 +1052,7 @@ impl Default for ParSortedLabeledGraphConf {
     fn default() -> Self {
         ParSortedLabeledGraphConf {
             num_partitions: rayon::current_num_threads(),
-            memory_usage: MemoryUsage::default(),
+            memory_usage: None,
             pl: None,
         }
     }
@@ -1086,7 +1086,7 @@ impl<PL, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
     pub fn memory_usage(self, m: MemoryUsage) -> Self {
         ParSortedLabeledGraphConf {
             num_partitions: self.num_partitions,
-            memory_usage: m,
+            memory_usage: Some(m),
             pl: self.pl,
         }
     }
@@ -1112,23 +1112,21 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
     /// Consumes this configuration and returns a configured [`ParSortIters`]
     /// together with the progress logger.
     fn into_par_sort_iters(self, num_nodes: usize) -> Result<(ParSortIters<DEDUP>, PL)> {
-        Ok((
-            ParSortIters::create(num_nodes)?
-                .num_partitions(self.num_partitions)
-                .memory_usage(self.memory_usage),
-            self.pl,
-        ))
+        let mut psi = ParSortIters::create(num_nodes)?.num_partitions(self.num_partitions);
+        if let Some(m) = self.memory_usage {
+            psi = psi.memory_usage(m);
+        }
+        Ok((psi, self.pl))
     }
 
     /// Consumes this configuration and returns a configured [`ParSortPairs`]
     /// together with the progress logger.
     fn into_par_sort_pairs(self, num_nodes: usize) -> Result<(ParSortPairs<DEDUP>, PL)> {
-        Ok((
-            ParSortPairs::create(num_nodes)?
-                .num_partitions(self.num_partitions)
-                .memory_usage(self.memory_usage),
-            self.pl,
-        ))
+        let mut psp = ParSortPairs::create(num_nodes)?.num_partitions(self.num_partitions);
+        if let Some(m) = self.memory_usage {
+            psp = psp.memory_usage(m);
+        }
+        Ok((psp, self.pl))
     }
 
     /// Sorts labeled arcs from a [`LabeledSequentialGraph`], producing a
