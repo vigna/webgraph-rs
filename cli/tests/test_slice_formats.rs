@@ -1,3 +1,5 @@
+#![cfg(not(miri))]
+
 use value_traits::slices::SliceByValue;
 use webgraph_cli::{FloatSliceFormat, IntSlice, IntSliceFormat};
 

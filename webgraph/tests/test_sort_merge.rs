@@ -8,9 +8,13 @@
 
 //! Tests for KMergeIters, ParSortPairs, ParSortIters, and Matrix.
 
+#[cfg(not(miri))]
 use anyhow::Result;
+#[cfg(not(miri))]
 use dsi_bitstream::prelude::*;
+#[cfg(not(miri))]
 use dsi_progress_logger::no_logging;
+#[cfg(not(miri))]
 use webgraph::prelude::*;
 
 #[test]
@@ -81,6 +85,7 @@ fn test_matrix_basic() {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_sort_pairs_basic() -> Result<()> {
     use rayon::prelude::*;
     use webgraph::utils::par_sort_pairs::ParSortPairs;
@@ -108,6 +113,7 @@ fn test_par_sort_pairs_basic() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_sort_pairs_single_partition() -> Result<()> {
     use rayon::prelude::*;
     use webgraph::utils::par_sort_pairs::ParSortPairs;
@@ -124,6 +130,7 @@ fn test_par_sort_pairs_single_partition() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_sort_pairs_with_memory_usage() -> Result<()> {
     use rayon::prelude::*;
     use webgraph::utils::MemoryUsage;
@@ -156,6 +163,7 @@ fn test_par_sort_pairs_with_memory_usage() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_sort_iters_basic() -> Result<()> {
     use webgraph::utils::par_sort_iters::ParSortIters;
 
@@ -184,6 +192,7 @@ fn test_par_sort_iters_basic() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_sort_iters_single_partition() -> Result<()> {
     use webgraph::utils::par_sort_iters::ParSortIters;
 
@@ -199,6 +208,7 @@ fn test_par_sort_iters_single_partition() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_sort_pairs_labeled() -> Result<()> {
     use rayon::prelude::*;
     use webgraph::utils::MemoryUsage;
@@ -308,6 +318,7 @@ fn test_kmerge_iters_exact_size_iterator() {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_sort_pairs_sort_labeled() -> Result<()> {
     use webgraph::utils::grouped_gaps::GroupedGapsCodec;
     use webgraph::utils::{MemoryUsage, ParSortPairs};
@@ -345,6 +356,7 @@ fn test_par_sort_pairs_sort_labeled() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_sort_iters() -> Result<()> {
     use webgraph::traits::{SequentialLabeling, SplitLabeling};
     use webgraph::utils::{MemoryUsage, ParSortIters};
@@ -416,6 +428,7 @@ fn test_kmerge_iters_dedup_sum() {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_sort_pairs_dedup() -> Result<()> {
     use rayon::prelude::*;
     use webgraph::utils::par_sort_pairs::ParSortPairs;
@@ -435,6 +448,7 @@ fn test_par_sort_pairs_dedup() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_par_sort_iters_dedup() -> Result<()> {
     use webgraph::utils::par_sort_iters::ParSortIters;
 

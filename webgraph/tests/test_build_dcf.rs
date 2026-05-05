@@ -36,7 +36,6 @@ fn verify_dcf(dcf: &DCF, expected: &[u64]) {
 
 /// Tests the default trait implementation of `build_dcf` using a [`VecGraph`].
 #[test]
-#[cfg(not(miri))]
 fn test_build_dcf_vec_graph() {
     let graph = test_graph();
     let dcf = graph.build_dcf();

@@ -11,13 +11,18 @@ mod common;
 use anyhow::Result;
 use common::build_ef;
 use dsi_bitstream::prelude::BE;
-use webgraph::graphs::bvgraph::{BvComp, BvGraphSeq};
+use webgraph::graphs::bvgraph::BvComp;
+#[cfg(not(miri))]
+use webgraph::graphs::bvgraph::BvGraphSeq;
 use webgraph::graphs::par_graphs::ParGraph;
+#[cfg(not(miri))]
 use webgraph::graphs::par_sorted_graph::ParSortedGraph;
+#[cfg(not(miri))]
 use webgraph::graphs::permuted_graph::PermutedGraph;
 use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::prelude::*;
 use webgraph::traits::graph;
+#[cfg(not(miri))]
 use webgraph::utils::par_sort_iters::ParSortIters;
 
 /// Builds the canonical test graph (5 nodes, 7 arcs).
@@ -40,6 +45,7 @@ fn test_graph() -> VecGraph {
 // ── SortedGraph ──
 
 #[test]
+#[cfg(not(miri))]
 fn test_sorted_graph_preserves_graph() -> Result<()> {
     let g = test_graph();
     let sorted = ParSortedGraph::par_from_graph(&g)?;
@@ -48,6 +54,7 @@ fn test_sorted_graph_preserves_graph() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_sorted_graph_from_permuted() -> Result<()> {
     // Verifies that sorting the arcs from a permuted graph yields the
     // same result as the reference (permuted) VecGraph. We collect
@@ -68,6 +75,7 @@ fn test_sorted_graph_from_permuted() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_sorted_graph_par_iters_boundaries() -> Result<()> {
     let g = test_graph();
     let sorted = ParSortedGraph::par_from_graph(&g)?;
@@ -83,6 +91,7 @@ fn test_sorted_graph_par_iters_boundaries() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_sorted_graph_with_part() -> Result<()> {
     let g = test_graph();
     let sorted = ParSortedGraph::config().num_lenders(2).par_sort_graph(&g)?;
@@ -96,6 +105,7 @@ fn test_sorted_graph_with_part() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_sorted_graph_from_parts() -> Result<()> {
     let g = test_graph();
     let num_nodes = g.num_nodes();
@@ -169,7 +179,6 @@ fn test_par_comp_with_sorted_graph() -> Result<()> {
 }
 
 #[test]
-#[cfg(not(miri))]
 fn test_par_comp_with_parallel_graph() -> Result<()> {
     let g = test_graph();
     let pg = ParGraph::new(g.clone(), 2);

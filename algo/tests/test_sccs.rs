@@ -7,13 +7,19 @@
 
 use anyhow::Result;
 use dsi_progress_logger::prelude::*;
+#[cfg(not(miri))]
 use epserde::{deser::Deserialize, ser::Serialize};
+#[cfg(not(miri))]
 use lender::for_;
 use sux::bit_vec;
 use sux::traits::BitVecOpsMut;
+#[cfg(not(miri))]
 use webgraph::graphs::random::ErdosRenyi;
+#[cfg(not(miri))]
 use webgraph::prelude::{BTreeGraph, BvGraph};
+#[cfg(not(miri))]
 use webgraph::transform;
+#[cfg(not(miri))]
 use webgraph::utils::MemoryUsage;
 use webgraph::{graphs::vec_graph::VecGraph, traits::SequentialLabeling};
 use webgraph_algo::sccs::{self, Sccs};
@@ -39,6 +45,7 @@ fn test_sort_by_size() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_epserde_roundtrip() -> Result<()> {
     let original = Sccs::new(3, vec![0, 0, 0, 1, 2, 2, 1, 2, 0, 0].into_boxed_slice());
 
@@ -182,6 +189,7 @@ test_scc_algo!(|g, _, pl| sccs::tarjan(g, pl), tarjan);
 test_scc_algo!(sccs::kosaraju, kosaraju);
 
 #[test]
+#[cfg(not(miri))]
 fn test_large() -> Result<()> {
     #[cfg(target_pointer_width = "64")]
     let basename = "../data/cnr-2000";
@@ -211,6 +219,7 @@ fn test_large() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_er() -> Result<()> {
     for n in (10..=100).step_by(10) {
         for d in 1..10 {
@@ -242,6 +251,7 @@ fn test_lozenge() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_er_symm() -> Result<()> {
     for n in (10..=100).step_by(10) {
         for d in 1..10 {

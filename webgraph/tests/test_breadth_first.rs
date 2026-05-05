@@ -11,13 +11,17 @@ use anyhow::Result;
 use no_break::NoBreak;
 use std::ops::ControlFlow::Continue;
 use std::sync::atomic::{AtomicUsize, Ordering};
+#[cfg(not(miri))]
 use sync_cell_slice::SyncSlice;
 use webgraph::prelude::*;
+#[cfg(not(miri))]
 use webgraph::utils::Granularity;
+#[cfg(not(miri))]
+use webgraph::{prelude::BvGraph, visits::Parallel};
 use webgraph::{
-    prelude::{BvGraph, VecGraph},
+    prelude::VecGraph,
     traits::{RandomAccessGraph, SequentialLabeling},
-    visits::{Parallel, Sequential},
+    visits::Sequential,
 };
 
 fn correct_distances<G: RandomAccessGraph>(graph: &G, start: usize) -> Vec<usize> {
@@ -69,6 +73,7 @@ macro_rules! test_bfv_algo_seq {
     ($bfv:expr, $name:ident) => {
         mod $name {
             use super::*;
+            #[cfg(not(miri))]
             use std::collections::BTreeMap;
 
             #[test]

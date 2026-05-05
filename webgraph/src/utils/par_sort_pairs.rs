@@ -82,6 +82,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 /// # Examples
 ///
 /// ```
+/// # if cfg!(miri) { return Ok::<(), Box<dyn std::error::Error>>(()); }
 /// # use dsi_bitstream::traits::BE;
 /// # use dsi_progress_logger::no_logging;
 /// # use lender::Lender;

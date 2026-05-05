@@ -7,8 +7,11 @@
 use anyhow::Result;
 use dsi_progress_logger::no_logging;
 use webgraph::graphs::vec_graph::VecGraph;
+#[cfg(not(miri))]
 use webgraph::traits::SequentialLabeling;
+#[cfg(not(miri))]
 use webgraph::transform;
+#[cfg(not(miri))]
 use webgraph::utils::MemoryUsage;
 use webgraph_algo::sccs::{self, Sccs};
 
@@ -71,6 +74,7 @@ fn test_tarjan_chain() {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_kosaraju_chain() -> Result<()> {
     let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3)]);
     let transpose = VecGraph::from_lender(
@@ -89,6 +93,7 @@ fn test_symm_seq_disconnected() {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_symm_par_disconnected() {
     let graph = VecGraph::from_arcs([(0, 1), (1, 0), (2, 3), (3, 2)]);
     let sccs = sccs::symm_par(&graph, no_logging![]);
@@ -104,6 +109,7 @@ fn test_symm_seq_single_node() {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_symm_par_single_node() {
     let mut g = VecGraph::new();
     g.add_node(0);
@@ -119,6 +125,7 @@ fn test_symm_seq_triangle() {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_symm_par_triangle() {
     let graph = VecGraph::from_arcs([(0, 1), (1, 0), (1, 2), (2, 1), (0, 2), (2, 0)]);
     let sccs = sccs::symm_par(&graph, no_logging![]);

@@ -27,6 +27,7 @@
 //! # use dsi_bitstream::prelude::BE;
 //! # use tempfile::Builder;
 //! # fn main() -> anyhow::Result<()> {
+//! # if cfg!(miri) { return Ok(()); }
 //! # let tempdir = Builder::new().prefix("test").tempdir()?;
 //! # let basename = tempdir.path().join("basename");
 //! // Bunch of arcs
@@ -54,6 +55,7 @@
 //! # use rayon::ThreadPoolBuilder;
 //! # use tempfile::Builder;
 //! # fn main() -> anyhow::Result<()> {
+//! # if cfg!(miri) { return Ok(()); }
 //! # let tempdir = Builder::new().prefix("test").tempdir()?;
 //! # let basename = tempdir.path().join("basename");
 //! // Bunch of arcs
@@ -90,6 +92,7 @@
 //! # use rayon::ThreadPoolBuilder;
 //! # use tempfile::Builder;
 //! # fn main() -> anyhow::Result<()> {
+//! # if cfg!(miri) { return Ok(()); }
 //! # let tempdir = Builder::new().prefix("test").tempdir()?;
 //! # let basename = tempdir.path().join("basename");
 //! // Bunch of arcs
@@ -117,6 +120,7 @@
 //! # use dsi_bitstream::prelude::BE;
 //! # use tempfile::Builder;
 //! # fn main() -> anyhow::Result<()> {
+//! # if cfg!(miri) { return Ok(()); }
 //! # let tempdir = Builder::new().prefix("test").tempdir()?;
 //! # let basename = tempdir.path().join("basename");
 //! // A VecGraph
@@ -141,6 +145,7 @@
 //! # use dsi_bitstream::prelude::BE;
 //! # use tempfile::Builder;
 //! # fn main() -> anyhow::Result<()> {
+//! # if cfg!(miri) { return Ok(()); }
 //! # let tempdir = Builder::new().prefix("test").tempdir()?;
 //! # let basename = tempdir.path().join("basename");
 //! // A LabeledVecGraph
@@ -159,6 +164,7 @@
 //! # use dsi_bitstream::prelude::BE;
 //! # use tempfile::Builder;
 //! # fn main() -> anyhow::Result<()> {
+//! # if cfg!(miri) { return Ok(()); }
 //! # let tempdir = Builder::new().prefix("test").tempdir()?;
 //! # let basename = tempdir.path().join("basename");
 //! // A VecGraph

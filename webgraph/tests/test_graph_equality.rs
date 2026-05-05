@@ -11,6 +11,7 @@ mod common;
 use anyhow::Result;
 use webgraph::graphs::vec_graph::{LabeledVecGraph, VecGraph};
 use webgraph::labels::Zip;
+#[cfg(not(miri))]
 use webgraph::prelude::*;
 use webgraph::traits::{
     graph,

@@ -10,12 +10,13 @@ mod common;
 
 use anyhow::Result;
 use lender::*;
+#[cfg(not(miri))]
+use webgraph::prelude::BvGraph;
 use webgraph::{
     graphs::{
         no_selfloops_graph::NoSelfLoopsGraph, permuted_graph::PermutedGraph, random::ErdosRenyi,
         union_graph::UnionGraph, vec_graph::VecGraph,
     },
-    prelude::*,
     traits::SequentialLabeling,
 };
 

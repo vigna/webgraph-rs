@@ -189,6 +189,12 @@ pub enum MemoryUsage {
 /// the headroom.  On 32-bit platforms the cap is much tighter because the
 /// address space is scarce and CI runners are typically memory-constrained.
 impl Default for MemoryUsage {
+    #[cfg(miri)]
+    fn default() -> Self {
+        MemoryUsage::MemorySize(256 * 1024 * 1024)
+    }
+
+    #[cfg(not(miri))]
     fn default() -> Self {
         let system = sysinfo::System::new_with_specifics(
             sysinfo::RefreshKind::nothing()

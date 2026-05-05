@@ -943,6 +943,7 @@ fn test_bfs_order_from_roots() -> Result<()> {
 // ── BFS ParFairNoPred ──
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_fair_no_pred() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -967,6 +968,7 @@ fn test_bfs_par_fair_no_pred() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_fair_reset() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1002,6 +1004,7 @@ fn test_bfs_par_fair_reset() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_fair_with_granularity() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1027,6 +1030,7 @@ fn test_bfs_par_fair_with_granularity() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_fair_no_pred_filter() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1056,6 +1060,7 @@ fn test_bfs_par_fair_no_pred_filter() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_fair_no_pred_visit_with() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1079,6 +1084,7 @@ fn test_bfs_par_fair_no_pred_visit_with() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_fair_no_pred_revisit() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1104,6 +1110,7 @@ fn test_bfs_par_fair_no_pred_revisit() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_fair_no_pred_multiple_roots() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1128,6 +1135,7 @@ fn test_bfs_par_fair_no_pred_multiple_roots() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_fair_no_pred_visit_filtered_with() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1157,6 +1165,7 @@ fn test_bfs_par_fair_no_pred_visit_filtered_with() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_fair_early_termination() -> Result<()> {
     use std::ops::ControlFlow::{Break, Continue};
     use webgraph::visits::{Parallel, breadth_first};
@@ -1180,6 +1189,7 @@ fn test_bfs_par_fair_early_termination() -> Result<()> {
 // ── BFS ParFairPred ──
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_fair_pred() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1204,6 +1214,7 @@ fn test_bfs_par_fair_pred() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_fair_pred_revisit() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1229,6 +1240,7 @@ fn test_bfs_par_fair_pred_revisit() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_fair_pred_filter() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1256,6 +1268,7 @@ fn test_bfs_par_fair_pred_filter() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_fair_pred_multiple_roots() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1279,6 +1292,7 @@ fn test_bfs_par_fair_pred_multiple_roots() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_fair_pred_reset() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1314,6 +1328,7 @@ fn test_bfs_par_fair_pred_reset() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_fair_pred_visit_filtered_with() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1344,6 +1359,7 @@ fn test_bfs_par_fair_pred_visit_filtered_with() -> Result<()> {
 // ── BFS ParLowMem ──
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_low_mem() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1368,6 +1384,7 @@ fn test_bfs_par_low_mem() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_low_mem_filter() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1395,6 +1412,7 @@ fn test_bfs_par_low_mem_filter() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_low_mem_reset() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1430,6 +1448,7 @@ fn test_bfs_par_low_mem_reset() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_low_mem_filtered() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
@@ -1459,6 +1478,7 @@ fn test_bfs_par_low_mem_filtered() -> Result<()> {
 }
 
 #[test]
+#[cfg(not(miri))]
 fn test_bfs_par_low_mem_with_granularity() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;

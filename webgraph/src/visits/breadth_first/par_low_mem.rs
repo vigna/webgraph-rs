@@ -42,6 +42,7 @@ use sux::{bits::AtomicBitVec, traits::AtomicBitVecOps};
 /// [`SyncSlice`]: sync_cell_slice::SyncSlice
 ///
 /// ```
+/// # if cfg!(miri) { return; }
 /// use webgraph::visits::Parallel;
 /// use webgraph::visits::breadth_first::{*, self};
 /// use webgraph::graphs::vec_graph::VecGraph;

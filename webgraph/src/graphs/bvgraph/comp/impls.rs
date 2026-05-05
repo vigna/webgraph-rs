@@ -679,6 +679,7 @@ impl<PL: ProgressLog> BvCompConf<PL> {
     /// # use webgraph::labels::BitStreamStoreLabelsConf;
     /// # use webgraph::traits::FixedWidth;
     /// # fn main() -> Result<()> {
+    /// # if cfg!(miri) { return Ok(()); }
     /// # let tmp = tempfile::TempDir::new()?;
     /// # let basename = tmp.path().join("example");
     /// let graph = LabeledVecGraph::from_arcs([

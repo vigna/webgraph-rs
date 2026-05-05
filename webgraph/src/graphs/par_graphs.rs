@@ -53,6 +53,7 @@ enum Splitting {
 /// # use dsi_bitstream::prelude::BE;
 /// # use tempfile::Builder;
 /// # fn main() -> anyhow::Result<()> {
+/// # if cfg!(miri) { return Ok(()); }
 /// # let tempdir = Builder::new().prefix("test").tempdir()?;
 /// # let basename = tempdir.path().join("basename");
 /// let graph = VecGraph::from_arcs([(5, 3), (1, 0), (5, 0), (1, 2), (3, 4)]);
@@ -71,6 +72,7 @@ enum Splitting {
 /// # use dsi_bitstream::prelude::BE;
 /// # use tempfile::Builder;
 /// # fn main() -> anyhow::Result<()> {
+/// # if cfg!(miri) { return Ok(()); }
 /// # let tempdir = Builder::new().prefix("test").tempdir()?;
 /// # let basename = tempdir.path().join("basename");
 /// let graph = VecGraph::from_arcs([(5, 3), (1, 0), (5, 0), (1, 2), (3, 4)]);

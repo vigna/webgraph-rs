@@ -117,6 +117,7 @@
 //! # use dsi_progress_logger::no_logging;
 //! # use webgraph::graphs::vec_graph::VecGraph;
 //! # use webgraph::labels::proj::Left;
+//! # if cfg!(miri) { return; }
 //! let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0), (2, 4)]);
 //! let transpose = VecGraph::from_arcs([(1, 0), (2, 1), (3, 2), (0, 3), (4, 2)]);
 //!
@@ -179,6 +180,7 @@
 //! use dsi_progress_logger::no_logging;
 //! use webgraph::graphs::vec_graph::VecGraph;
 //!
+//! if cfg!(miri) { return; }
 //! let graph = VecGraph::from_arcs(
 //!     [(0, 1), (1, 0), (1, 2), (2, 1), (2, 0), (0, 2), (3, 4), (4, 3)]
 //! );

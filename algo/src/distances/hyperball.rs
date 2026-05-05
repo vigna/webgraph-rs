@@ -2038,6 +2038,7 @@ where
 }
 
 #[cfg(test)]
+#[cfg(not(miri))]
 mod test {
     use super::*;
     use card_est_array::traits::{EstimatorArray, MergeEstimator};
@@ -2258,6 +2259,7 @@ mod test {
     });
 
     #[test]
+    #[cfg(not(miri))]
     fn test_spill_store_vs_in_memory() -> Result<()> {
         use webgraph::graphs::vec_graph::VecGraph;
         let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
@@ -2310,6 +2312,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(not(miri))]
     fn test_spill_store_hll8() -> Result<()> {
         use webgraph::graphs::vec_graph::VecGraph;
         let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);

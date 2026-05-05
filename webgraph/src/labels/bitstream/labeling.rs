@@ -48,6 +48,7 @@
 //! # use std::io::BufWriter;
 //! #
 //! # fn main() -> Result<()> {
+//! # if cfg!(miri) { return Ok(()); }
 //! # let tmp = tempfile::TempDir::new()?;
 //! # let basename = tmp.path().join("example");
 //! // Build a labeled graph and compress it
