@@ -1,0 +1,23 @@
+name: Miri
+
+on:
+  push:
+    branches:
+  pull_request:
+    branches:
+
+env:
+  CARGO_TERM_COLOR: always
+  MIRIFLAGS: "-Zmiri-disable-isolation -Zmiri-tree-borrows -Zmiri-ignore-leaks -Zmiri-permissive-provenance"
+
+jobs:
+  miri:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust nightly with Miri
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: miri
+      - name: Run Miri
+        run: cargo miri test --workspace
