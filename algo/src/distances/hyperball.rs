@@ -479,6 +479,7 @@ impl<L: SliceEstimationLogic<W> + Clone + Sync, W: Word, S: AsRef<[W]> + AsMut<[
 /// # use webgraph_algo::distances::hyperball::*;
 /// # use dsi_progress_logger::no_logging;
 /// # use rand::SeedableRng;
+/// # if cfg!(miri) { return Ok(()); }
 /// let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
 /// let deg_cumul_func = graph.build_dcf();
 ///
@@ -502,6 +503,7 @@ impl<L: SliceEstimationLogic<W> + Clone + Sync, W: Word, S: AsRef<[W]> + AsMut<[
 /// # use webgraph_algo::distances::hyperball::*;
 /// # use dsi_progress_logger::no_logging;
 /// # use rand::SeedableRng;
+/// # if cfg!(miri) { return Ok(()); }
 /// # let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
 /// # let deg_cumul_func = graph.build_dcf();
 /// # let rng = rand::rngs::SmallRng::seed_from_u64(0);
