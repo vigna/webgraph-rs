@@ -164,6 +164,15 @@ use webgraph::utils::Granularity;
 /// Default node granularity for HyperBall parallel tasks.
 pub const DEFAULT_GRANULARITY: usize = 16 * 1024;
 
+/// Batch size, in checklist entries, that each thread claims from the
+/// local-mode cursor on every [`fetch_add`]. Scales with the number of threads
+/// to amortize atomic contention, with a floor so single-threaded or low-thread
+/// configurations still get a useful batch.
+///
+/// [`fetch_add`]: std::sync::atomic::AtomicUsize::fetch_add
+const LOCAL_BATCH_PER_THREAD: usize = 64;
+const LOCAL_BATCH_MIN: usize = 256;
+
 /// Merges sorted, deduplicated slices into `dst`, deduplicating on the fly.
 fn kmerge_dedup(buffers: &[&[usize]], dst: &mut Vec<usize>) {
     let mut heap = dary_heap::QuaternaryHeap::with_capacity(buffers.len());
@@ -1866,14 +1875,22 @@ where
             unsafe { &mut *ic.local_next_must_be_checked[broadcast_context.index()].get() };
         local_next_must_be_checked.clear();
 
+        let local_batch =
+            (broadcast_context.num_threads() * LOCAL_BATCH_PER_THREAD).max(LOCAL_BATCH_MIN);
+
         loop {
             // Get work
             let (start, end) = if ic.local {
+                // Claim a batch of checklist entries at once to amortize atomic
+                // contention. The cursor may advance past `node_upper_limit`
+                // when several threads race here; clamping `start` and
+                // computing `end` from the clamped value (rather than from the
+                // raw fetch return) keeps the processed range valid.
                 let start = std::cmp::min(
-                    ic.node_cursor.fetch_add(1, Ordering::Relaxed),
+                    ic.node_cursor.fetch_add(local_batch, Ordering::Relaxed),
                     node_upper_limit,
                 );
-                let end = std::cmp::min(start + 1, node_upper_limit);
+                let end = std::cmp::min(start + local_batch, node_upper_limit);
                 (start, end)
             } else {
                 let mut arc_balanced_cursor = ic.arc_cursor.lock().unwrap();
