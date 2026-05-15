@@ -270,11 +270,6 @@ impl SliceByValue for UniformPreference {
 /// If you compute multiple variants of PageRank on the same graph, please reuse
 /// this structure, as it caches the inverse outdegrees of the graph.
 ///
-/// [module-level documentation]: self
-/// [`run`]: Self::run
-/// [`rank`]: Self::rank
-/// [`preference`]: Self::preference
-///
 /// # Examples
 ///
 /// Default PageRank (strongly preferential, α = 0.85) on a small graph:
@@ -316,6 +311,11 @@ impl SliceByValue for UniformPreference {
 /// assert_eq!(pr.rank().len(), 5);
 /// assert!((pr.rank().iter().sum::<f64>() - 1.0).abs() < 1E-9);
 /// ```
+///
+/// [module-level documentation]: self
+/// [`run`]: Self::run
+/// [`rank`]: Self::rank
+/// [`preference`]: Self::preference
 pub struct PageRank<
     'a,
     G: RandomAccessGraph + Sync,
@@ -393,8 +393,6 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64>> PageRank<'a,
     /// When set, the preference vector is also used as the dangling-node
     /// distribution in [`StronglyPreferential`] mode.
     ///
-    /// [`StronglyPreferential`]: Mode::StronglyPreferential
-    ///
     /// This method consumes `self` because the preference type may differ
     /// from the current one; all internal state (including cached inverse
     /// outdegrees) is preserved.
@@ -404,6 +402,8 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64>> PageRank<'a,
     /// Panics if the length of the vector does not match the number of nodes.
     /// In test mode, we also check for stochasticity (nonnegative entries
     /// summing to 1 within a tolerance of 1E-6) and panic if the check fails.
+    ///
+    /// [`StronglyPreferential`]: Mode::StronglyPreferential
     pub fn preference<W: SliceByValue<Value = f64>>(self, preference: W) -> PageRank<'a, G, W> {
         let n = self.transpose.num_nodes();
         assert_eq!(

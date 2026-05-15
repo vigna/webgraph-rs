@@ -16,13 +16,13 @@ use value_traits::slices::{SliceByValue, SliceByValueMut};
 /// Maps into memory a file of big-endian 64-bit values, making it accessible as
 /// a [`BitFieldSlice<usize>`].
 ///
-/// [`BitFieldSlice<usize>`]: sux::traits::BitFieldSlice
-///
 /// The purpose of this helper class is to make interoperability with the big
 /// version of the Java implementation of WebGraph easier. It is a thin wrapper
 /// around [`MmapHelper`], and its methods are named accordingly.
 ///
 /// By default it uses an `Arc<Mmap>` so that it can be cloned.
+///
+/// [`BitFieldSlice<usize>`]: sux::traits::BitFieldSlice
 #[derive(Clone)]
 pub struct JavaPermutation<M = ArcMmapHelper<u64>> {
     pub perm: M,

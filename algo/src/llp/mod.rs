@@ -18,8 +18,6 @@
 //! The graph provided should be _symmetric_ and _loopless_. If this is not the
 //! case, please use [`symmetrize_seq`] to generate a suitable graph.
 //!
-//! [`symmetrize_seq`]: webgraph::transform::symmetrize_seq
-//!
 //! # Memory Requirements
 //!
 //! LLP requires two `usize` and a boolean per node, plus the memory that is
@@ -41,8 +39,6 @@
 //! co-located in the graph, so [permuting the graph] in label order will
 //! increase locality, yielding better compression.
 //!
-//! [permuting the graph]: webgraph::transform::permute_seq
-//!
 //! # Functions
 //!
 //! - [`layered_label_propagation`]: runs LLP and returns the final combined
@@ -55,8 +51,6 @@
 //! - [`labels_to_ranks`]: converts labels to ranks by their natural order,
 //!   yielding a permutation that can be passed to [`permute_seq`].
 //!
-//! [`permute_seq`]: webgraph::transform::permute_seq
-//!
 //! # Choosing ɣ Values
 //!
 //! More values improve the resulting combined labeling, but each value needs a
@@ -64,8 +58,10 @@
 //! quality and running time. A common choice is a set exponentially-spaced
 //! values, for example ɣ ∈ {1, 1/2, 1/4, …} or ɣ ∈ {1, 1/4, 1/16, …}.
 //!
-//! [LLP paper]: <https://vigna.di.unimi.it/papers.php#BRSLLP>
-//!
+//! [`symmetrize_seq`]: webgraph::transform::symmetrize_seq
+//! [permuting the graph]: webgraph::transform::permute_seq
+//! [`permute_seq`]: webgraph::transform::permute_seq
+//! [LLP paper]: https://vigna.di.unimi.it/papers.php#BRSLLP
 use anyhow::{Context, Result};
 use crossbeam_utils::CachePadded;
 use dsi_progress_logger::prelude::*;

@@ -40,11 +40,7 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 ///   can be used, for example, to compute a [topological sort].
 ///
 /// * [`SeqPath`] keeps track of predecessors and nodes on the stack; it can be
-///   used, for example, to establish
-///   [acyclicity].
-///
-/// [topological sort]: https://docs.rs/webgraph-algo/latest/webgraph_algo/fn.top_sort.html
-/// [acyclicity]: https://docs.rs/webgraph-algo/latest/webgraph_algo/fn.is_acyclic.html
+///   used, for example, to establish [acyclicity].
 ///
 /// Each type of visit uses incrementally more space:
 /// * [`SeqNoPred`] uses one bit per node to remember known nodes and a stack of
@@ -59,22 +55,15 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 /// The visits differ also in the type of events they generate:
 /// * [`SeqNoPred`] generates events of type [`EventNoPred`].
 /// * [`SeqPred`] generates events of type [`EventPred`], with the proviso that
-///   the Boolean associated with events of type
-///   [`Revisit`] is always false.
-///
+///   the Boolean associated with events of type [`Revisit`] is always false.
 /// * [`SeqPath`] generates events of type [`EventPred`].
 ///
 /// With respect to [`EventNoPred`], [`EventPred`] provides the predecessor of
 /// the current node and a [postvisit event].
 ///
-/// [postvisit event]: EventPred::Postvisit
-/// [`Revisit`]: EventPred::Revisit
-///
 /// If the visit was interrupted, the nodes still on the visit path can be
 /// retrieved using the [`stack`] method (only for [`SeqPred`]
 /// and [`SeqPath`]).
-///
-/// [`stack`]: SeqPred::stack
 ///
 /// # Examples
 ///
@@ -148,6 +137,12 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 /// allocations. Other visits, i.e. [`SeqNoPred`] and [`SeqPath`],  do not
 /// implement the [`IntoIterator`] trait, as they would require to put the
 /// predecessor on the stack, which would need more space than needed.
+///
+/// [topological sort]: https://docs.rs/webgraph-algo/latest/webgraph_algo/fn.top_sort.html
+/// [acyclicity]: https://docs.rs/webgraph-algo/latest/webgraph_algo/fn.is_acyclic.html
+/// [postvisit event]: EventPred::Postvisit
+/// [`Revisit`]: EventPred::Revisit
+/// [`stack`]: SeqPred::stack
 pub struct SeqIter<'a, S, G: RandomAccessGraph, P, const PRED: bool> {
     graph: &'a G,
     /// Entries on this stack represent the iterator on the successors of a node

@@ -26,10 +26,6 @@ pub mod preds {
     //! [`HasLInfNorm`], whereas [`PageRank`] only provides an ℓ₁ bound.
     //! Attempting to use [`LInfNorm`] with PageRank is a compile-time error.
     //!
-    //! [`BiRank`]: super::BiRank
-    //! [`PredParams`]: super::birank::PredParams
-    //! [`PageRank`]: super::PageRank
-    //!
     //! # Examples
     //!
     //! ```
@@ -47,6 +43,10 @@ pub mod preds {
     //! #     Ok(())
     //! # }
     //! ```
+    //!
+    //! [`BiRank`]: super::BiRank
+    //! [`PredParams`]: super::birank::PredParams
+    //! [`PageRank`]: super::PageRank
 
     use anyhow::ensure;
     use predicates::{Predicate, reflection::PredicateReflection};

@@ -54,13 +54,13 @@ impl Granularity {
     /// For the variant [`Arcs`], the number of nodes is computed as the
     /// specified number of arcs divided by the average outdegree.
     ///
-    /// [`Nodes`]: Self::Nodes
-    /// [`Arcs`]: Self::Arcs
-    ///
     /// # Panics
     ///
     /// This method will panic if it needs to make a conversion from arc
     /// granularity to node granularity and the number of arcs is not provided.
+    ///
+    /// [`Nodes`]: Self::Nodes
+    /// [`Arcs`]: Self::Arcs
     pub fn node_granularity(&self, num_nodes: usize, num_arcs: Option<u64>) -> usize {
         match self {
             Self::Nodes(n) => *n,
@@ -80,13 +80,13 @@ impl Granularity {
     /// the [`Nodes`] variant, the number of arcs is computed as the specified
     /// number of nodes divided by the average degree.
     ///
-    /// [`Arcs`]: Self::Arcs
-    /// [`Nodes`]: Self::Nodes
-    ///
     /// # Panics
     ///
     /// This method will panic if it needs to make a conversion from node
     /// granularity to arc granularity and the number of arcs is not provided.
+    ///
+    /// [`Arcs`]: Self::Arcs
+    /// [`Nodes`]: Self::Nodes
     pub fn arc_granularity(&self, num_nodes: usize, num_arcs: Option<u64>) -> usize {
         match self {
             Self::Nodes(n) => {

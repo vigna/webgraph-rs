@@ -18,8 +18,9 @@ use value_traits::slices::SliceByValue;
 /// much faster.
 ///
 /// The permutation is assumed to be bijective. For the meaning of the
-/// additional parameter, see
-/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
+/// additional parameter, see [`ParSortedGraphConf`].
+///
+/// [`ParSortedGraphConf`]: crate::graphs::par_sorted_graph::ParSortedGraphConf
 pub fn permute_seq<G: SequentialGraph, P: SliceByValue<Value = usize>>(
     graph: &G,
     perm: &P,
@@ -50,11 +51,11 @@ pub fn permute_seq<G: SequentialGraph, P: SliceByValue<Value = usize>>(
 /// [install] a custom pool if you want to customize the parallelism.
 ///
 /// The permutation is assumed to be bijective. For the meaning of the
-/// additional parameter, see
-/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
+/// additional parameter, see [`ParSortedGraphConf`].
 ///
 /// [`ParGraph`]: crate::graphs::par_graphs::ParGraph
 /// [install]: rayon::ThreadPool::install
+/// [`ParSortedGraphConf`]: crate::graphs::par_sorted_graph::ParSortedGraphConf
 pub fn permute_par<G, P>(
     graph: G,
     perm: &P,

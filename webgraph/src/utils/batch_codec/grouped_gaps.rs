@@ -36,9 +36,6 @@ use rdst::*;
 /// * `SRC_CODE` - Code used for encoding source gaps (default: [ɣ]).
 /// * `DST_CODE` - Code used for encoding destination gaps (default: [ɣ]).
 ///
-/// [ɣ]: dsi_bitstream::codes::gamma
-/// [`BitSerDeser`]: crate::traits::BitSerDeser
-///
 /// # Encoding Format
 ///
 /// 1. The batch length is written using delta coding.
@@ -52,6 +49,9 @@ use rdst::*;
 /// `SD` must be [`Clone`] because we need one copy for each
 /// [`GroupedGapsIter`], and there are possible scenarios in which the
 /// deserializer might be stateful.
+///
+/// [ɣ]: dsi_bitstream::codes::gamma
+/// [`BitSerDeser`]: crate::traits::BitSerDeser
 #[derive(Clone, Debug)]
 pub struct GroupedGapsCodec<
     E: Endianness = NE,

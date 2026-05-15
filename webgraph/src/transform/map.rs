@@ -23,8 +23,9 @@ use value_traits::slices::SliceByValue;
 /// Note that if the graph implements [`IntoParLenders`], [`map_par`] will be
 /// much faster.
 ///
-/// For the meaning of the additional parameter, see
-/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
+/// For the meaning of the additional parameter, see [`ParSortedGraphConf`].
+///
+/// [`ParSortedGraphConf`]: crate::graphs::par_sorted_graph::ParSortedGraphConf
 pub fn map_seq(
     graph: &impl SequentialGraph,
     map: &impl SliceByValue<Value = usize>,
@@ -67,12 +68,12 @@ pub fn map_seq(
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
 ///
-/// For the meaning of the additional parameter, see
-/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
+/// For the meaning of the additional parameter, see [`ParSortedGraphConf`].
 ///
 /// [`ParGraph`]: crate::graphs::par_graphs::ParGraph
 /// [splittable]: SplitLabeling
 /// [install]: rayon::ThreadPool::install
+/// [`ParSortedGraphConf`]: crate::graphs::par_sorted_graph::ParSortedGraphConf
 pub fn map_par<G, M>(
     graph: G,
     map: &M,

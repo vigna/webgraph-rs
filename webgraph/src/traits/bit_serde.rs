@@ -116,9 +116,8 @@ impl<E: Endianness, BR: BitRead<E>> BitDeserializer<E, BR> for () {
 /// fixed number of bits.
 ///
 /// By default ([`new`]), the full width of the type is used
-/// ([`T::BITS`](PrimitiveInteger::BITS) bits). With [`with_bits`], you can
-/// specify a smaller number of bits to save space when values are known to
-/// fit in a narrower range.
+/// ([`T::BITS`]) bits. With [`with_bits`], you can specify a smaller number
+/// of bits to save space when values are known to fit in a narrower range.
 ///
 /// Signed types are handled correctly: the low `bits` bits of the two's
 /// complement representation are stored, and sign extension is applied on
@@ -140,6 +139,7 @@ impl<E: Endianness, BR: BitRead<E>> BitDeserializer<E, BR> for () {
 ///
 /// [`new`]: FixedWidth::new
 /// [`with_bits`]: FixedWidth::with_bits
+/// [`T::BITS`]: PrimitiveInteger::BITS
 #[derive(Clone, Copy, Debug)]
 pub struct FixedWidth<T: PrimitiveInteger> {
     bits: usize,
@@ -148,11 +148,13 @@ pub struct FixedWidth<T: PrimitiveInteger> {
 
 impl<T: PrimitiveInteger> FixedWidth<T> {
     /// Creates a new [`FixedWidth`] serializer/deserializer using
-    /// [`T::BITS`](PrimitiveInteger::BITS) bits.
+    /// [`T::BITS`] bits.
     ///
     /// # Panics
     ///
     /// Panics if `T` has more than 64 bits.
+    ///
+    /// [`T::BITS`]: PrimitiveInteger::BITS
     pub fn new() -> Self {
         Self::with_bits(T::BITS as usize)
     }

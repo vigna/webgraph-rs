@@ -12,12 +12,12 @@
 //! encoding of batches of sorted triples to/from disk. They are used by
 //! [`ParSortPairs`], [`ParSortIters`], and the transform functions.
 //!
-//! [`ParSortPairs`]: crate::utils::par_sort_pairs::ParSortPairs
-//! [`ParSortIters`]: crate::utils::par_sort_iters::ParSortIters
-//!
 //! They usually do not need to be accessed or modified by the end users, albeit
 //! in some specific cases where performance or on-disk occupation is critical
 //! they can be customized.
+//!
+//! [`ParSortPairs`]: crate::utils::par_sort_pairs::ParSortPairs
+//! [`ParSortIters`]: crate::utils::par_sort_iters::ParSortIters
 
 use anyhow::Result;
 

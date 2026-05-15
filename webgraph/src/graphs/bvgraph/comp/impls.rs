@@ -391,9 +391,11 @@ impl<PL> BvCompConf<PL> {
     }
 
     /// Sets a custom basename for label files, overriding the
-    /// [`default_labels_basename`](Self::default_labels_basename) convention.
+    /// [`default_labels_basename`] convention.
     ///
     /// This is useful, for example, to write labels to a different disk.
+    ///
+    /// [`default_labels_basename`]: Self::default_labels_basename
     pub fn labels_basename(mut self, labels_basename: impl AsRef<Path>) -> Self {
         self.labels_basename = Some(labels_basename.as_ref().into());
         self
@@ -401,10 +403,12 @@ impl<PL> BvCompConf<PL> {
 
     /// Sets the progress logger for the compression methods.
     ///
-    /// Only the [`item_name`](ProgressLog::item_name) and
-    /// [`expected_updates`](ProgressLog::expected_updates) are set by the
+    /// Only the [`item_name`] and [`expected_updates`] are set by the
     /// compression methods; all other properties (e.g., display options,
     /// log interval) should be configured by the caller.
+    ///
+    /// [`item_name`]: ProgressLog::item_name
+    /// [`expected_updates`]: ProgressLog::expected_updates
     pub fn progress_logger<PL2>(self, pl: PL2) -> BvCompConf<PL2> {
         BvCompConf {
             basename: self.basename,
@@ -665,10 +669,6 @@ impl<PL: ProgressLog> BvCompConf<PL> {
     /// Compresses a labeled graph in parallel, then loads and verifies the
     /// result using [`BitStreamLabelingSeq::load`]:
     ///
-    /// [`into_par_lenders`]: IntoParLenders::into_par_lenders
-    /// [`install`]: rayon::ThreadPool::install
-    /// [`BitStreamStoreLabelsConf`]: crate::labels::BitStreamStoreLabelsConf
-    ///
     /// ```
     /// # use anyhow::Result;
     /// # use dsi_bitstream::prelude::*;
@@ -712,6 +712,9 @@ impl<PL: ProgressLog> BvCompConf<PL> {
     /// # }
     /// ```
     ///
+    /// [`into_par_lenders`]: IntoParLenders::into_par_lenders
+    /// [`install`]: rayon::ThreadPool::install
+    /// [`BitStreamStoreLabelsConf`]: crate::labels::BitStreamStoreLabelsConf
     /// [`par_comp`]: Self::par_comp
     /// [`BitStreamLabelingSeq::load`]: crate::labels::BitStreamLabelingSeq::load
     pub fn par_comp_labeled<E: Endianness, G, SLC>(

@@ -45,17 +45,12 @@ use crate::traits::Pair;
 /// methods that delegate to [`From`] trait implementations for [`IntoPairs`]
 /// and [`IntoLabeledPairs`].
 ///
-/// [`into_pairs`]: NodeLabelsLender::into_pairs
-/// [`into_labeled_pairs`]: NodeLabelsLender::into_labeled_pairs
-///
 /// # Extension of [`Lender`] Methods
 ///
 /// Methods defined on [`Lender`], such as [`Lender::zip`], normally would
 /// return a [`Lender`], but not a [`NodeLabelsLender`]. However, the module
 /// [`lenders`] contains implementations that automatically turn
 /// such as a [`Lender`] into a [`NodeLabelsLender`] whenever it makes sense.
-///
-/// [`lenders`]: super::lenders
 ///
 /// Thus, for example, one can take two graphs and merge easily the first half
 /// of the first one and the second half of the second one:
@@ -88,22 +83,23 @@ use crate::traits::Pair;
 /// the implementations in the module [`lenders`] makes the result of
 /// [`Lender::take`] and [`Lender::skip`] a [`NodeLabelsLender`].
 ///
-/// [`VecGraph::add_lender`]: crate::graphs::vec_graph::VecGraph::add_lender
-/// [`lenders`]: super::lenders
-///
 /// # Propagation of implicit bounds
 ///
 /// The definition of this trait emerged from a [discussion on the Rust language
-/// forum](https://users.rust-lang.org/t/more-help-for-more-complex-lifetime-situation/103821/10).
-/// The purpose of the trait is to propagate the implicit bound appearing in the
-/// definition [`Lender`] to the iterator returned by the associated type
-/// [`IntoIterator`]. In this way, one can return iterators depending on the
-/// internal state of the labeling. Without this additional trait, it would be
-/// possible to return iterators whose state depends on the state of the lender,
-/// but not on the state of the labeling.
+/// forum]. The purpose of the trait is to propagate the implicit bound
+/// appearing in the definition [`Lender`] to the iterator returned by the
+/// associated type [`IntoIterator`]. In this way, one can return iterators
+/// depending on the internal state of the labeling. Without this additional
+/// trait, it would be possible to return iterators whose state depends on the
+/// state of the lender, but not on the state of the labeling.
 ///
 /// [`ArcListGraph`] is the main motivation for this trait.
 ///
+/// [`into_pairs`]: NodeLabelsLender::into_pairs
+/// [`into_labeled_pairs`]: NodeLabelsLender::into_labeled_pairs
+/// [`lenders`]: super::lenders
+/// [`VecGraph::add_lender`]: crate::graphs::vec_graph::VecGraph::add_lender
+/// [discussion on the Rust language forum]: https://users.rust-lang.org/t/more-help-for-more-complex-lifetime-situation/103821/10
 /// [`ArcListGraph`]: crate::graphs::arc_list_graph::ArcListGraph
 pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'lend, Self>>:
     Lender + Lending<'lend, __ImplBound, Lend = (usize, Self::IntoIterator)>

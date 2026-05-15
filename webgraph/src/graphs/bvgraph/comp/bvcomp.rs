@@ -25,10 +25,14 @@ pub struct CompStats {
     /// Length of the offsets bitstream.
     pub offsets_written_bits: u64,
     /// Sum of reference-chain depths across all nodes (divide by
-    /// [`num_nodes`](Self::num_nodes) to get the average).
+    /// [`num_nodes`] to get the average).
+    ///
+    /// [`num_nodes`]: Self::num_nodes
     pub tot_ref: u64,
     /// Sum of reference distances (offsets) across all nodes (divide by
-    /// [`num_nodes`](Self::num_nodes) to get the average).
+    /// [`num_nodes`] to get the average).
+    ///
+    /// [`num_nodes`]: Self::num_nodes
     pub tot_dist: u64,
     /// Length of the label bitstream.
     pub labels_written_bits: u64,

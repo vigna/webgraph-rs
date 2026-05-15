@@ -15,11 +15,6 @@
 //! For symmetric (i.e., undirected) graphs there is a [sequential] and a
 //! [parallel] implementation that computes connected components.
 //!
-//! [Tarjan's algorithm]: tarjan()
-//! [Kosaraju's algorithm]: kosaraju()
-//! [sequential]: symm_seq()
-//! [parallel]: symm_par()
-//!
 //! # Examples
 //! ```
 //! use dsi_progress_logger::no_logging;
@@ -37,6 +32,11 @@
 //! assert_eq!(sizes, vec![3, 1].into_boxed_slice());
 //! assert_eq!(scc.components(), &vec![0, 0, 0, 1]);
 //! ```
+//!
+//! [Tarjan's algorithm]: tarjan()
+//! [Kosaraju's algorithm]: kosaraju()
+//! [sequential]: symm_seq()
+//! [parallel]: symm_par()
 
 use crate::llp;
 use epserde::prelude::*;

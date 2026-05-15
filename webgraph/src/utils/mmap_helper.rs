@@ -27,11 +27,11 @@ use std::{mem::size_of, path::Path, sync::Arc};
 /// On the contrary, [`mmap_mut`] will always refuse to map a file whose length
 /// is not a multiple of the size of `W`.
 ///
-/// [`mmap`]: MmapHelper::mmap
-/// [`mmap_mut`]: MmapHelper::mmap_mut
-///
 /// If you need clonable version of this structure, consider using
 /// [`ArcMmapHelper`].
+///
+/// [`mmap`]: MmapHelper::mmap
+/// [`mmap_mut`]: MmapHelper::mmap_mut
 #[derive(Clone)]
 pub struct MmapHelper<W, M = Mmap> {
     /// The underlying memory mapping, [`Mmap`] or [`MmapMut`].

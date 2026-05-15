@@ -38,9 +38,6 @@ use sux::{bits::AtomicBitVec, traits::AtomicBitVecOps};
 /// [`SyncSlice`] from the [`sync_cell_slice`] crate to store the parent of
 /// each node.
 ///
-/// [fair parallel visit]: crate::visits::breadth_first::ParFairNoPred
-/// [`SyncSlice`]: sync_cell_slice::SyncSlice
-///
 /// ```
 /// # if cfg!(miri) { return; }
 /// use webgraph::visits::Parallel;
@@ -75,6 +72,9 @@ use sux::{bits::AtomicBitVec, traits::AtomicBitVecOps};
 /// assert_eq!(tree[2], 1);
 /// assert_eq!(tree[3], 1);
 /// ```
+///
+/// [fair parallel visit]: crate::visits::breadth_first::ParFairNoPred
+/// [`SyncSlice`]: sync_cell_slice::SyncSlice
 pub struct ParLowMem<G: RandomAccessGraph> {
     graph: G,
     granularity: usize,
@@ -87,11 +87,11 @@ impl<G: RandomAccessGraph> ParLowMem<G> {
     /// This constructor uses a default granularity of 128 nodes. Use
     /// [`with_granularity`] to set a different granularity.
     ///
-    /// [`with_granularity`]: Self::with_granularity
-    ///
     /// # Arguments
     ///
     /// * `graph` - the graph to visit.
+    ///
+    /// [`with_granularity`]: Self::with_granularity
     pub fn new(graph: G) -> Self {
         Self::with_granularity(graph, Granularity::Nodes(128))
     }

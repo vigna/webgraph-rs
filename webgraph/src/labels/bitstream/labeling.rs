@@ -22,9 +22,6 @@
 //! programmatically with [`store_ef_with_data`] / [`build_ef_with_data`] or
 //! using the `webgraph build ef` command.
 //!
-//! [`store_ef_with_data`]: crate::graphs::bvgraph::store_ef_with_data
-//! [`build_ef_with_data`]: crate::graphs::bvgraph::build_ef_with_data
-//!
 //! The main access points to the implementation are [`BitStreamLabeling::load`]
 //! and [`BitStreamLabelingSeq::load`], which memory-map the files given a label
 //! basename. For more customized setups, use [`BitStreamLabeling::new`] and
@@ -108,6 +105,8 @@
 //! [custom serializer]: crate::traits::bit_serde::BitSerializer
 //! [Elias–Fano]: crate::graphs::bvgraph::EF
 //! [`BvGraph`]: crate::graphs::bvgraph
+//! [`store_ef_with_data`]: crate::graphs::bvgraph::store_ef_with_data
+//! [`build_ef_with_data`]: crate::graphs::bvgraph::build_ef_with_data
 
 use std::iter::FusedIterator;
 use std::path::Path;
@@ -131,13 +130,15 @@ use value_traits::slices::SliceByValue;
 /// offsets on the fly, so it does not require the Elias–Fano pointer list. Only
 /// [`SequentialLabeling`] is implemented.
 ///
-/// Use [`load`](BitStreamLabelingSeq::load) to memory-map a labeling from a
-/// label basename, or [`new`](BitStreamLabelingSeq::new) for custom setups.
+/// Use [`load`] to memory-map a labeling from a label basename, or [`new`]
+/// for custom setups.
 ///
 /// The label files read by this struct are produced by
 /// [`BvCompConf::comp_labeled_graph`] or [`BvCompConf::par_comp_labeled`]
 /// using a [`BitStreamStoreLabelsConf`].
 ///
+/// [`load`]: BitStreamLabelingSeq::load
+/// [`new`]: BitStreamLabelingSeq::new
 /// [`BvCompConf::comp_labeled_graph`]: crate::graphs::bvgraph::BvCompConf::comp_labeled_graph
 /// [`BvCompConf::par_comp_labeled`]: crate::graphs::bvgraph::BvCompConf::par_comp_labeled
 /// [`BitStreamStoreLabelsConf`]: crate::labels::BitStreamStoreLabelsConf
@@ -319,9 +320,9 @@ where
 
 /// A labeling based on a bitstream of labels.
 ///
-/// Use [`load`](BitStreamLabeling::load) to memory-map a labeling and the
-/// associated [Elias–Fano] structure representing pointers from a label
-/// basename, or [`new`](BitStreamLabeling::new) for custom setups.
+/// Use [`load`] to memory-map a labeling and the associated [Elias–Fano]
+/// structure representing pointers from a label basename, or [`new`] for
+/// custom setups.
 ///
 /// The label files read by this struct are produced by
 /// [`BvCompConf::comp_labeled_graph`] or [`BvCompConf::par_comp_labeled`]
@@ -331,6 +332,8 @@ where
 /// See also [`BitStreamLabelingSeq`] for the sequential-only counterpart
 /// (no `.ef` needed).
 ///
+/// [`load`]: BitStreamLabeling::load
+/// [`new`]: BitStreamLabeling::new
 /// [Elias–Fano]: crate::graphs::bvgraph::EF
 /// [`BvCompConf::comp_labeled_graph`]: crate::graphs::bvgraph::BvCompConf::comp_labeled_graph
 /// [`BvCompConf::par_comp_labeled`]: crate::graphs::bvgraph::BvCompConf::par_comp_labeled

@@ -61,10 +61,11 @@ impl LabelStore {
 
     /// Returns a pair of references to slices of `usize` for labels and volumes.
     ///
-    /// This methods transmutes safely the internal
-    /// [`Cell<usize>`](core::cell::Cell) and [`AtomicUsize`] to [`usize`]. Its
-    /// main usage is temporary reuse as support arrays of the space used by the
-    /// label store.
+    /// This methods transmutes safely the internal [`Cell<usize>`] and
+    /// [`AtomicUsize`] to [`usize`]. Its main usage is temporary reuse as
+    /// support arrays of the space used by the label store.
+    ///
+    /// [`Cell<usize>`]: core::cell::Cell
     pub(crate) fn labels_and_volumes(&mut self) -> (&mut [usize], &mut [usize]) {
         // SAFETY: Cell<usize> and usize have the same layout, and transmuting
         // &mut from atomic to non-atomic is sound.

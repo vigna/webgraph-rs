@@ -74,9 +74,6 @@ impl core::ops::Add for Missing {
 /// This trait can be used to run the algorithm either [providing a graph and
 /// its transpose] or [using a symmetric graph].
 ///
-/// [providing a graph and its transpose]: Self::run
-/// [using a symmetric graph]: Self::run_symm
-///
 /// It is implemented by the following structs: [`All`], [`AllForward`],
 /// [`RadiusDiameter`], [`Diameter`], and [`Radius`], which correspond to
 /// different level of computation, with decreasing cost in term of memory and
@@ -86,6 +83,8 @@ impl core::ops::Add for Missing {
 ///
 /// See the [module documentation].
 ///
+/// [providing a graph and its transpose]: Self::run
+/// [using a symmetric graph]: Self::run_symm
 /// [module documentation]: crate::distances::exact_sum_sweep
 pub trait Level: Sync {
     /// The type of the result of [`run`].

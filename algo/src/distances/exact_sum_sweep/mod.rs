@@ -103,13 +103,6 @@
 //! methods return a suitable structure containing the result of the
 //! computation.
 //!
-//! [_level_]: Level
-//! [`run`]: Level::run
-//! [`run_symm`]: Level::run_symm
-//!
-//! [ExactSumSweep paper]: <https://doi.org/10.1016/j.tcs.2015.02.033>
-//! [Facebook]: <https://doi.org/10.1145/2380718.2380723>
-//!
 //! # Examples
 //!
 //! ```rust
@@ -174,7 +167,6 @@
 //!
 //! If the graph is symmetric (i.e., undirected), you may use [`run_symm`].
 //!
-//! [`run_symm`]: Level::run_symm
 //! ```
 //! use webgraph_algo::distances::exact_sum_sweep::{self, *};
 //! use dsi_progress_logger::no_logging;
@@ -194,6 +186,12 @@
 //! assert_eq!(result.diameter, 1);
 //! assert_eq!(result.radius, 1);
 //! ```
+//!
+//! [_level_]: Level
+//! [`run`]: Level::run
+//! [`run_symm`]: Level::run_symm
+//! [ExactSumSweep paper]: https://doi.org/10.1016/j.tcs.2015.02.033
+//! [Facebook]: https://doi.org/10.1145/2380718.2380723
 
 mod level;
 pub use level::*;

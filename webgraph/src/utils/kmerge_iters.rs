@@ -17,11 +17,11 @@ use dary_heap::PeekMut;
 /// [`Peekable::peek`] needs a mutable reference, but we would be calling it
 /// inside [`Ord::cmp`], which only has an immutable reference.
 ///
+/// Comparison is implemented only on the pair of nodes and ignoring the label.
+///
 /// [`Peekable`]: std::iter::Peekable
 /// [`Peekable::peek`]: std::iter::Peekable::peek
 /// [`Ord::cmp`]: std::cmp::Ord::cmp
-///
-/// Comparison is implemented only on the pair of nodes and ignoring the label.
 #[derive(Clone, Debug)]
 struct HeadTail<T, I: Iterator<Item = ((usize, usize), T)>> {
     head: ((usize, usize), T),
@@ -71,8 +71,6 @@ fn build_kmerge_heap<T, I: Iterator<Item = ((usize, usize), T)>>(
 
 /// A structure using a [quaternary heap] to merge sorted iterators.
 ///
-/// [quaternary heap]: dary_heap::QuaternaryHeap
-///
 /// The iterators must be sorted by the pair of nodes, and the structure will
 /// return the labeled pairs sorted by lexicographical order of the pairs of
 /// nodes.
@@ -102,6 +100,8 @@ fn build_kmerge_heap<T, I: Iterator<Item = ((usize, usize), T)>>(
 /// let merged: KMergeIters<_, i32> =
 ///     KMergeIters::new(iter.into_iter().map(|v| v.into_iter()));
 /// ```
+///
+/// [quaternary heap]: dary_heap::QuaternaryHeap
 #[derive(Debug)]
 pub struct KMergeIters<
     I: Iterator<Item = ((usize, usize), T)>,

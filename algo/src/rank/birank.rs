@@ -166,8 +166,6 @@ use webgraph::utils::Granularity;
 ///
 /// For details about the algorithm, see the [module-level documentation].
 ///
-/// [module-level documentation]: self
-///
 /// The struct is configured via setters and then executed via
 /// [`run`]. After completion the rank vector is available via the
 /// [`rank`] method, where `rank[i]` for *i* < `num_sources` is
@@ -180,10 +178,6 @@ use webgraph::utils::Granularity;
 ///
 /// If you compute multiple variants of BiRank on the same graph, please reuse
 /// this structure, as it caches the inverse square-root degrees of nodes.
-///
-/// [`run`]: Self::run
-/// [`rank`]: Self::rank
-/// [`preference`]: Self::preference
 ///
 /// # Examples
 ///
@@ -206,6 +200,11 @@ use webgraph::utils::Granularity;
 ///
 /// assert_eq!(br.rank().len(), 6);
 /// ```
+///
+/// [module-level documentation]: self
+/// [`run`]: Self::run
+/// [`rank`]: Self::rank
+/// [`preference`]: Self::preference
 pub struct BiRank<
     'a,
     G: RandomAccessGraph + Sync,

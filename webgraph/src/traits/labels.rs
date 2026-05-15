@@ -384,8 +384,6 @@ pub type Labels<'succ, 'node, S> =
 /// The first element of the pairs returned by the iterator must go from zero to
 /// the [number of nodes] of the graph, excluded.
 ///
-/// [number of nodes]: SequentialLabeling::num_nodes
-///
 /// # Examples
 ///
 /// To bind the lender returned by [`SequentialLabeling::iter`] to implement this
@@ -400,6 +398,8 @@ pub type Labels<'succ, 'node, S> =
 ///     // ...
 /// }
 /// ```
+///
+/// [number of nodes]: SequentialLabeling::num_nodes
 pub unsafe trait SortedLender: Lender {}
 
 // SAFETY: taking a prefix of a sorted lender is still sorted.

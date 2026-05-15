@@ -220,10 +220,11 @@ pub type EF = Unaligned<
 /// `upper_bound` parameter is the universe of the Elias–Fano representation
 /// (typically the bit-length of the bitstream).
 ///
-/// Use [`no_logging`](dsi_progress_logger::no_logging) if no progress logging
-/// is needed.
+/// Use [`no_logging`] if no progress logging is needed.
 ///
 /// See also [`build_ef_with_data`], [`store_ef`], and [`store_ef_with_data`].
+///
+/// [`no_logging`]: dsi_progress_logger::no_logging
 pub fn build_ef(
     num_nodes: usize,
     upper_bound: u64,
@@ -253,10 +254,11 @@ pub fn build_ef(
 /// This is a convenience wrapper around [`build_ef`] that sets the upper bound
 /// to `8 * file_size(data_path)`.
 ///
-/// Use [`no_logging`](dsi_progress_logger::no_logging) if no progress logging
-/// is needed.
+/// Use [`no_logging`] if no progress logging is needed.
 ///
 /// See also [`build_ef`], [`store_ef`], and [`store_ef_with_data`].
+///
+/// [`no_logging`]: dsi_progress_logger::no_logging
 pub fn build_ef_with_data(
     num_nodes: usize,
     data_path: impl AsRef<Path>,

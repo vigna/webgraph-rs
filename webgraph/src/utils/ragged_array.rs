@@ -7,8 +7,6 @@
 
 /// A [ragged array] that can be only appended to.
 ///
-/// [ragged array]: https://en.wikipedia.org/wiki/Ragged_array
-///
 /// This structure keeps track of a list of vectors of different lengths in a
 /// compact form: a vector of values contains all the values concatenated, and
 /// a vector of offsets contains the starting index of each vector in the
@@ -36,6 +34,8 @@
 /// ragged.clear();
 /// assert_eq!(ragged.len(), 0);
 /// ```
+///
+/// [ragged array]: https://en.wikipedia.org/wiki/Ragged_array
 #[derive(Debug, Clone)]
 pub struct RaggedArray<T> {
     /// The first offset is always zero, and offsets contains one more element

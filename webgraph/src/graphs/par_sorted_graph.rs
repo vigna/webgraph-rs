@@ -871,8 +871,10 @@ impl<'lend, I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> Lend
 ///
 /// # Deduplication
 ///
-/// By default, duplicate arcs are preserved. Call [`.dedup()`](Self::dedup)
-/// to enable deduplication.
+/// By default, duplicate arcs are preserved. Call [`.dedup()`] to enable
+/// deduplication.
+///
+/// [`.dedup()`]: Self::dedup
 pub struct ParSortedGraphConf<PL = Option<ProgressLogger>, const DEDUP: bool = false>(
     pub(crate) ParSortedLabeledGraphConf<PL, DEDUP>,
 );
@@ -905,8 +907,10 @@ impl<PL, const DEDUP: bool> ParSortedGraphConf<PL, DEDUP> {
 
     /// Sets the progress logger.
     ///
-    /// Only the [`item_name`](ProgressLog::item_name) is set by the sort
-    /// methods; all other properties should be configured by the caller.
+    /// Only the [`item_name`] is set by the sort methods; all other properties
+    /// should be configured by the caller.
+    ///
+    /// [`item_name`]: ProgressLog::item_name
     pub fn progress_logger<PL2: ProgressLog>(self, pl: PL2) -> ParSortedGraphConf<PL2, DEDUP> {
         ParSortedGraphConf(self.0.progress_logger(pl))
     }
@@ -1041,8 +1045,10 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedGraphConf<PL, DEDUP> {
 ///
 /// # Deduplication
 ///
-/// By default, duplicate arcs are preserved. Call [`.dedup()`](Self::dedup)
-/// to enable deduplication.
+/// By default, duplicate arcs are preserved. Call [`.dedup()`] to enable
+/// deduplication.
+///
+/// [`.dedup()`]: Self::dedup
 pub struct ParSortedLabeledGraphConf<PL = Option<ProgressLogger>, const DEDUP: bool = false> {
     num_partitions: usize,
     memory_usage: Option<MemoryUsage>,
@@ -1099,9 +1105,11 @@ impl<PL, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
 
     /// Sets the progress logger.
     ///
-    /// Only the [`item_name`](ProgressLog::item_name) is set by the sort
-    /// methods; all other properties (e.g., expected updates, display
-    /// options) should be configured by the caller.
+    /// Only the [`item_name`] is set by the sort methods; all other properties
+    /// (e.g., expected updates, display options) should be configured by the
+    /// caller.
+    ///
+    /// [`item_name`]: ProgressLog::item_name
     pub fn progress_logger<PL2: ProgressLog>(
         self,
         pl: PL2,

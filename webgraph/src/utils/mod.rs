@@ -311,7 +311,9 @@ pub fn humanize(value: f64) -> String {
 /// This structure is returned by [`ParSortPairs`] and [`ParSortIters`].
 /// For graph compression, convert the result into a [`ParSortedGraph`] (or
 /// [`ParSortedLabeledGraph`]) using the [`From`] implementations provided
-/// below (i.e., by calling [`.into()`](Into::into)).
+/// below (i.e., by calling [`.into()`]).
+///
+/// [`.into()`]: Into::into
 pub struct SplitIters<I> {
     pub boundaries: Box<[usize]>,
     pub iters: Box<[I]>,

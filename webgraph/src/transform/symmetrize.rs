@@ -90,8 +90,9 @@ where
 ///
 /// For a parallel version, see [`symmetrize_sorted_par`].
 ///
-/// For the meaning of the additional parameter, see
-/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
+/// For the meaning of the additional parameter, see [`ParSortedGraphConf`].
+///
+/// [`ParSortedGraphConf`]: crate::graphs::par_sorted_graph::ParSortedGraphConf
 pub fn symmetrize_sorted_seq<const NO_LOOPS: bool, G: SequentialGraph>(
     graph: &G,
     memory_usage: MemoryUsage,
@@ -201,8 +202,9 @@ where
 /// Note that if the graph is sorted (both on nodes and successors), it is
 /// recommended to use [`symmetrize_sorted_seq`].
 ///
-/// For the meaning of the additional parameter, see
-/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
+/// For the meaning of the additional parameter, see [`ParSortedGraphConf`].
+///
+/// [`ParSortedGraphConf`]: crate::graphs::par_sorted_graph::ParSortedGraphConf
 pub fn symmetrize_seq<const NO_LOOPS: bool>(
     graph: &impl SequentialGraph,
     memory_usage: MemoryUsage,
@@ -240,12 +242,12 @@ pub fn symmetrize_seq<const NO_LOOPS: bool>(
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
 ///
-/// For the meaning of the additional parameter, see
-/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
+/// For the meaning of the additional parameter, see [`ParSortedGraphConf`].
 ///
 /// [`ParGraph`]: crate::graphs::par_graphs::ParGraph
 /// [splittable]: SplitLabeling
 /// [install]: rayon::ThreadPool::install
+/// [`ParSortedGraphConf`]: crate::graphs::par_sorted_graph::ParSortedGraphConf
 pub fn symmetrize_par<const NO_LOOPS: bool, G>(
     graph: G,
     memory_usage: MemoryUsage,

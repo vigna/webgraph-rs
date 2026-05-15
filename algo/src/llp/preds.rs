@@ -11,9 +11,6 @@
 //! stop the algorithm. This module provides a few such predicates: they
 //! evaluate to true if the updates should be stopped.
 //!
-//! [layered label propagation]: super
-//! [predicate]: Predicate
-//!
 //! You can combine the predicates using the `and` and `or` methods provided by
 //! the [`Predicate`] trait.
 //!
@@ -28,6 +25,9 @@
 //! #     Ok(())
 //! # }
 //! ```
+//!
+//! [layered label propagation]: super
+//! [predicate]: Predicate
 
 use anyhow::ensure;
 use predicates::{Predicate, reflection::PredicateReflection};

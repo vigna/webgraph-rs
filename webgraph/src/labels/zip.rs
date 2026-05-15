@@ -31,11 +31,13 @@ use crate::prelude::{
 /// which does not perform length checks. For extra safety, consider using
 /// [`Zip::verify`] to perform a complete scan of the two labelings.
 ///
-/// See also [`Left`](super::Left) and [`Right`](super::Right) for
-/// projecting a zipped labeling back to one of its components.
+/// See also [`Left`] and [`Right`] for projecting a zipped labeling back to
+/// one of its components.
 ///
 /// [sequential]: SequentialLabeling
 /// [random-access]: RandomAccessLabeling
+/// [`Left`]: super::Left
+/// [`Right`]: super::Right
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Zip<L: SequentialLabeling, R: SequentialLabeling>(pub L, pub R);

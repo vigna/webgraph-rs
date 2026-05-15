@@ -42,8 +42,6 @@ use sux::traits::AtomicBitVecOps;
 /// If you need predecessors but the cost of the callbacks is not significant
 /// you can use a [low-memory parallel visit] instead.
 ///
-/// [low-memory parallel visit]: crate::visits::breadth_first::ParLowMem
-///
 /// The visits differ also in the type of events they generate:
 /// * [`ParFairNoPred`] generates events of type [`EventNoPred`].
 /// * [`ParFairPred`] generates events of type [`EventPred`].
@@ -55,8 +53,6 @@ use sux::traits::AtomicBitVecOps;
 ///
 /// Let's compute the distances from 0. We will be using a [`SyncSlice`] from
 /// the [`sync_cell_slice`] crate to store the parent of each node.
-///
-/// [`SyncSlice`]: sync_cell_slice::SyncSlice
 ///
 /// ```
 /// # if cfg!(miri) { return; }
@@ -91,6 +87,9 @@ use sux::traits::AtomicBitVecOps;
 /// assert_eq!(d[2], 2);
 /// assert_eq!(d[3], 2);
 /// ```
+///
+/// [low-memory parallel visit]: crate::visits::breadth_first::ParLowMem
+/// [`SyncSlice`]: sync_cell_slice::SyncSlice
 pub struct ParFair<G: RandomAccessGraph, const PRED: bool = false> {
     graph: G,
     granularity: usize,
@@ -115,11 +114,11 @@ impl<G: RandomAccessGraph, const P: bool> ParFair<G, P> {
     /// This constructor uses a default granularity of 128 nodes. Use
     /// [`with_granularity`] to set a different granularity.
     ///
-    /// [`with_granularity`]: Self::with_granularity
-    ///
     /// # Arguments
     ///
     /// * `graph` - the graph to visit.
+    ///
+    /// [`with_granularity`]: Self::with_granularity
     #[inline(always)]
     pub fn new(graph: G) -> Self {
         Self::with_granularity(graph, Granularity::Nodes(128))

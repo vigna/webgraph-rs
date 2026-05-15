@@ -20,7 +20,9 @@ use dsi_progress_logger::ProgressLog;
 /// [`ParSortedLabeledGraph`].
 ///
 /// For the meaning of the additional parameters, see
-/// [`ParSortedLabeledGraphConf`](crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf).
+/// [`ParSortedLabeledGraphConf`].
+///
+/// [`ParSortedLabeledGraphConf`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf
 pub fn transpose_labeled_seq<SD>(
     graph: &impl LabeledSequentialGraph<SD::SerType>,
     memory_usage: MemoryUsage,
@@ -50,8 +52,9 @@ where
 
 /// Returns the transpose of the provided graph as a [`ParSortedGraph`].
 ///
-/// For the meaning of the additional parameter, see
-/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
+/// For the meaning of the additional parameter, see [`ParSortedGraphConf`].
+///
+/// [`ParSortedGraphConf`]: crate::graphs::par_sorted_graph::ParSortedGraphConf
 pub fn transpose_seq(
     graph: impl SequentialGraph,
     memory_usage: MemoryUsage,
@@ -76,11 +79,12 @@ pub fn transpose_seq(
 /// [install] a custom pool if you want to customize the parallelism.
 ///
 /// For the meaning of the additional parameters, see
-/// [`ParSortedLabeledGraphConf`](crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf).
+/// [`ParSortedLabeledGraphConf`].
 ///
 /// [`ParGraph`]: crate::graphs::par_graphs::ParGraph
 /// [splittable]: crate::traits::SplitLabeling
 /// [install]: rayon::ThreadPool::install
+/// [`ParSortedLabeledGraphConf`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf
 pub fn transpose_labeled_par<SD, G>(
     graph: G,
     memory_usage: MemoryUsage,
@@ -124,12 +128,12 @@ where
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
 ///
-/// For the meaning of the additional parameters, see
-/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
+/// For the meaning of the additional parameters, see [`ParSortedGraphConf`].
 ///
 /// [`ParGraph`]: crate::graphs::par_graphs::ParGraph
 /// [splittable]: crate::traits::SplitLabeling
 /// [install]: rayon::ThreadPool::install
+/// [`ParSortedGraphConf`]: crate::graphs::par_sorted_graph::ParSortedGraphConf
 pub fn transpose_par<G>(
     graph: G,
     memory_usage: MemoryUsage,

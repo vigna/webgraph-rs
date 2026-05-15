@@ -199,8 +199,10 @@ fn kmerge_dedup(buffers: &[&[usize]], dst: &mut Vec<usize>) {
 ///
 /// # Safety
 ///
-/// Implementations must ensure that concurrent calls to [`set`](Self::set)
-/// with distinct indices do not cause data races.
+/// Implementations must ensure that concurrent calls to [`set`] with distinct
+/// indices do not cause data races.
+///
+/// [`set`]: Self::set
 pub unsafe trait SyncOutputStore<L: EstimationLogic + ?Sized>: Sync {
     /// When `true`, only modified nodes need to be written (the store
     /// starts clean each iteration). When `false`, nodes modified in the
@@ -236,8 +238,9 @@ unsafe impl<L: SliceEstimationLogic<W> + Sync, W: Word, S: AsRef<[SyncCell<W>]> 
 /// - An in-memory implementation on [`SliceEstimatorArray`] that uses
 ///   the existing ping-pong pattern (O(1) swap).
 /// - A spill-to-disk implementation ([`SpillStore`]) that writes `(node,
-///   backend)` records to an mmap'd log and scatters them back in
-///   [`commute`](Self::commute).
+///   backend)` records to an mmap'd log and scatters them back in [`commute`].
+///
+/// [`commute`]: Self::commute
 pub trait OutputStore<L: EstimationLogic + ?Sized, A> {
     /// The thread-safe view used during parallel iterations.
     type OutputStore<'a>: SyncOutputStore<L>
@@ -291,9 +294,10 @@ impl<L: SliceEstimationLogic<W> + Clone + Sync, W: Word, S: AsRef<[W]> + AsMut<[
 ///
 /// During the parallel phase, each call to [`SyncOutputStore::set`] atomically
 /// reserves space in the mmap and writes the node index followed by the
-/// backend words. During [`commute`](OutputStore::commute), the log is
-/// scattered back into the current estimator array in parallel, and the write
-/// cursor is reset.
+/// backend words. During [`commute`], the log is scattered back into the
+/// current estimator array in parallel, and the write cursor is reset.
+///
+/// [`commute`]: OutputStore::commute
 pub struct SpillStore<W: Word> {
     _file: std::fs::File,
     mmap: mmap_rs::MmapMut,
@@ -465,21 +469,6 @@ impl<L: SliceEstimationLogic<W> + Clone + Sync, W: Word, S: AsRef<[W]> + AsMut<[
 /// Finally, call [`build`] to obtain a [`HyperBall`] instance, and then
 /// [`run`] or [`run_until_done`] to perform the actual computation.
 ///
-/// [`with_hyper_log_log`]: Self::with_hyper_log_log
-/// [`with_hyper_log_log8`]: Self::with_hyper_log_log8
-/// [`with_hyper_log_log_external`]: Self::with_hyper_log_log_external
-/// [`with_hyper_log_log8_external`]: Self::with_hyper_log_log8_external
-/// [`new`]: Self::new
-/// [`with_transpose`]: Self::with_transpose
-/// [`sum_of_distances`]: Self::sum_of_distances
-/// [`sum_of_inverse_distances`]: Self::sum_of_inverse_distances
-/// [`discount_function`]: Self::discount_function
-/// [`granularity`]: Self::granularity
-/// [`weights`]: Self::weights
-/// [`build`]: Self::build
-/// [`run`]: HyperBall::run
-/// [`run_until_done`]: HyperBall::run_until_done
-///
 /// # Examples
 ///
 /// ```
@@ -527,6 +516,21 @@ impl<L: SliceEstimationLogic<W> + Clone + Sync, W: Word, S: AsRef<[W]> + AsMut<[
 /// assert_eq!(centralities.len(), graph.num_nodes());
 /// # Ok::<(), anyhow::Error>(())
 /// ```
+///
+/// [`with_hyper_log_log`]: Self::with_hyper_log_log
+/// [`with_hyper_log_log8`]: Self::with_hyper_log_log8
+/// [`with_hyper_log_log_external`]: Self::with_hyper_log_log_external
+/// [`with_hyper_log_log8_external`]: Self::with_hyper_log_log8_external
+/// [`new`]: Self::new
+/// [`with_transpose`]: Self::with_transpose
+/// [`sum_of_distances`]: Self::sum_of_distances
+/// [`sum_of_inverse_distances`]: Self::sum_of_inverse_distances
+/// [`discount_function`]: Self::discount_function
+/// [`granularity`]: Self::granularity
+/// [`weights`]: Self::weights
+/// [`build`]: Self::build
+/// [`run`]: HyperBall::run
+/// [`run_until_done`]: HyperBall::run_until_done
 pub struct HyperBallBuilder<
     'a,
     G1: RandomAccessGraph + Sync,
@@ -623,8 +627,6 @@ impl<
     /// This is an alternative to [`with_hyper_log_log`] that trades ~33%
     /// extra space for significantly faster merge operations.
     ///
-    /// [`with_hyper_log_log`]: HyperBallBuilder::with_hyper_log_log
-    ///
     /// # Arguments
     /// * `graph` - the graph to analyze.
     /// * `transpose` - optionally, the transpose of `graph`. If [`None`], no
@@ -634,6 +636,8 @@ impl<
     ///   HyperLogLog counter.
     /// * `weights` - the weights to use. If [`None`] every node is assumed to be
     ///   of weight equal to 1.
+    ///
+    /// [`with_hyper_log_log`]: HyperBallBuilder::with_hyper_log_log
     pub fn with_hyper_log_log8(
         graph: &'a G1,
         transpose: Option<&'a G2>,

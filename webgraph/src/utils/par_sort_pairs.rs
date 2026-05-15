@@ -75,10 +75,6 @@ use crate::utils::{SortedPairIter, SplitIters};
 ///
 /// See the [module documentation] for more details.
 ///
-/// [`BvCompConf::par_comp`]: crate::graphs::bvgraph::BvCompConf::par_comp
-/// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
-/// [module documentation]: self
-///
 /// # Examples
 ///
 /// ```
@@ -137,6 +133,10 @@ use crate::utils::{SortedPairIter, SplitIters};
 ///     par_comp::<BE, _>(sorted_graph)?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
+///
+/// [`BvCompConf::par_comp`]: crate::graphs::bvgraph::BvCompConf::par_comp
+/// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
+/// [module documentation]: self
 pub struct ParSortPairs<const DEDUP: bool = false> {
     num_nodes: usize,
     num_partitions: usize,
@@ -277,12 +277,12 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
     /// [`BitDeserializer`] that are used to serialize and deserialize the
     /// labels.
     ///
-    /// [`BitSerializer`]: crate::traits::BitSerializer
-    /// [`BitDeserializer`]: crate::traits::BitDeserializer
-    ///
     /// The bit deserializer must be [`Clone`] because we need one for each
     /// `BatchIterator`, and there are possible
     /// scenarios in which the deserializer might be stateful.
+    ///
+    /// [`BitSerializer`]: crate::traits::BitSerializer
+    /// [`BitDeserializer`]: crate::traits::BitDeserializer
     pub fn try_sort_labeled<
         C: BatchCodec,
         E: Into<anyhow::Error>,
