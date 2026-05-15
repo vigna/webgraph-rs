@@ -1046,6 +1046,8 @@ impl<
                 arc_cursor: Mutex::new((0, 0)),
                 visited_arcs: AtomicU64::new(0).into(),
                 last_visited_arcs: self.graph.num_arcs() as usize,
+                scanned_arcs: AtomicU64::new(0).into(),
+                max_node_arcs: AtomicU64::new(0).into(),
                 modified_estimators: AtomicU64::new(0).into(),
                 systolic: false,
                 local: false,
@@ -1090,10 +1092,23 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
     /// A cursor scanning the nodes and arcs to process during non-local
     /// computations.
     arc_cursor: Mutex<(usize, u64)>,
-    /// The number of arcs visited during the current iteration.
+    /// The number of arcs visited during the current iteration. A visited arc
+    /// is one whose destination is in [`HyperBall::curr_modified`], i.e., an
+    /// arc that actually merges a modified estimator.
     visited_arcs: CachePadded<AtomicU64>,
     /// The number of arcs visited during the previous iteration.
     last_visited_arcs: usize,
+    /// The total number of arcs decoded during the current iteration,
+    /// regardless of whether their destination was modified. The ratio
+    /// `scanned_arcs / visited_arcs` quantifies how much decode work is being
+    /// wasted on unmodified successors..
+    scanned_arcs: CachePadded<AtomicU64>,
+    /// The maximum number of successors decoded in a single [`process_node`]
+    /// call during the current iteration. A value comparable to the graph's
+    /// largest out-degree indicates a hub is in the checklist.
+    ///
+    /// [`process_node`]: HyperBall::process_node
+    max_node_arcs: CachePadded<AtomicU64>,
     /// The number of estimators modified during the current iteration.
     modified_estimators: CachePadded<AtomicU64>,
     /// `true` if we started a systolic computation.
@@ -1132,6 +1147,8 @@ impl<G1: SequentialLabeling, D> IterationContext<'_, G1, D> {
         self.node_cursor.store(0, Ordering::Relaxed);
         *self.arc_cursor.lock().unwrap() = (0, 0);
         self.visited_arcs.store(0, Ordering::Relaxed);
+        self.scanned_arcs.store(0, Ordering::Relaxed);
+        self.max_node_arcs.store(0, Ordering::Relaxed);
         self.modified_estimators.store(0, Ordering::Relaxed);
     }
 }
@@ -1598,7 +1615,15 @@ where
         ic.last_visited_arcs = ic.visited_arcs.load(Ordering::Relaxed) as usize;
         arc_pl.done_with_count(ic.last_visited_arcs);
         let modified_estimators = ic.modified_estimators.load(Ordering::Relaxed);
+        let scanned_arcs = ic.scanned_arcs.load(Ordering::Relaxed);
+        let max_node_arcs = ic.max_node_arcs.load(Ordering::Relaxed);
 
+        pl.info(format_args!(
+            "Arcs scanned: {} ({:.2}× visited); max single-node out-degree scanned: {}",
+            scanned_arcs,
+            scanned_arcs as f64 / (ic.last_visited_arcs.max(1)) as f64,
+            max_node_arcs,
+        ));
         pl.info(format_args!(
             "Modified estimators: {}/{} ({:.3}%)",
             modified_estimators,
@@ -1655,7 +1680,9 @@ where
     /// or sequentially-decoded successors (non-local iterations) without
     /// duplicating the processing logic.
     ///
-    /// Returns `(visited_arcs, modified_estimators)`.
+    /// Returns `(visited_arcs, modified_estimators, scanned_arcs)`, where
+    /// `scanned_arcs` is the total number of successors decoded (regardless of
+    /// whether they triggered a merge).
     #[allow(clippy::too_many_arguments)]
     #[inline(always)]
     fn process_node<I: IntoIterator<Item = usize>, NS: SyncOutputStore<L>>(
@@ -1675,10 +1702,11 @@ where
         arc_pl: &mut impl ConcurrentProgressLog,
         neighborhood_function_delta: &mut KahanSum<f64>,
         local_next_must_be_checked: &mut Vec<usize>,
-    ) -> (u64, u64) {
+    ) -> (u64, u64, u64) {
         let logic = curr_state.logic();
         let prev_estimator = curr_state.get_backend(node);
         let mut visited_arcs = 0u64;
+        let mut scanned_arcs = 0u64;
         let mut modified_estimators = 0u64;
 
         // The three cases in which we enumerate successors:
@@ -1690,6 +1718,7 @@ where
             next_estimator.set(prev_estimator);
             let mut modified = false;
             for succ in successors {
+                scanned_arcs += 1;
                 if succ != node && curr_modified[succ] {
                     visited_arcs += 1;
                     arc_pl.light_update();
@@ -1817,7 +1846,7 @@ where
             }
         }
 
-        (visited_arcs, modified_estimators)
+        (visited_arcs, modified_estimators, scanned_arcs)
     }
 
     /// The parallel operations to be performed each iteration.
@@ -1858,6 +1887,8 @@ where
             graph.num_nodes()
         };
         let mut visited_arcs = 0;
+        let mut scanned_arcs = 0;
+        let mut max_node_arcs = 0;
         let mut modified_estimators = 0;
         let arc_upper_limit = graph.num_arcs();
 
@@ -1921,7 +1952,7 @@ where
             if ic.local {
                 for i in start..end {
                     let node = ic.local_checklist[i];
-                    let (va, me) = Self::process_node(
+                    let (va, me, sa) = Self::process_node(
                         node,
                         graph.successors(node),
                         transpose,
@@ -1941,10 +1972,12 @@ where
                     );
                     visited_arcs += va;
                     modified_estimators += me;
+                    scanned_arcs += sa;
+                    max_node_arcs = max_node_arcs.max(sa);
                 }
             } else {
                 for_![(node, successors) in graph.iter_from(start).take(end - start) {
-                    let (va, me) = Self::process_node(
+                    let (va, me, sa) = Self::process_node(
                         node,
                         successors,
                         transpose,
@@ -1964,6 +1997,8 @@ where
                     );
                     visited_arcs += va;
                     modified_estimators += me;
+                    scanned_arcs += sa;
+                    max_node_arcs = max_node_arcs.max(sa);
                 }]
             }
         }
@@ -1973,6 +2008,8 @@ where
 
         *ic.current_nf.lock().unwrap() += neighborhood_function_delta.sum();
         ic.visited_arcs.fetch_add(visited_arcs, Ordering::Relaxed);
+        ic.scanned_arcs.fetch_add(scanned_arcs, Ordering::Relaxed);
+        ic.max_node_arcs.fetch_max(max_node_arcs, Ordering::Relaxed);
         ic.modified_estimators
             .fetch_add(modified_estimators, Ordering::Relaxed);
     }
