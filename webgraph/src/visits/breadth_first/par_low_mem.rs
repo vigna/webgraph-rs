@@ -171,7 +171,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
         // We do not provide a capacity to allow the frontier to grow dynamically
         let mut curr_frontier = Frontier::new();
         // Inject the filtered roots in the frontier.
-        curr_frontier.as_mut()[0] = filtered_roots;
+        *curr_frontier.as_mut()[0] = filtered_roots;
         let mut next_frontier = Frontier::new();
         let mut distance = 1;
 

@@ -58,7 +58,7 @@ sealed = "0.6.0"
 serde = { workspace = true, optional = true }
 crossbeam-queue = "0.3.12"
 crossbeam-channel = "0.5"
-parallel_frontier = "0.2.0"
+parallel_frontier = "0.3.0"
 
 # Fuzzing deps
 zip = { version = "8.0.0", optional = true }
