@@ -330,6 +330,19 @@ where
         let (in_tx, in_rx) = crossbeam_channel::bounded(2 * num_scoped_threads);
         let (out_tx, out_rx) = crossbeam_channel::bounded::<(usize, R)>(2 * num_scoped_threads);
 
+        // Hoist references to function scope. Without this, `map` and
+        // `map_init` get moved into the outer `s.spawn` closure, and the
+        // rayon job closures end up holding tags rooted in that closure's
+        // allocation. When the rayon scope drops at the end of
+        // `in_place_scope`, Tree Borrows treats that as a foreign
+        // deallocation with respect to the (still-protected) tags created
+        // inside `execute_job`, failing under `-Zmiri-tree-borrows` even
+        // though all jobs have already completed by then. Rooting the tags
+        // in the function frame (which outlives `std::thread::scope`)
+        // avoids the protector conflict.
+        let map = &map;
+        let map_init = &map_init;
+
         // We use std::thread::scope to run three concurrent activities:
         // 1. A std thread that feeds input from the iterator
         // 2. Rayon workers (inside the feeder thread) that map items
@@ -342,10 +355,9 @@ where
         // available for mapping.
         std::thread::scope(|s| {
             s.spawn(move || {
-                rayon::in_place_scope(|scope| {
+                rayon::in_place_scope(move |scope| {
                     for _thread_id in 0..num_scoped_threads {
                         let mut init = map_init.clone();
-                        let map = &map;
                         let out_tx = out_tx.clone();
                         let in_rx = in_rx.clone();
 
