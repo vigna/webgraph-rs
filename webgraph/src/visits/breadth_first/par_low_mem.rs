@@ -32,6 +32,14 @@ use sux::{bits::AtomicBitVec, traits::AtomicBitVecOps};
 /// If the cost of the callbacks is significant, you can use a [fair parallel
 /// visit] to distribute the visiting cost evenly among the threads.
 ///
+/// # Implementation Notes
+///
+/// Contrarily to [fair parallel visits](crate::visits::breadth_first::ParFairPred), this visit emits the
+/// [`Visit`](EventPred::Visit) events for the roots sequentially from the
+/// calling thread, before the parallel phase starts: such events thus receive
+/// the original `init` value, whereas the [`Visit`](EventPred::Visit) events
+/// emitted during the parallel phase receive clones of `init`.
+///
 /// # Examples
 ///
 /// Let's compute the breadth-first tree starting from 0. We will be using a
@@ -146,14 +154,26 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
                 continue;
             }
 
-            // We call the init event only if there are some non-filtered roots
-            if filtered_roots.is_empty() {
-                callback(&mut init, EventPred::Init {})?;
-            }
-
             filtered_roots.push(root);
             self.visited.set(root, true, Ordering::Relaxed);
+        }
 
+        // We call the init event only if there are some non-filtered roots
+        if filtered_roots.is_empty() {
+            return Continue(());
+        }
+
+        callback(&mut init, EventPred::Init {})?;
+
+        callback(
+            &mut init,
+            EventPred::FrontierSize {
+                distance: 0,
+                size: filtered_roots.len(),
+            },
+        )?;
+
+        for &root in &filtered_roots {
             callback(
                 &mut init,
                 EventPred::Visit {
@@ -162,10 +182,6 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
                     distance: 0,
                 },
             )?;
-        }
-
-        if filtered_roots.is_empty() {
-            return Continue(());
         }
 
         // We do not provide a capacity to allow the frontier to grow dynamically
@@ -177,13 +193,6 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
 
         // Visit the connected component
         while !curr_frontier.is_empty() {
-            callback(
-                &mut init,
-                EventPred::FrontierSize {
-                    distance: distance - 1,
-                    size: curr_frontier.len(),
-                },
-            )?;
             {
                 curr_frontier
                     .par_iter()
@@ -223,11 +232,21 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
                         })
                     })
             }?;
-            distance += 1;
             // Swap the frontiers
             std::mem::swap(&mut curr_frontier, &mut next_frontier);
             // Clear the frontier we will fill in the next iteration
             next_frontier.clear();
+            // The frontier at the current distance is now complete
+            if !curr_frontier.is_empty() {
+                callback(
+                    &mut init,
+                    EventPred::FrontierSize {
+                        distance,
+                        size: curr_frontier.len(),
+                    },
+                )?;
+            }
+            distance += 1;
         }
 
         callback(&mut init, EventPred::Done {})

@@ -34,7 +34,7 @@ fn test_bvcomp_default_codes_be() -> Result<()> {
     assert_eq!(seq.num_nodes(), 4);
     assert_eq!(seq.num_arcs_hint(), Some(5));
     labels::eq_sorted(&graph, &seq)?;
-    webgraph::graphs::bvgraph::check_offsets(&seq, path)?;
+    assert!(webgraph::graphs::bvgraph::check_offsets(&seq, path)?);
     Ok(())
 }
 
@@ -50,7 +50,28 @@ fn test_bvcomp_default_codes_le() -> Result<()> {
         .load()?;
     assert_eq!(seq.num_nodes(), 3);
     labels::eq_sorted(&graph, &seq)?;
-    webgraph::graphs::bvgraph::check_offsets(&seq, path)?;
+    assert!(webgraph::graphs::bvgraph::check_offsets(&seq, path)?);
+    Ok(())
+}
+
+#[test]
+fn test_check_offsets_mismatch() -> Result<()> {
+    let graph =
+        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3), (3, 0)]);
+    let other = webgraph::graphs::vec_graph::VecGraph::from_arcs([(3, 0)]);
+    let tmp = tempfile::NamedTempFile::new()?;
+    let path = tmp.path();
+    let tmp_other = tempfile::NamedTempFile::new()?;
+    let other_path = tmp_other.path();
+    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
+    BvComp::with_basename(other_path).comp_graph::<BE>(&other)?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
+    assert!(webgraph::graphs::bvgraph::check_offsets(&seq, path)?);
+    // The offsets of a different graph are a valid γ stream, but wrong
+    assert!(!webgraph::graphs::bvgraph::check_offsets(&seq, other_path)?);
     Ok(())
 }
 
@@ -376,7 +397,7 @@ fn test_bvcomp_large_graph_with_reference_compression() -> Result<()> {
         .load()?;
     assert_eq!(seq.num_nodes(), 55);
     labels::eq_sorted(&graph, &seq)?;
-    webgraph::graphs::bvgraph::check_offsets(&seq, path)?;
+    assert!(webgraph::graphs::bvgraph::check_offsets(&seq, path)?);
     Ok(())
 }
 

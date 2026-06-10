@@ -171,15 +171,16 @@ impl CompFlags {
         s.push_str(&format!("bitspernode={}\n", bitstream_len as f64 / n));
         s.push_str(&format!("length={bitstream_len}\n"));
 
-        fn stirling(n: u64) -> f64 {
-            let n = n as f64;
+        fn stirling(n: f64) -> f64 {
             n * (n.ln() - 1.0) + 0.5 * (2.0 * std::f64::consts::PI * n).ln()
         }
 
-        let n_squared = num_nodes as u64 * num_nodes as u64;
-        let theoretical_bound =
-            (stirling(n_squared) - stirling(num_arcs) - stirling(n_squared - num_arcs))
-                / 2.0_f64.ln();
+        // We compute in floating point to avoid overflows
+        let n_squared = num_nodes as f64 * num_nodes as f64;
+        let theoretical_bound = (stirling(n_squared)
+            - stirling(num_arcs as f64)
+            - stirling(n_squared - num_arcs as f64))
+            / 2.0_f64.ln();
         s.push_str(&format!(
             "compratio={:.3}\n",
             bitstream_len as f64 / theoretical_bound

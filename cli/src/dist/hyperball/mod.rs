@@ -8,15 +8,16 @@
 use crate::{FloatSliceFormat, GranularityArgs, LogIntervalArg, NumThreadsArg, get_thread_pool};
 use anyhow::{Result, bail};
 use clap::{ArgGroup, Args, Parser};
+use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::progress_logger;
 use epserde::deser::{Deserialize, Flags};
 use rand::SeedableRng;
 use std::path::PathBuf;
-use webgraph::utils::Granularity;
+use webgraph::utils::{Granularity, MmapHelper};
 use webgraph::{
     graphs::bvgraph::get_endianness,
-    prelude::{BvGraph, DCF, DEG_CUMUL_EXTENSION},
+    prelude::{BvGraph, DCF, DEG_CUMUL_EXTENSION, LoadModeCodesReader, Mmap},
 };
 use webgraph_algo::distances::hyperball::{self, HyperBallBuilder};
 
@@ -137,7 +138,11 @@ pub fn main(args: CliArgs) -> Result<()> {
     }
 }
 
-pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
+pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()>
+where
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,
+{
     let mut pl = progress_logger![
         display_memory = true,
         log_interval = args.log_interval.log_interval,
@@ -145,7 +150,9 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
     let thread_pool = get_thread_pool(args.num_threads.num_threads);
 
     log::info!("Loading graph...");
-    let graph = BvGraph::with_basename(&args.basename).load()?;
+    let graph = BvGraph::with_basename(&args.basename)
+        .endianness::<E>()
+        .load()?;
 
     log::info!("Loading DCF...");
     if !args.basename.with_extension(DEG_CUMUL_EXTENSION).exists() {
@@ -163,14 +170,18 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
     }?;
 
     // As soon as we can use a more recent compiler, this can be avoided using
-    // Some(&BvGraph::with_basename(transposed_path).load()?) below.
+    // Some(&BvGraph::with_basename(transposed_path).endianness::<E>().load()?) below.
     let mut _transpose_loaded = None;
 
     let transpose = if args.symmetric {
         Some(&graph)
     } else if let Some(transposed_path) = args.transpose {
         log::info!("Loading transpose...");
-        _transpose_loaded = Some(BvGraph::with_basename(transposed_path).load()?);
+        _transpose_loaded = Some(
+            BvGraph::with_basename(transposed_path)
+                .endianness::<E>()
+                .load()?,
+        );
         _transpose_loaded.as_ref()
     } else {
         None

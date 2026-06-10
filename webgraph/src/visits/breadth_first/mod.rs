@@ -73,9 +73,14 @@ pub enum EventPred {
     /// If the root is formed by a single node, this is the size of the sphere
     /// with center at the root and radius [`distance`].
     ///
-    /// This event will happen just before starting to visit nodes at a given
-    /// distance or when all nodes at that distance have been visited, depending
-    /// on the implementation.
+    /// This event is emitted as soon as the frontier of nodes at a given
+    /// distance has been entirely computed. In particular, the event at
+    /// distance zero always follows the [`Init`](Self::Init) event and
+    /// precedes all [`Visit`](Self::Visit) events. For positive distances,
+    /// whether the [`Visit`](Self::Visit) events for the nodes at a given
+    /// distance precede or follow the event for that distance depends on
+    /// whether the implementation visits nodes upon discovery or upon
+    /// dequeuing.
     ///
     /// [`distance`]: EventPred::FrontierSize::distance
     FrontierSize {
@@ -148,9 +153,14 @@ pub enum EventNoPred {
     /// If the root is formed by a single node, this is the size of the sphere
     /// with center at the root and radius [`distance`].
     ///
-    /// This event will happen just before starting to visit nodes at a given
-    /// distance or when all nodes at that distance have been visited, depending
-    /// on the implementation.
+    /// This event is emitted as soon as the frontier of nodes at a given
+    /// distance has been entirely computed. In particular, the event at
+    /// distance zero always follows the [`Init`](Self::Init) event and
+    /// precedes all [`Visit`](Self::Visit) events. For positive distances,
+    /// whether the [`Visit`](Self::Visit) events for the nodes at a given
+    /// distance precede or follow the event for that distance depends on
+    /// whether the implementation visits nodes upon discovery or upon
+    /// dequeuing.
     ///
     /// [`distance`]: EventNoPred::FrontierSize::distance
     FrontierSize {

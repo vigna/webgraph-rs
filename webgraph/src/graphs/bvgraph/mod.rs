@@ -350,6 +350,9 @@ pub type DCF = Unaligned<
 
 /// Checks that the offsets stored in the offsets file with given
 /// basename are correct for the given [`BvGraphSeq`].
+///
+/// Returns `Ok(false)` if the stored offsets do not match the actual
+/// offsets of the graph.
 pub fn check_offsets<F: for<'a> SequentialDecoderFactory<Decoder<'a>: BitSeek>>(
     graph: &BvGraphSeq<F>,
     basename: impl AsRef<Path>,
@@ -362,7 +365,9 @@ pub fn check_offsets<F: for<'a> SequentialDecoderFactory<Decoder<'a>: BitSeek>>(
     for (real_offset, _degree) in graph.offset_deg_iter() {
         let gap_offset = offsets_reader.read_gamma()?;
         offset += gap_offset;
-        assert_eq!(offset, real_offset);
+        if offset != real_offset {
+            return Ok(false);
+        }
     }
     Ok(true)
 }

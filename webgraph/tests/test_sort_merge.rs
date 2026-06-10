@@ -471,3 +471,10 @@ fn test_par_sort_iters_dedup() -> Result<()> {
     assert_eq!(all_pairs, vec![(0, 1), (1, 2), (2, 3)]);
     Ok(())
 }
+
+#[test]
+#[should_panic(expected = "num_partitions must be positive")]
+fn test_par_sort_pairs_zero_partitions() {
+    use webgraph::utils::par_sort_pairs::ParSortPairs;
+    let _ = ParSortPairs::new(5).unwrap().num_partitions(0);
+}

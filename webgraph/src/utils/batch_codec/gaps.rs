@@ -265,7 +265,7 @@ pub struct GapsIter<
     E: Endianness = NE,
     D: BitDeserializer<E, BitReader<E>> = (),
     const SRC_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
-    const DST_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
+    const DST_CODE: usize = { dsi_bitstream::dispatch::code_consts::DELTA },
 > where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,

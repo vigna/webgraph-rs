@@ -85,6 +85,14 @@
   part of the properties emitted by Java code, making it impossible to change endianness
   of graphs compressed in Java.
 
+- `webgraph-dist hyperball` and `webgraph-dist exact-sum-sweep` were always
+  loading graphs as big-endian, making it impossible to use them on
+  little-endian graphs.
+
+- `to bvgraph` was silently ignoring the `--dcf` option when a permutation
+  was specified; the degree cumulative function is now used to balance the
+  parallel permutation phase by arcs.
+
 ### Improved
 
 - All transformations use the new declarative framework for parallelization.

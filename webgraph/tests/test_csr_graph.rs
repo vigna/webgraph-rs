@@ -13,7 +13,7 @@ use epserde::{deser::Deserialize, ser::Serialize};
 use webgraph::{
     graphs::csr_graph::{CompressedCsrGraph, CompressedCsrSortedGraph, CsrSortedGraph},
     prelude::{CsrGraph, VecGraph},
-    traits::{SequentialGraph, SortedLender, graph},
+    traits::{SequentialGraph, SequentialLabeling, SortedLender, graph},
 };
 
 /// Helper function to test epserde serialization/deserialization for CSR graph types
@@ -34,6 +34,21 @@ where
     let data = unsafe { transmute::<&'_ [u8], &'static [u8]>(&data) };
     let deserialized = deserializer(data)?;
     graph::eq(original, &deserialized)?;
+    Ok(())
+}
+
+#[test]
+fn test_empty_graph() -> anyhow::Result<()> {
+    let g = VecGraph::new();
+
+    let csr = CsrGraph::from_seq_graph(&g);
+    assert_eq!(csr.num_nodes(), 0);
+    graph::eq(&g, &csr)?;
+
+    let csr = CsrSortedGraph::from_seq_graph(&g);
+    assert_eq!(csr.num_nodes(), 0);
+    graph::eq(&g, &csr)?;
+
     Ok(())
 }
 

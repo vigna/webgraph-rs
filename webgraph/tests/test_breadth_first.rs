@@ -1090,3 +1090,112 @@ fn test_from_roots_duplicate_roots() -> Result<()> {
     assert_eq!(non_root[1].distance, 2);
     Ok(())
 }
+
+/// Checks that all implementations emit the same event prefix:
+/// `Init`, `FrontierSize` at distance 0 with the number of accepted
+/// roots, and then the root `Visit` events.
+#[cfg(not(miri))]
+#[test]
+fn test_event_order_prefix() -> Result<()> {
+    use std::sync::Mutex;
+    use webgraph::visits::breadth_first::{EventNoPred, EventPred};
+
+    #[derive(Debug, PartialEq, Eq, Clone)]
+    enum Ev {
+        Init,
+        FrontierSize(usize, usize),
+        Visit(usize, usize),
+    }
+
+    fn check_prefix(events: &[Ev], roots: &[usize]) {
+        assert_eq!(events[0], Ev::Init);
+        assert_eq!(events[1], Ev::FrontierSize(0, roots.len()));
+        for ev in &events[2..2 + roots.len()] {
+            match ev {
+                Ev::Visit(node, 0) => assert!(roots.contains(node), "unexpected root {node}"),
+                ev => panic!("expected a root visit, got {ev:?}"),
+            }
+        }
+    }
+
+    let graph = VecGraph::from_arcs([(0, 1), (2, 3)]);
+    let roots = [0, 2];
+
+    let events = Mutex::new(Vec::new());
+    breadth_first::Seq::new(&graph)
+        .visit(roots, |event| {
+            match event {
+                EventPred::Init {} => events.lock().unwrap().push(Ev::Init),
+                EventPred::FrontierSize { distance, size } => events
+                    .lock()
+                    .unwrap()
+                    .push(Ev::FrontierSize(distance, size)),
+                EventPred::Visit { node, distance, .. } => {
+                    events.lock().unwrap().push(Ev::Visit(node, distance))
+                }
+                _ => {}
+            }
+            Continue(())
+        })
+        .continue_value_no_break();
+    check_prefix(&events.into_inner().unwrap(), &roots);
+
+    let events = Mutex::new(Vec::new());
+    breadth_first::ParLowMem::new(&graph)
+        .par_visit(roots, |event| {
+            match event {
+                EventPred::Init {} => events.lock().unwrap().push(Ev::Init),
+                EventPred::FrontierSize { distance, size } => events
+                    .lock()
+                    .unwrap()
+                    .push(Ev::FrontierSize(distance, size)),
+                EventPred::Visit { node, distance, .. } => {
+                    events.lock().unwrap().push(Ev::Visit(node, distance))
+                }
+                _ => {}
+            }
+            Continue(())
+        })
+        .continue_value_no_break();
+    check_prefix(&events.into_inner().unwrap(), &roots);
+
+    let events = Mutex::new(Vec::new());
+    breadth_first::ParFairPred::new(&graph)
+        .par_visit(roots, |event| {
+            match event {
+                EventPred::Init {} => events.lock().unwrap().push(Ev::Init),
+                EventPred::FrontierSize { distance, size } => events
+                    .lock()
+                    .unwrap()
+                    .push(Ev::FrontierSize(distance, size)),
+                EventPred::Visit { node, distance, .. } => {
+                    events.lock().unwrap().push(Ev::Visit(node, distance))
+                }
+                _ => {}
+            }
+            Continue(())
+        })
+        .continue_value_no_break();
+    check_prefix(&events.into_inner().unwrap(), &roots);
+
+    let events = Mutex::new(Vec::new());
+    breadth_first::ParFairNoPred::new(&graph)
+        .par_visit(roots, |event| {
+            match event {
+                EventNoPred::Init {} => events.lock().unwrap().push(Ev::Init),
+                EventNoPred::FrontierSize { distance, size } => events
+                    .lock()
+                    .unwrap()
+                    .push(Ev::FrontierSize(distance, size)),
+                EventNoPred::Visit { node, distance, .. } => {
+                    events.lock().unwrap().push(Ev::Visit(node, distance))
+                }
+                _ => {}
+            }
+            Continue(())
+        })
+        .continue_value_no_break();
+    check_prefix(&events.into_inner().unwrap(), &roots);
+
+    Ok(())
+}

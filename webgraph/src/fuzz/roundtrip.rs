@@ -50,7 +50,7 @@ pub fn harness(data: FuzzCase) {
         .load()
         .unwrap();
     labels::eq_sorted(&graph, &new_graph).unwrap();
-    bvgraph::check_offsets(&new_graph, &tmp_path_bvcomp).unwrap();
+    assert!(bvgraph::check_offsets(&new_graph, &tmp_path_bvcomp).unwrap());
 
     let mut bvcompz = BvCompZ::with_basename(&tmp_path_bvcompz)
         .comp_flags(comp_flags)
@@ -61,5 +61,5 @@ pub fn harness(data: FuzzCase) {
         .load()
         .unwrap();
     labels::eq_sorted(&graph, &new_graph).unwrap();
-    bvgraph::check_offsets(&new_graph, &tmp_path_bvcompz).unwrap();
+    assert!(bvgraph::check_offsets(&new_graph, &tmp_path_bvcompz).unwrap());
 }

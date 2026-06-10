@@ -88,37 +88,55 @@ where
 ///
 /// If `NO_LOOPS` is true, self-loops are removed from the result.
 ///
+/// This method exploits the fact that the input graph is already sorted: it
+/// sorts only the reverse arcs (half the total) via [`ParSortIters`], then
+/// re-splits the original graph at the same evenly spaced boundaries and
+/// lazily merges forward and reverse pairs per partition with
+/// deduplication. This makes it roughly twice as fast as [`symmetrize_seq`]
+/// for the sorting phase.
+///
+/// Note that since the output boundaries are determined by [`ParSortIters`]
+/// (evenly spaced by node count), arc-balanced cutpoints (e.g., from a DCF)
+/// cannot be used for the output partitions.
+///
+/// The graph must implement [`SplitLabeling`] so that it can be re-split at
+/// the sort boundaries.
+///
 /// For a parallel version, see [`symmetrize_sorted_par`].
 ///
-/// For the meaning of the additional parameter, see [`ParSortedGraphConf`].
-///
-/// [`ParSortedGraphConf`]: crate::graphs::par_sorted_graph::ParSortedGraphConf
-pub fn symmetrize_sorted_seq<const NO_LOOPS: bool, G: SequentialGraph>(
-    graph: &G,
+/// For the meaning of the additional parameter, see [`ParSortIters`].
+pub fn symmetrize_sorted_seq<'g, const NO_LOOPS: bool, G>(
+    graph: &'g G,
     memory_usage: MemoryUsage,
     pl: &mut impl ProgressLog,
-) -> Result<ParSortedGraph<SortedPairIter<true>>> {
-    let num_nodes = graph.num_nodes();
+) -> Result<ParSortedGraph<impl Iterator<Item = ((usize, usize), ())> + Send + Sync + 'g>>
+where
+    G: SequentialGraph + SplitLabeling,
+    for<'a> G::Lender<'a>: SortedLender,
+    for<'a, 'b> LenderIntoIter<'a, G::Lender<'b>>: SortedIterator,
+    for<'a> G::SplitLender<'g>:
+        NodeLabelsLender<'a, IntoIterator: IntoIterator<IntoIter: Clone + Send + Sync>> + Clone,
+{
+    let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
 
-    let conf = ParSortedGraph::config()
-        .dedup()
-        .memory_usage(memory_usage)
-        .progress_logger(pl);
+    let SplitIters { boundaries, iters } =
+        par_sort_iters.sort_seq(graph.iter().into_pairs().map(|(src, dst)| (dst, src)), pl)?;
 
-    conf.sort_pairs(
-        num_nodes,
-        graph.iter().into_pairs().flat_map(|(src, dst)| {
-            // The two-element iterator is fully inlined by LLVM,
-            // generating the same code as a hand-written loop.
-            if src != dst {
-                Some((src, dst)).into_iter().chain(Some((dst, src)))
-            } else if !NO_LOOPS {
-                Some((src, dst)).into_iter().chain(None)
-            } else {
-                None.into_iter().chain(None)
-            }
-        }),
-    )
+    // Re-split the original graph at the same boundaries used by
+    // ParSortIters, then lazily merge forward and reverse pairs per
+    // partition.
+    let forward_lenders = graph.split_iter_at(boundaries.iter().copied());
+
+    let merged: Vec<_> = forward_lenders
+        .into_iter()
+        .zip(iters.into_vec())
+        .map(|(fwd, rev)| MergeDedupPairs::<NO_LOOPS, _, _>::new(fwd.into_pairs(), rev))
+        .collect();
+
+    Ok(ParSortedGraph::from_parts(
+        boundaries,
+        merged.into_boxed_slice(),
+    ))
 }
 
 /// Returns a [`ParSortedGraph`] representing a symmetrized version of the

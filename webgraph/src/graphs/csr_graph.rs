@@ -133,7 +133,9 @@ impl CsrGraph {
         let mut successors = Vec::with_capacity(num_arcs_hint.unwrap_or(0));
 
         let mut last_src = 0;
+        let mut empty = true;
         for_!( (src, succs) in iter_nodes {
+            empty = false;
             while last_src < src {
                 dcf.push(successors.len());
                 last_src += 1;
@@ -144,8 +146,10 @@ impl CsrGraph {
                 max_node = max_node.max(succ);
             }
         });
-        for _ in last_src..=max_node {
-            dcf.push(successors.len());
+        if !empty {
+            for _ in last_src..=max_node {
+                dcf.push(successors.len());
+            }
         }
         dcf.shrink_to_fit();
         successors.shrink_to_fit();

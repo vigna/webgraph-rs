@@ -172,3 +172,24 @@ fn test_llp_complete_graph() -> Result<()> {
     assert_eq!(labels.len(), 4);
     Ok(())
 }
+
+#[test]
+fn test_llp_empty_graph() -> Result<()> {
+    let graph = VecGraph::new();
+    let deg_cumul = graph.build_dcf();
+    let dir = tempfile::tempdir()?;
+
+    let labels = llp::layered_label_propagation(
+        &graph,
+        &deg_cumul,
+        vec![0.0],
+        Granularity::Nodes(100),
+        42,
+        MaxUpdates::from(1_usize),
+        |_: usize, _: u64, _: u64| |x: u64| x,
+        dir.path(),
+    )?;
+
+    assert_eq!(labels.len(), 0);
+    Ok(())
+}

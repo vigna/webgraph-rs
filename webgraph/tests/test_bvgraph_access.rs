@@ -467,7 +467,7 @@ fn test_check_offsets_with_static_dispatch() -> Result<()> {
         .mode::<LoadMem>()
         .dispatch::<webgraph::graphs::bvgraph::Static>()
         .load()?;
-    webgraph::graphs::bvgraph::check_offsets(&seq, &basename)?;
+    assert!(webgraph::graphs::bvgraph::check_offsets(&seq, &basename)?);
     Ok(())
 }
 
@@ -509,7 +509,7 @@ fn test_offset_deg_iter() -> Result<()> {
         .endianness::<BE>()
         .mode::<LoadMem>()
         .load()?;
-    webgraph::graphs::bvgraph::check_offsets(&seq, path)?;
+    assert!(webgraph::graphs::bvgraph::check_offsets(&seq, path)?);
     Ok(())
 }
 

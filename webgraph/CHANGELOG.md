@@ -37,7 +37,39 @@
 
 - `MmapHelper::new` did not correctly set the file length.
 
+- `CsrGraph` construction from an empty lender was returning a graph
+  with one node instead of zero nodes.
+
+- `symmetrize_sorted_seq` now sorts just the reverse arcs, as documented;
+  it requires `SplitLabeling` and returns lazily merged partitions like
+  `symmetrize_sorted_par`.
+
+- `ParSortPairs::num_partitions` now panics if the number of partitions is
+  zero, like `ParSortIters::num_partitions` (previously, a zero value caused
+  a division by zero when sorting).
+
+- The default destination code of `GapsIter` is now δ, matching the default
+  of `GapsCodec`.
+
+- The `add_exact_lender` methods of `VecGraph`/`LabeledVecGraph` now add
+  successor nodes, consistently with `add_sorted_lender`.
+
+- `LabeledBTreeGraph::add_lender` now returns `&mut Self`, like all other
+  `add_lender` methods.
+
+- The `compratio` property is now computed in floating point, avoiding
+  overflows for graphs with more than 2³² nodes.
+
+- `check_offsets` now returns `Ok(false)` if the stored offsets do not
+  match, instead of panicking.
+
 ### Changed
+
+- All breadth-first visits now emit the same initial event sequence: `Init`,
+  then `FrontierSize` at distance zero with the number of accepted roots, and
+  then the `Visit` events for the roots. The `FrontierSize` event is now
+  always emitted as soon as the frontier of nodes at a given distance has
+  been entirely computed.
 
 - Upgraded to `sux` 0.14.0. This is a major release in which the structure
   of types has changed significantly, so the `EF` and `DCF` types are no

@@ -176,6 +176,9 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync, F: Fn(u64) -> u64 
     func_perm_gen: impl Fn(usize, u64, u64) -> F,
     work_dir: impl AsRef<Path>,
 ) -> Result<Box<[usize]>> {
+    if sym_graph.num_nodes() == 0 {
+        return Ok(Box::default());
+    }
     // compute the labels
     layered_label_propagation_labels_only(
         sym_graph,
@@ -229,6 +232,10 @@ pub fn layered_label_propagation_labels_only<
     let labels_path = |gamma_index| work_path.join(format!("labels_{gamma_index}.bin"));
     const IMPROV_WINDOW: usize = 10;
     let num_nodes = sym_graph.num_nodes();
+    // No labels are stored for an empty graph
+    if num_nodes == 0 {
+        return Ok(());
+    }
     let num_threads = rayon::current_num_threads();
 
     let mut can_change = Vec::with_capacity(num_nodes as _);

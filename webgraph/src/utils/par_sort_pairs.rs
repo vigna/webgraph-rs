@@ -207,9 +207,6 @@ impl ParSortPairs {
     /// the resulting [`SplitIters`]) and [`memory_usage`] can be used to
     /// customize the instance.
     ///
-    /// This method will return an error if [`rayon::current_num_threads`]
-    /// returns zero.
-    ///
     /// [`num_partitions`]: ParSortPairs::num_partitions
     /// [`memory_usage`]: ParSortPairs::memory_usage
     pub fn new(num_nodes: usize) -> Result<Self> {
@@ -236,7 +233,12 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
     /// This is the number of iterators in the resulting [`SplitIters`].
     ///
     /// Defaults to [`rayon::current_num_threads`].
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if `num_partitions` is zero.
     pub const fn num_partitions(self, num_partitions: usize) -> Self {
+        assert!(num_partitions > 0, "num_partitions must be positive");
         Self {
             num_partitions,
             ..self

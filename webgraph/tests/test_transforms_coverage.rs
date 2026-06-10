@@ -267,11 +267,14 @@ fn test_symmetrize_sorted() -> Result<()> {
         .mode::<LoadMem>()
         .load()?;
     let s = symmetrize_sorted_seq::<true, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
-    let s = VecGraph::from_lender(s.iter());
+    let arcs: Vec<_> = s
+        .into_par_lenders()
+        .0
+        .into_iter()
+        .flat_map(|lender| lender.into_pairs())
+        .collect();
     // Every edge becomes bidirectional, no self-loops
-    assert_eq!(s.successors(0).collect::<Vec<_>>(), vec![1, 2]);
-    assert_eq!(s.successors(1).collect::<Vec<_>>(), vec![0, 2]);
-    assert_eq!(s.successors(2).collect::<Vec<_>>(), vec![0, 1]);
+    assert_eq!(arcs, vec![(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)]);
     Ok(())
 }
 
@@ -451,5 +454,44 @@ fn test_map_par_shrinks() -> Result<()> {
     arcs.sort();
     // (0,1)->(0,1), (1,2)->(1,1), (2,0)->(1,0) → deduped: (0,1),(1,0),(1,1)
     assert_eq!(arcs, vec![(0, 1), (1, 0), (1, 1)]);
+    Ok(())
+}
+
+#[test]
+fn test_symmetrize_sorted_seq_eq_symmetrize_seq() -> Result<()> {
+    use webgraph::transform::{symmetrize_seq, symmetrize_sorted_seq};
+
+    // Includes a self-loop and a node of outdegree 0
+    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 1), (1, 2), (3, 0)]);
+    let tmp = tempfile::NamedTempFile::new()?;
+    let path = tmp.path();
+    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
+
+    let s = symmetrize_seq::<true>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
+    let expected: Vec<_> = s.iter().into_pairs().collect();
+    let s = symmetrize_sorted_seq::<true, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
+    let arcs: Vec<_> = s
+        .into_par_lenders()
+        .0
+        .into_iter()
+        .flat_map(|lender| lender.into_pairs())
+        .collect();
+    assert_eq!(arcs, expected);
+
+    let s = symmetrize_seq::<false>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
+    let expected: Vec<_> = s.iter().into_pairs().collect();
+    let s = symmetrize_sorted_seq::<false, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
+    let arcs: Vec<_> = s
+        .into_par_lenders()
+        .0
+        .into_iter()
+        .flat_map(|lender| lender.into_pairs())
+        .collect();
+    assert_eq!(arcs, expected);
+
     Ok(())
 }

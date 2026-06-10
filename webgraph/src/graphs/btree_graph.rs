@@ -96,7 +96,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
 
     /// Adds nodes and labeled successors from an [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
-    pub fn add_lender<I: IntoLender>(&mut self, iter_nodes: I)
+    pub fn add_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
     {
@@ -107,6 +107,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
                 self.add_arc(node, v, l);
             }
         });
+        self
     }
 
     /// Creates a new graph from an [`IntoLender`] yielding a

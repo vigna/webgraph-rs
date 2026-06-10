@@ -109,14 +109,14 @@ where
         .endianness::<E>()
         .load()?;
     labels::eq_sorted(seq_graph, &new_graph)?;
-    bvgraph::check_offsets(&new_graph, tmp_path)?;
+    assert!(bvgraph::check_offsets(&new_graph, tmp_path)?);
 
     bvcomp.par_comp::<E, _>(seq_graph)?;
     let new_graph = BvGraphSeq::with_basename(tmp_path)
         .endianness::<E>()
         .load()?;
     labels::eq_sorted(seq_graph, &new_graph)?;
-    bvgraph::check_offsets(&new_graph, tmp_path)?;
+    assert!(bvgraph::check_offsets(&new_graph, tmp_path)?);
 
     for chunk_size in [1, 10, 1000] {
         let mut bvcompz = BvCompZ::with_basename(tmp_path)
@@ -127,14 +127,14 @@ where
             .endianness::<E>()
             .load()?;
         labels::eq_sorted(seq_graph, &new_graph)?;
-        bvgraph::check_offsets(&new_graph, tmp_path)?;
+        assert!(bvgraph::check_offsets(&new_graph, tmp_path)?);
 
         bvcompz.par_comp::<E, _>(seq_graph)?;
         let new_graph = BvGraphSeq::with_basename(tmp_path)
             .endianness::<E>()
             .load()?;
         labels::eq_sorted(seq_graph, &new_graph)?;
-        bvgraph::check_offsets(&new_graph, tmp_path)?;
+        assert!(bvgraph::check_offsets(&new_graph, tmp_path)?);
     }
     Ok(())
 }

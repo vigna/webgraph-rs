@@ -72,3 +72,19 @@ fn test_sorted() -> anyhow::Result<()> {
     labels::eq_sorted(&er, &er)?;
     Ok(())
 }
+
+#[test]
+fn test_add_exact_lender_partial() -> anyhow::Result<()> {
+    use lender::Lender;
+    // The lender yields only node 0, whose successor 5 must be added as a node
+    let b = VecGraph::from_arcs([(0, 5)]);
+    let mut c = VecGraph::new();
+    c.add_exact_lender(b.iter().take(1));
+    graph::eq(&b, &c)?;
+
+    let b = LabeledVecGraph::<usize>::from_arcs([((0, 5), 1)]);
+    let mut c = LabeledVecGraph::<usize>::new();
+    c.add_exact_lender(b.iter().take(1));
+    graph::eq_labeled(&b, &c)?;
+    Ok(())
+}

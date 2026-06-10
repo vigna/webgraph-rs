@@ -37,6 +37,12 @@
 
 - Fixed minor discrepancies with the ExactSumSweep paper.
 
+- `layered_label_propagation` now returns an empty permutation on an empty
+  graph instead of panicking with a division by zero.
+
+- HyperBall log messages no longer overflow for graphs with more than 2³²
+  nodes.
+
 ## [0.6.1] - 2026-02-23
 
 ### New

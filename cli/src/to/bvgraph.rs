@@ -143,7 +143,7 @@ pub fn compress_par_with_perm<E: Endianness, P: SliceByValue<Value = usize> + Se
     src: &std::path::Path,
     target_endianness: Option<String>,
     memory_usage: webgraph::utils::MemoryUsage,
-    _use_dcf: bool,
+    use_dcf: bool,
     log_interval: Duration,
     perm: &P,
 ) -> Result<()>
@@ -158,7 +158,17 @@ where
         log::info!("Permuting graph with memory usage {}", memory_usage);
         let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
         let start = std::time::Instant::now();
-        let sorted = webgraph::transform::permute_par(&graph, perm, memory_usage, &mut pl)?;
+        let sorted = if use_dcf {
+            use epserde::prelude::*;
+            let dcf_path = src.with_extension(DEG_CUMUL_EXTENSION);
+            let dcf = unsafe { DCF::mmap(&dcf_path, Flags::RANDOM_ACCESS) }?;
+            let num_arcs = graph.num_arcs();
+            let dcf_graph =
+                ParGraph::with_dcf(graph, num_arcs, dcf.uncase(), rayon::current_num_threads());
+            webgraph::transform::permute_par(&dcf_graph, perm, memory_usage, &mut pl)?
+        } else {
+            webgraph::transform::permute_par(&graph, perm, memory_usage, &mut pl)?
+        };
         log::info!(
             "Permuted the graph. It took {:.3} seconds",
             start.elapsed().as_secs_f64()

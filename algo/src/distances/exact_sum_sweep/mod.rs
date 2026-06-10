@@ -537,7 +537,12 @@ impl<
     ///
     /// # Arguments
     /// * `start` - The starting vertex.
-    /// * `iterations` - The number of iterations.
+    /// * `iterations` - The parameter *k* of Algorithm 1 in the paper, that
+    ///   is, the number of visits of a full SumSweep heuristic. Note that this
+    ///   method performs only `iterations` − 1 visits (the loop of Algorithm 1
+    ///   plus the initial visit from `start`): the final visit of the
+    ///   heuristic, which bounds the radius using the most central vertex, is
+    ///   subsumed by the validation phase of ExactSumSweep.
     /// * `pl` - A concurrent progress logger.
     fn sum_sweep_heuristic(
         &mut self,

@@ -223,6 +223,11 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
             self.succ[node].reserve_exact(d);
             self.succ[node].extend(succ.map(Into::into));
             self.num_arcs += d as u64;
+            // Add the missing successor nodes; since the successors are
+            // sorted, it suffices to add the last one.
+            if let Some(max_succ) = self.succ[node].last().map(|arc| arc.0) {
+                self.add_node(max_succ);
+            }
         });
         self
     }
@@ -509,6 +514,11 @@ impl VecGraph {
             self.0.succ[node].reserve_exact(d);
             self.0.succ[node].extend(succ.map(|x| LabeledArc(x, ())));
             self.0.num_arcs += d as u64;
+            // Add the missing successor nodes; since the successors are
+            // sorted, it suffices to add the last one.
+            if let Some(max_succ) = self.0.succ[node].last().map(|arc| arc.0) {
+                self.add_node(max_succ);
+            }
         });
         self
     }

@@ -13,7 +13,6 @@ use crate::visits::{
 };
 use anyhow::Result;
 use nonmax::NonMaxUsize;
-use std::iter::FusedIterator;
 use std::{collections::VecDeque, ops::ControlFlow, ops::ControlFlow::Continue};
 use sux::bits::BitVec;
 use sux::traits::BitVecOpsMut;
@@ -173,29 +172,18 @@ impl<'a, G: RandomAccessGraph> Sequential<EventPred> for Seq<'a, G> {
                 continue;
             }
 
-            // We call the init event only if there are some non-filtered roots
-            if self.queue.is_empty() {
-                callback(&mut init, EventPred::Init {})?;
-            }
-
             self.visited.set(root, true);
             self.queue.push_back(Some(
                 NonMaxUsize::new(root).expect("node index should never be usize::MAX"),
             ));
-
-            callback(
-                &mut init,
-                EventPred::Visit {
-                    node: root,
-                    pred: root,
-                    distance: 0,
-                },
-            )?;
         }
 
+        // We call the init event only if there are some non-filtered roots
         if self.queue.is_empty() {
             return Continue(());
         }
+
+        callback(&mut init, EventPred::Init {})?;
 
         callback(
             &mut init,
@@ -204,6 +192,18 @@ impl<'a, G: RandomAccessGraph> Sequential<EventPred> for Seq<'a, G> {
                 size: self.queue.len(),
             },
         )?;
+
+        for i in 0..self.queue.len() {
+            let node: usize = self.queue[i].unwrap().into();
+            callback(
+                &mut init,
+                EventPred::Visit {
+                    node,
+                    pred: node,
+                    distance: 0,
+                },
+            )?;
+        }
 
         // Insert marker
         self.queue.push_back(None);
@@ -431,8 +431,6 @@ impl<'a, 'b, G: RandomAccessGraph> ExactSizeIterator for BfsOrder<'a, 'b, G> {
     }
 }
 
-impl<'a, 'b, G: RandomAccessGraph> FusedIterator for BfsOrder<'a, 'b, G> {}
-
 /// Iterator on the nodes reachable from the given roots in a BFS order.
 pub struct BfsOrderFromRoots<'a, 'b, G: RandomAccessGraph> {
     visit: &'a mut Seq<'b, G>,
@@ -513,6 +511,11 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for BfsOrderFromRoots<'a, 'b, G> {
                 // transition to the successor-processing phase.
                 self.distance = 1;
                 self.visit.queue.push_back(None);
+                // The successors of the first root are already set up in
+                // `succ`, so we remove its queue entry to avoid enumerating
+                // them twice. The queue cannot be empty here, as the roots
+                // have been re-enqueued.
+                self.visit.queue.pop_front();
             }
         }
 

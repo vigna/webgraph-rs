@@ -1049,7 +1049,7 @@ impl<
                 node_cursor: AtomicUsize::new(0).into(),
                 arc_cursor: Mutex::new((0, 0)),
                 visited_arcs: AtomicU64::new(0).into(),
-                last_visited_arcs: self.graph.num_arcs() as usize,
+                last_visited_arcs: usize::try_from(self.graph.num_arcs()).unwrap_or(usize::MAX),
                 scanned_arcs: AtomicU64::new(0).into(),
                 max_node_arcs: AtomicU64::new(0).into(),
                 modified_estimators: AtomicU64::new(0).into(),
@@ -1659,7 +1659,7 @@ where
         pl.info(format_args!(
             "Pairs: {} ({}%)",
             current_nf_mut.round() as u128,
-            (*current_nf_mut * 100.0) / (num_nodes * num_nodes) as f64
+            (*current_nf_mut * 100.0) / (num_nodes as f64 * num_nodes as f64)
         ));
         pl.info(format_args!(
             "Absolute increment: {}",
