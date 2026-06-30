@@ -328,72 +328,82 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
         // Iterators in partitioned_presorted_pairs[partition_id] contain all
         // pairs (src, dst, label) where num_nodes_per_partition*partition_id <=
         // src < num_nodes_per_partition*(partition_id+1)
-        unsorted_pairs.try_for_each_init(
-            // Rayon calls this initializer on every sequential iterator inside
-            // the parallel iterator. Depending on how the parallel iterator was
-            // constructed (and if IndexedParallelIterator::with_min_len was not
-            // used) this can result in lots of:
-            //
-            // * tiny iterators, and we don't want to create as many tiny
-            // BatchIterators because that's extremely inefficient.
-            //
-            // * unsorted_buffers arrays with batch_size as capacity, but are
-            // mostly empty and sit in memory until we flush them
-            //
-            // Thus, we use ThreadLocal to have one SorterThreadState per
-            // thread, which is reused across multiple sequential iterators.
-            || {
-                let mut state = sorter_thread_states
-                    .pop()
-                    .unwrap_or_else(|| SorterThreadState {
-                        worker_id: worker_id.fetch_add(1, Ordering::Relaxed),
-                        unsorted_buffers: (0..num_partitions)
-                            .map(|_| Vec::with_capacity(batch_size))
-                            .collect(),
-                        sorted_pairs: (0..num_partitions).map(|_| Vec::new()).collect(),
-                        queue: None,
-                    });
+        unsorted_pairs
+            .try_for_each_init(
+                // Rayon calls this initializer on every sequential iterator inside
+                // the parallel iterator. Depending on how the parallel iterator was
+                // constructed (and if IndexedParallelIterator::with_min_len was not
+                // used) this can result in lots of:
+                //
+                // * tiny iterators, and we don't want to create as many tiny
+                // BatchIterators because that's extremely inefficient.
+                //
+                // * unsorted_buffers arrays with batch_size as capacity, but are
+                // mostly empty and sit in memory until we flush them
+                //
+                // Thus, we use ThreadLocal to have one SorterThreadState per
+                // thread, which is reused across multiple sequential iterators.
+                || {
+                    let mut state =
+                        sorter_thread_states
+                            .pop()
+                            .unwrap_or_else(|| SorterThreadState {
+                                worker_id: worker_id.fetch_add(1, Ordering::Relaxed),
+                                unsorted_buffers: (0..num_partitions)
+                                    .map(|_| Vec::with_capacity(batch_size))
+                                    .collect(),
+                                sorted_pairs: (0..num_partitions).map(|_| Vec::new()).collect(),
+                                queue: None,
+                            });
 
-                // So it adds itself back to the queue when dropped
-                state.queue = Some(Arc::clone(&sorter_thread_states));
-                (pl.clone(), state)
-            },
-            |(pl, thread_state), pair| -> Result<_> {
-                let ((src, dst), label) = pair.map_err(Into::into)?;
-                ensure!(
-                    src < self.num_nodes,
-                    "Expected {} nodes, but got node id {src}",
-                    self.num_nodes
-                );
-                let partition_id = src / num_nodes_per_partition;
-                let SorterThreadState {
-                    worker_id,
-                    sorted_pairs,
-                    unsorted_buffers,
-                    queue: _,
-                } = thread_state;
-
-                let sorted_pairs = &mut sorted_pairs[partition_id];
-                let buf = &mut unsorted_buffers[partition_id];
-                if buf.len() >= buf.capacity() {
-                    let buf_len = buf.len();
-                    flush_buffer(
-                        presort_tmp_dir.path(),
-                        batch_codec,
-                        *worker_id,
-                        partition_id,
+                    // So it adds itself back to the queue when dropped
+                    state.queue = Some(Arc::clone(&sorter_thread_states));
+                    (pl.clone(), state)
+                },
+                |(pl, thread_state), pair| -> Result<_> {
+                    let ((src, dst), label) = pair.map_err(Into::into)?;
+                    ensure!(
+                        src < self.num_nodes,
+                        "Expected {} nodes, but got node id {src}",
+                        self.num_nodes
+                    );
+                    let partition_id = src / num_nodes_per_partition;
+                    let SorterThreadState {
+                        worker_id,
                         sorted_pairs,
-                        buf,
-                    )
-                    .context("Could not flush buffer")?;
-                    assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
-                    pl.update_with_count(buf_len);
-                }
+                        unsorted_buffers,
+                        queue: _,
+                    } = thread_state;
 
-                buf.push(((src, dst), label));
-                Ok(())
-            },
-        )?;
+                    let sorted_pairs = &mut sorted_pairs[partition_id];
+                    let buf = &mut unsorted_buffers[partition_id];
+                    if buf.len() >= buf.capacity() {
+                        let buf_len = buf.len();
+                        flush_buffer(
+                            presort_tmp_dir.path(),
+                            batch_codec,
+                            *worker_id,
+                            partition_id,
+                            sorted_pairs,
+                            buf,
+                        )
+                        .context("Could not flush buffer")?;
+                        assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
+                        pl.update_with_count(buf_len);
+                    }
+
+                    buf.push(((src, dst), label));
+                    Ok(())
+                },
+            )
+            .inspect_err(|_| {
+                // SorterThreadState panics when dropped while holding data, so we have to explicitly
+                // clear it before returning an error
+                while let Some(mut sorter_thread_state) = sorter_thread_states.pop() {
+                    sorter_thread_state.sorted_pairs.clear();
+                    sorter_thread_state.unsorted_buffers.clear();
+                }
+            })?;
 
         // Collect them into an iterable
         let sorter_thread_states: Vec<_> = std::iter::repeat(())
