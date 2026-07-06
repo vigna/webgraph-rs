@@ -432,6 +432,16 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
         let num_u = self.num_sources;
         let num_p = n - num_u;
 
+        self.iteration = 0;
+
+        // Initialize rank with preference vector
+        for i in 0..n {
+            // SAFETY: i < n == self.preference.len()
+            self.rank[i] = unsafe { self.preference.get_value_unchecked(i) };
+        }
+
+        // With an empty side there is nothing to propagate: the rank is the
+        // preference vector (the state after zero iterations).
         if n == 0 || num_u == 0 || num_p == 0 {
             return;
         }
@@ -441,14 +451,6 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
         log::info!("Source set size (|U|): {}", num_u);
         log::info!("Target set size (|P|): {}", num_p);
         log::info!("Stopping criterion: {}", predicate);
-
-        self.iteration = 0;
-
-        // Initialize rank with preference vector
-        for i in 0..n {
-            // SAFETY: i < n == self.preference.len()
-            self.rank[i] = unsafe { self.preference.get_value_unchecked(i) };
-        }
 
         // Precompute 1/√dᵢ for each node (cached across runs).
         // For source nodes dᵢ = outdegree in graph; for target nodes

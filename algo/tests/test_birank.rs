@@ -297,3 +297,17 @@ fn test_zero_damping() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_degenerate_bipartitions() {
+    // Regression: with all nodes on one side, run() returned before
+    // initializing the rank vector from the preference, leaving all zeros.
+    for num_sources in [0, 1] {
+        let graph = VecGraph::empty(1);
+        let transpose = VecGraph::empty(1);
+        let mut br = BiRank::new(&graph, &transpose, num_sources);
+        br.run(preds::MaxIter::from(1));
+        // Zero iterations happen; the rank is the (uniform) preference.
+        assert_eq!(br.rank(), &[1.0]);
+    }
+}
