@@ -238,3 +238,22 @@ fn test_from_properties_malformed_inputs() {
     );
     assert!(CompFlags::from_properties::<BE>(&map).is_err());
 }
+
+#[test]
+fn test_to_properties_finite_metrics() -> Result<()> {
+    // Regression: zero-node/zero-arc graphs produced NaN/inf ratio metrics
+    // in the .properties output (including compratio for complete graphs,
+    // whose theoretical bound is degenerate); the ratios are now omitted.
+    for (num_nodes, num_arcs) in [(0usize, 0u64), (5, 0), (5, 25)] {
+        let props = CompFlags::default().to_properties::<BE>(&CompStats {
+            num_nodes,
+            num_arcs,
+            ..CompStats::default()
+        })?;
+        assert!(
+            !props.contains("NaN") && !props.contains("inf"),
+            "non-finite metrics for ({num_nodes}, {num_arcs}): {props}"
+        );
+    }
+    Ok(())
+}
