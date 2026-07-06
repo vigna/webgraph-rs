@@ -56,6 +56,21 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
+    let properties_path = args.basename.with_extension("properties");
+    let (num_nodes, num_arcs, _) =
+        match get_endianness(&args.basename)?.as_str() {
+            #[cfg(feature = "be_bins")]
+            BE::NAME => webgraph::graphs::bvgraph::parse_properties::<BE>(&properties_path)?,
+            #[cfg(feature = "le_bins")]
+            LE::NAME => webgraph::graphs::bvgraph::parse_properties::<LE>(&properties_path)?,
+            e => anyhow::bail!("Unknown endianness: {}", e),
+        };
+    // Random sampling panics on an empty node range and the per-arc timings
+    // divide by the number of arcs.
+    anyhow::ensure!(
+        num_nodes > 0 && num_arcs > 0,
+        "Cannot benchmark a graph with no nodes or no arcs"
+    );
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => match args._static {

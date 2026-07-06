@@ -762,6 +762,17 @@ pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
     }
 }
 
+/// Parses the value of `--max-ref-count`: a nonnegative integer, or -1 for
+/// an infinite recursion depth.
+pub fn max_ref_count_parser(arg: &str) -> anyhow::Result<isize> {
+    let value = arg.parse::<isize>()?;
+    ensure!(
+        value >= -1,
+        "the maximum reference count must be nonnegative, or -1 for infinite recursion depth"
+    );
+    Ok(value)
+}
+
 /// Shared CLI arguments for compression.​
 #[derive(Args, Debug, Clone)]
 pub struct CompressArgs {
@@ -776,7 +787,7 @@ pub struct CompressArgs {
     #[clap(short = 'i', long, default_value_t = 4)]
     pub min_interval_length: usize,
     /// The maximum recursion depth for references (-1 for infinite recursion depth).​
-    #[clap(short = 'r', long, default_value_t = 3)]
+    #[clap(short = 'r', long, default_value_t = 3, allow_hyphen_values = true, value_parser = max_ref_count_parser)]
     pub max_ref_count: isize,
 
     #[arg(value_enum)]
