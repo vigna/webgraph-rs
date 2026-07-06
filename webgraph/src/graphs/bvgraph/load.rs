@@ -549,6 +549,16 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConf<E, Random, Dynamic, G
         self.basename.set_extension(EF_EXTENSION);
         let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)
             .with_context(|| format!("Could not load offsets file {}", self.basename.display()))?;
+        // The decoders index the offsets without bounds checks, so a stale
+        // or truncated file must be rejected here.
+        let num_offsets = value_traits::slices::SliceByValue::len(offsets.uncase());
+        anyhow::ensure!(
+            num_offsets == num_nodes + 1,
+            "The offsets file {} contains {} offsets, but the graph has {} nodes",
+            self.basename.display(),
+            num_offsets,
+            num_nodes
+        );
 
         Ok(BvGraph::new(
             DynCodesDecoderFactory::new(factory, offsets, comp_flags)?,
@@ -634,6 +644,16 @@ impl<
         self.basename.set_extension(EF_EXTENSION);
         let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)
             .with_context(|| format!("Could not load offsets file {}", self.basename.display()))?;
+        // The decoders index the offsets without bounds checks, so a stale
+        // or truncated file must be rejected here.
+        let num_offsets = value_traits::slices::SliceByValue::len(offsets.uncase());
+        anyhow::ensure!(
+            num_offsets == num_nodes + 1,
+            "The offsets file {} contains {} offsets, but the graph has {} nodes",
+            self.basename.display(),
+            num_offsets,
+            num_nodes
+        );
 
         Ok(BvGraph::new(
             ConstCodesDecoderFactory::new(factory, offsets, comp_flags)?,

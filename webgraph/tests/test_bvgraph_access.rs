@@ -620,3 +620,39 @@ fn test_static_dispatch_non_default_codes() -> Result<()> {
     assert_eq!(ra.successors(2).collect::<Vec<_>>(), vec![30]);
     Ok(())
 }
+
+#[test]
+fn test_stale_ef_rejected_at_load() -> Result<()> {
+    // Regression: the random-access decoders index the Elias-Fano offsets
+    // without bounds checks, and a stale .ef (built for a different graph)
+    // was accepted at load time.
+    let small = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1)]);
+    let large = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 3)]);
+    let tmp = tempfile::tempdir()?;
+    let small_base = tmp.path().join("small");
+    let large_base = tmp.path().join("large");
+    BvComp::with_basename(&small_base).comp_graph::<BE>(&small)?;
+    BvComp::with_basename(&large_base).comp_graph::<BE>(&large)?;
+    build_ef(&small_base)?;
+    // Use the .ef of the smaller graph for the larger one.
+    std::fs::copy(
+        small_base.with_extension("ef"),
+        large_base.with_extension("ef"),
+    )?;
+    let res = BvGraph::with_basename(&large_base)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load();
+    assert!(res.is_err(), "expected stale-offsets error, got Ok");
+    // Same validation on the static-dispatch load path.
+    let res = BvGraph::with_basename(&large_base)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .dispatch::<webgraph::graphs::bvgraph::Static>()
+        .load();
+    assert!(
+        res.is_err(),
+        "expected stale-offsets error on static dispatch, got Ok"
+    );
+    Ok(())
+}
