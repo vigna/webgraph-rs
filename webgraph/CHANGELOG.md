@@ -64,6 +64,10 @@
 - `to_properties` omits ratio metrics with degenerate denominators
   (zero-node, zero-arc, or complete graphs) instead of emitting NaN/inf.
 
+- The sorters clamp their batch size to at least one element per buffer, so
+  a `MemoryUsage` smaller than one element no longer allocates
+  zero-capacity buffers with an arbitrary effective batch size.
+
 - The `Decoder` aliases of `ConstCodesDecoderFactory` were not forwarding the
   const code parameters, so `Static` dispatch with non-default codes silently
   decoded with the default codes.
