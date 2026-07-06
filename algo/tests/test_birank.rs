@@ -311,3 +311,13 @@ fn test_degenerate_bipartitions() {
         assert_eq!(br.rank(), &[1.0]);
     }
 }
+
+#[test]
+#[should_panic(expected = "negative or non-finite")]
+fn test_preference_rejects_nan() {
+    // Regression: NaN query vectors were accepted and made threshold-based
+    // stopping criteria unsatisfiable.
+    let graph = VecGraph::from_arcs([(0, 1)]);
+    let transpose = VecGraph::from_arcs([(1, 0)]);
+    let _ = BiRank::new(&graph, &transpose, 1).preference([f64::NAN, 0.5].as_slice());
+}

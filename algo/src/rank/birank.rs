@@ -341,7 +341,11 @@ impl<'a, G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByVal
     ///
     /// # Panics
     ///
-    /// Panics if the length of the vector does not match the number of nodes.
+    /// Panics if the length of the vector does not match the number of
+    /// nodes, or if the vector contains a negative or non-finite entry: a
+    /// malformed query vector would otherwise silently produce NaN ranks,
+    /// and NaN norm deltas prevent threshold-based stopping criteria from
+    /// ever being satisfied.
     pub fn preference<W: SliceByValue<Value = f64>>(self, preference: W) -> BiRank<'a, G, H, W> {
         let n = self.graph.num_nodes();
         assert_eq!(
@@ -350,6 +354,13 @@ impl<'a, G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByVal
             "Preference vector length ({}) does not match the number of nodes ({n})",
             preference.len()
         );
+        for i in 0..n {
+            let x = preference.index_value(i);
+            assert!(
+                x.is_finite() && x >= 0.0,
+                "The preference vector has a negative or non-finite entry at index {i}: {x}"
+            );
+        }
         BiRank {
             graph: self.graph,
             transpose: self.transpose,

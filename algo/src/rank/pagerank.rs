@@ -176,7 +176,11 @@ impl HasL1Norm for PredParams {
 ///
 /// See the [module-level documentation] for the mathematical details.
 ///
+/// Note that, differently from the Java [LAW] implementation (whose default
+/// is weakly preferential), the default mode is strongly preferential.
+///
 /// [module-level documentation]: self
+/// [LAW]: https://law.di.unimi.it/software.php
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Mode {
     /// Uses the preference vector **v** as the dangling-node distribution
@@ -399,9 +403,11 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64>> PageRank<'a,
     ///
     /// # Panics
     ///
-    /// Panics if the length of the vector does not match the number of nodes.
-    /// In test mode, we also check for stochasticity (nonnegative entries
-    /// summing to 1 within a tolerance of 1E-6) and panic if the check fails.
+    /// Panics if the length of the vector does not match the number of nodes,
+    /// or if the vector is not stochastic (nonnegative entries summing to 1
+    /// within a tolerance of 1E-6): a malformed preference vector would
+    /// otherwise silently produce NaN or negative ranks, and NaN norm deltas
+    /// prevent threshold-based stopping criteria from ever being satisfied.
     ///
     /// [`StronglyPreferential`]: Mode::StronglyPreferential
     pub fn preference<W: SliceByValue<Value = f64>>(self, preference: W) -> PageRank<'a, G, W> {
@@ -412,7 +418,6 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64>> PageRank<'a,
             "Preference vector length ({}) does not match the number of nodes ({n})",
             preference.len()
         );
-        #[cfg(test)]
         PageRank::<G, W>::assert_stochastic(&preference, "preference");
         PageRank {
             transpose: self.transpose,
@@ -475,13 +480,12 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64>> PageRank<'a,
 
     /// Checks that a vector is stochastic (all entries nonnegative and summing
     /// to 1 within a tolerance of 1E-6).
-    #[cfg(test)]
     fn assert_stochastic(v: &impl SliceByValue<Value = f64>, name: &str) {
         for i in 0..v.len() {
             let x = v.index_value(i);
             assert!(
                 x >= 0.0,
-                "The {name} vector has a negative entry at index {i}: {x}"
+                "The {name} vector has a negative or NaN entry at index {i}: {x}"
             );
         }
         let sum: f64 = (0..v.len()).map(|i| v.index_value(i)).sum();
