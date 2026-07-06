@@ -156,12 +156,18 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels> BvCompZ<E, W, SL> {
         self.store_labels.push_node()?;
         let store_labels = &mut self.store_labels;
         let mut succ_iter = succ_iter.into_iter();
+        // RaggedArray::push consumes the iterator eagerly, so `label_result`
+        // is final by the time it returns.
+        let mut label_result: anyhow::Result<()> = Ok(());
         self.backrefs.push(std::iter::from_fn(|| {
             succ_iter.next().map(|(succ, label)| {
-                store_labels.push_label(&label).unwrap();
+                if label_result.is_ok() {
+                    label_result = store_labels.push_label(&label).map(|_| ());
+                }
                 succ
             })
         }));
+        label_result?;
         let offset_in_chunk = self.curr_node - self.start_chunk_node;
         // get the ref
         let curr_list = &self.backrefs[offset_in_chunk];
