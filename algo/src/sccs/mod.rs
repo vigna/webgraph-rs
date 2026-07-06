@@ -59,8 +59,8 @@ pub use symm_par::*;
 /// Strongly connected components.
 ///
 /// An instance of this structure stores the [index of the
-/// component](Sccs::components) of each node. Components are numbered from 0 to
-/// [`num_components`].
+/// component](Sccs::components) of each node. Components are numbered from 0
+/// (included) to [`num_components`] (excluded).
 ///
 /// Moreover, this structure makes it possible to [sort the components by
 /// size], possibly using [parallel methods].
