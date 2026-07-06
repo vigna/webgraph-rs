@@ -1079,3 +1079,40 @@ fn test_par_comp_labeled_cnr2000() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_check_offsets_final_entry() -> Result<()> {
+    // Regression: check_offsets never verified the final entry of the
+    // offsets file (the total bitstream length), so a corrupted or stale
+    // final offset passed the check.
+    let graph =
+        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3), (3, 0)]);
+    let tmp = tempfile::tempdir()?;
+    let basename = tmp.path().join("final_entry");
+    BvComp::with_basename(&basename).comp_graph::<BE>(&graph)?;
+    let seq = BvGraphSeq::with_basename(&basename)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
+    assert!(webgraph::graphs::bvgraph::check_offsets(&seq, &basename)?);
+
+    // Rewrite the offsets with the correct per-node entries but a corrupted
+    // final length entry.
+    let mut offsets = vec![];
+    let mut degs_iter = seq.offset_deg_iter();
+    for (offset, _degree) in &mut degs_iter {
+        offsets.push(offset);
+    }
+    let end = degs_iter.get_pos();
+    let mut writer =
+        buf_bit_writer::from_path::<BE, usize>(basename.with_extension("offsets"))?;
+    let mut prev = 0;
+    for offset in offsets {
+        writer.write_gamma(offset - prev)?;
+        prev = offset;
+    }
+    writer.write_gamma(end - prev + 1)?; // off by one
+    writer.flush()?;
+    assert!(!webgraph::graphs::bvgraph::check_offsets(&seq, &basename)?);
+    Ok(())
+}
