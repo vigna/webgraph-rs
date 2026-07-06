@@ -294,7 +294,22 @@ pub type SortedLabeledIter<SD, const DEDUP: bool = false> = KMergeIters<
 impl<I> ParSortedLabeledGraph<I> {
     /// Creates a [`ParSortedLabeledGraph`] from pre-sorted partition
     /// boundaries and iterators.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the boundaries do not contain exactly one element more than
+    /// the iterators, do not start at 0, or are not non-decreasing.
     pub fn from_parts(boundaries: Box<[usize]>, iters: Box<[I]>) -> Self {
+        assert_eq!(
+            boundaries.len(),
+            iters.len() + 1,
+            "there must be exactly one boundary more than the iterators"
+        );
+        assert_eq!(boundaries[0], 0, "boundaries must start at 0");
+        assert!(
+            boundaries.windows(2).all(|w| w[0] <= w[1]),
+            "boundaries must be non-decreasing"
+        );
         ParSortedLabeledGraph { boundaries, iters }
     }
 

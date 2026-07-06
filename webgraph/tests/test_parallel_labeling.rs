@@ -235,3 +235,28 @@ fn test_par_graph_with_dcf_zero_arcs() -> Result<()> {
     }
     Ok(())
 }
+
+#[test]
+#[cfg(not(miri))]
+#[should_panic(expected = "cutpoints must end at the number of nodes")]
+fn test_par_graph_with_cutpoints_validation() {
+    use webgraph::graphs::par_graphs::ParGraph;
+    use webgraph::graphs::vec_graph::VecGraph;
+    // Regression: invalid cutpoints were accepted at construction and
+    // produced wrong metadata or delayed panics.
+    let _ = ParGraph::with_cutpoints(VecGraph::empty(5), vec![0, 2]);
+}
+
+#[test]
+#[cfg(not(miri))]
+#[should_panic(expected = "boundaries must be non-decreasing")]
+fn test_par_sorted_from_parts_validation() {
+    // Regression: from_parts accepted arbitrary boundaries and panicked
+    // (or underflowed) only later, inside into_par_lenders.
+    let iters: Box<[std::vec::IntoIter<(usize, usize)>]> = vec![
+        vec![(0usize, 1usize)].into_iter(),
+        vec![(1usize, 0usize)].into_iter(),
+    ]
+    .into();
+    let _ = ParSortedGraph::from_parts(vec![0, 2, 1].into_boxed_slice(), iters);
+}

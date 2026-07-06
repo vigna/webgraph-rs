@@ -110,7 +110,29 @@ impl<G> ParGraph<G> {
     ///
     /// The cutpoints must be a non-decreasing sequence starting at 0
     /// and ending at the number of nodes of the graph.
-    pub fn with_cutpoints(graph: G, cutpoints: Vec<usize>) -> Self {
+    ///
+    /// # Panics
+    ///
+    /// Panics if the cutpoints have fewer than two elements, do not start at
+    /// 0, do not end at the number of nodes, or are not non-decreasing.
+    pub fn with_cutpoints(graph: G, cutpoints: Vec<usize>) -> Self
+    where
+        G: SequentialLabeling,
+    {
+        assert!(
+            cutpoints.len() >= 2,
+            "cutpoints must have at least 2 elements"
+        );
+        assert_eq!(cutpoints[0], 0, "cutpoints must start at 0");
+        assert_eq!(
+            *cutpoints.last().unwrap(),
+            graph.num_nodes(),
+            "cutpoints must end at the number of nodes"
+        );
+        assert!(
+            cutpoints.windows(2).all(|w| w[0] <= w[1]),
+            "cutpoints must be non-decreasing"
+        );
         Self {
             graph,
             splitting: Splitting::Cutpoints(cutpoints.into_boxed_slice()),
