@@ -1000,6 +1000,15 @@ impl<
 
         (self.radius_high, self.radius_vertex) = radius.into_inner().unwrap();
 
+        // In the symmetric case the eccentricity of `start` just became
+        // exact, so it is a radius candidate, exactly as in
+        // `forward_step_sum_sweep` (in the directed case `ecc_start` is a
+        // backward eccentricity, which does not bound the radius).
+        if self.symmetric && self.radial_vertices[start] && self.radius_high > ecc_start {
+            self.radius_high = ecc_start;
+            self.radius_vertex = start;
+        }
+
         if self.diameter_low < ecc_start {
             self.diameter_low = ecc_start;
             self.diameter_vertex = start;
