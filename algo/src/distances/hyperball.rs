@@ -596,7 +596,19 @@ impl<
         log2m: u32,
         weights: Option<&'a [usize]>,
     ) -> Result<Self> {
-        let num_elements = weights.map_or(graph.num_nodes(), |w| w.iter().sum());
+        let num_elements = match weights {
+            Some(w) => w
+                .iter()
+                .try_fold(0usize, |a, &x| a.checked_add(x))
+                .context("The sum of the HyperBall weights overflows usize")?,
+            None => graph.num_nodes(),
+        };
+        // HyperLogLogBuilder panics on a zero upper bound; fail cleanly.
+        ensure!(
+            num_elements > 0,
+            "HyperLogLog counters require a positive number of elements \
+             (the graph is empty or all weights are zero)"
+        );
         let logic = HyperLogLogBuilder::new(num_elements)
             .log2_num_regs(log2m)
             .build()?;
@@ -691,7 +703,19 @@ impl<
         log2m: u32,
         weights: Option<&'a [usize]>,
     ) -> Result<Self> {
-        let num_elements = weights.map_or(graph.num_nodes(), |w| w.iter().sum());
+        let num_elements = match weights {
+            Some(w) => w
+                .iter()
+                .try_fold(0usize, |a, &x| a.checked_add(x))
+                .context("The sum of the HyperBall weights overflows usize")?,
+            None => graph.num_nodes(),
+        };
+        // HyperLogLogBuilder panics on a zero upper bound; fail cleanly.
+        ensure!(
+            num_elements > 0,
+            "HyperLogLog counters require a positive number of elements \
+             (the graph is empty or all weights are zero)"
+        );
         let logic = HyperLogLogBuilder::new(num_elements)
             .log2_num_regs(log2m)
             .build()?;
@@ -1023,9 +1047,14 @@ impl<
             rayon::current_num_threads()
         ));
 
-        // Compute memory usage (not counting the graph itself)
-        let estimator_bytes = std::mem::size_of_val(self.array_0.get_backend(0)) * num_nodes
-            + self.array_1.mem_usage();
+        // Compute memory usage (not counting the graph itself); backend 0
+        // exists only if the graph has nodes.
+        let per_node_bytes = if num_nodes > 0 {
+            std::mem::size_of_val(self.array_0.get_backend(0))
+        } else {
+            0
+        };
+        let estimator_bytes = per_node_bytes * num_nodes + self.array_1.mem_usage();
         let mut total_bytes = estimator_bytes;
         if sum_of_distances.is_some() {
             total_bytes += num_nodes * std::mem::size_of::<f32>();
@@ -2385,6 +2414,78 @@ mod test {
         hb.run_until_done(&mut rng, no_logging![])?;
         let nf = hb.neighborhood_function()?;
         assert_eq!(nf[0], 10.0);
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(not(miri))]
+    fn test_zero_node_graph() -> Result<()> {
+        use webgraph::graphs::vec_graph::VecGraph;
+        let graph = VecGraph::empty(0);
+        let deg_cumul_func = graph.build_dcf();
+
+        // Regression: building HyperBall with HyperLogLog8 counters for a
+        // 0-node graph panicked while probing the size of estimator
+        // backend 0.
+        let mut hb = HyperBallBuilder::with_hyper_log_log8(
+            &graph,
+            None::<&VecGraph>,
+            &deg_cumul_func,
+            6,
+            None,
+        )?
+        .build(no_logging![]);
+        let mut rng = rand::rngs::SmallRng::seed_from_u64(0);
+        hb.run_until_done(&mut rng, no_logging![])?;
+
+        // Regression: the HyperLogLog constructors panicked inside the
+        // counter builder (which requires a positive element bound) instead
+        // of returning an error.
+        assert!(
+            HyperBallBuilder::with_hyper_log_log(
+                &graph,
+                None::<&VecGraph>,
+                &deg_cumul_func,
+                6,
+                None
+            )
+            .is_err()
+        );
+
+        // Same clean error for all-zero weights and the external variant.
+        let weighted_graph = VecGraph::from_arcs([(0, 1)]);
+        let weighted_dcf = weighted_graph.build_dcf();
+        assert!(
+            HyperBallBuilder::with_hyper_log_log(
+                &weighted_graph,
+                None::<&VecGraph>,
+                &weighted_dcf,
+                6,
+                Some(&[0, 0])
+            )
+            .is_err()
+        );
+        assert!(
+            HyperBallBuilder::with_hyper_log_log_external(
+                &graph,
+                None::<&VecGraph>,
+                &deg_cumul_func,
+                6,
+                None
+            )
+            .is_err()
+        );
+        // A weight sum overflowing usize is a clean error, too.
+        assert!(
+            HyperBallBuilder::with_hyper_log_log(
+                &weighted_graph,
+                None::<&VecGraph>,
+                &weighted_dcf,
+                6,
+                Some(&[usize::MAX, 1])
+            )
+            .is_err()
+        );
         Ok(())
     }
 
