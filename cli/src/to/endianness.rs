@@ -69,21 +69,21 @@ macro_rules! impl_convert {
                 offset: 0,
             });
 
+        // The offsets file contains num_nodes + 1 offsets: a leading zero
+        // followed by the end of each successor list, γ-coded as gaps.
+        offsets_writer.write_gamma(0).context("Could not write gamma")?;
         let mut offset = 0;
         for _ in 0..num_nodes {
             iter.next_degree()?;
             let new_offset = iter.get_decoder().offset;
             offsets_writer
+                // usize -> u64 is lossless on all supported targets
                 .write_gamma((new_offset - offset) as u64)
                 .context("Could not write gamma")?;
             offset = new_offset;
             pl.light_update();
         }
         let bitstream_len = iter.get_decoder().offset;
-        offsets_writer
-            .write_gamma((bitstream_len - offset) as u64)
-            .context("Could not write gamma")?;
-        pl.light_update();
         pl.done();
         offsets_writer.flush().context("Could not flush offsets")?;
 
