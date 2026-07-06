@@ -29,8 +29,9 @@ impl<G: SequentialGraph> SequentialLabeling for NoSelfLoopsGraph<G> {
 
     #[inline(always)]
     fn num_arcs_hint(&self) -> Option<u64> {
-        // it's just a hint, and we don't know how many self-loops there are
-        self.0.num_arcs_hint()
+        // The number of removed self-loops is unknown, so no exact arc
+        // count can be provided (see the type documentation).
+        None
     }
 
     #[inline(always)]
