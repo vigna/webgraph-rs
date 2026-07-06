@@ -85,8 +85,19 @@ where
     }
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
-    BvGraph<ConstCodesDecoderFactory<E, F, OFF>>
+impl<
+    E: Endianness,
+    F: CodesReaderFactoryHelper<E>,
+    OFF: Offsets,
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+>
+    BvGraph<
+        ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>,
+    >
 {
     /// Remaps the offsets in a slice of `u64`.
     ///
@@ -94,7 +105,20 @@ impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
     /// representing the offsets as a slice increases significantly the
     /// memory footprint. It just replaces the current decoder factory with
     /// the result of [`ConstCodesDecoderFactory::offsets_to_slice`].
-    pub fn offsets_to_slice(self) -> BvGraph<ConstCodesDecoderFactory<E, F, Owned<Box<[u64]>>>> {
+    pub fn offsets_to_slice(
+        self,
+    ) -> BvGraph<
+        ConstCodesDecoderFactory<
+            E,
+            F,
+            Owned<Box<[u64]>>,
+            OUTDEGREES,
+            REFERENCES,
+            BLOCKS,
+            INTERVALS,
+            RESIDUALS,
+        >,
+    > {
         BvGraph {
             factory: self.factory.offsets_to_slice(),
             number_of_nodes: self.number_of_nodes,
