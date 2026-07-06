@@ -208,3 +208,30 @@ fn test_par_sorted_iter_from_out_of_range() -> Result<()> {
     assert!(lender.next().is_none());
     Ok(())
 }
+
+#[test]
+#[cfg(not(miri))]
+fn test_par_graph_with_dcf_zero_arcs() -> Result<()> {
+    use lender::prelude::*;
+    use webgraph::graphs::par_graphs::ParGraph;
+    use webgraph::graphs::vec_graph::VecGraph;
+    // Regression: FairChunks yields no ranges for a zero-arc graph, so
+    // with_dcf produced the single cutpoint [0] and into_par_lenders
+    // panicked ("cutpoints must have at least 2 elements").
+    for n in [0usize, 5] {
+        let g = VecGraph::empty(n);
+        let dcf = g.build_dcf();
+        let pg = ParGraph::with_dcf(g, 0, dcf, 2);
+        let (lenders, boundaries) = (&pg).into_par_lenders();
+        assert_eq!(*boundaries.first().unwrap(), 0);
+        assert_eq!(*boundaries.last().unwrap(), n);
+        let mut nodes = 0;
+        for mut lender in lenders.into_vec() {
+            while let Some((_node, _)) = lender.next() {
+                nodes += 1;
+            }
+        }
+        assert_eq!(nodes, n);
+    }
+    Ok(())
+}
