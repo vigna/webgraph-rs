@@ -41,7 +41,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         BE::NAME => optimize_codes::<BE>(args),
         #[cfg(feature = "le_bins")]
         LE::NAME => optimize_codes::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

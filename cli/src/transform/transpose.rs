@@ -64,7 +64,7 @@ pub fn main(args: CliArgs) -> Result<()> {
                 transpose_par::<LE>(args)
             }
         }
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

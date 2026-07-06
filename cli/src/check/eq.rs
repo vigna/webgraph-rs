@@ -34,7 +34,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         BE::NAME => compare_graphs::<BE>(args),
         #[cfg(feature = "le_bins")]
         LE::NAME => compare_graphs::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

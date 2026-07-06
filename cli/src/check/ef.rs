@@ -38,7 +38,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         BE::NAME => check_ef::<BE>(args),
         #[cfg(feature = "le_bins")]
         LE::NAME => check_ef::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

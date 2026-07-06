@@ -36,7 +36,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         BE::NAME => to_csr::<BE>(args),
         #[cfg(feature = "le_bins")]
         LE::NAME => to_csr::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

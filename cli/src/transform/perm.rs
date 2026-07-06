@@ -56,7 +56,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         BE::NAME => perm::<BE>(args),
         #[cfg(feature = "le_bins")]
         LE::NAME => perm::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

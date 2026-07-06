@@ -118,6 +118,6 @@ pub fn main(args: CliArgs) -> Result<()> {
         BE::NAME => impl_convert!(args, BE, LE),
         #[cfg(feature = "le_bins")]
         LE::NAME => impl_convert!(args, LE, BE),
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }

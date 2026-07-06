@@ -134,7 +134,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         BE::NAME => hyperball::<BE>(args),
         #[cfg(feature = "le_bins")]
         LE::NAME => hyperball::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

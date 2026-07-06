@@ -49,7 +49,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         BE::NAME => to_csv::<BE>(args),
         #[cfg(feature = "le_bins")]
         LE::NAME => to_csv::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

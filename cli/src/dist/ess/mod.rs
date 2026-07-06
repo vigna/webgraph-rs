@@ -111,7 +111,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         BE::NAME => exact_sum_sweep::<BE>(args),
         #[cfg(feature = "le_bins")]
         LE::NAME => exact_sum_sweep::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

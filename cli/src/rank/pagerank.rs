@@ -112,7 +112,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         BE::NAME => pagerank::<BE>(args),
         #[cfg(feature = "le_bins")]
         LE::NAME => pagerank::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

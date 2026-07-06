@@ -66,7 +66,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         BE::NAME => compress::<BE>(args, target_endianness),
         #[cfg(feature = "le_bins")]
         LE::NAME => compress::<LE>(args, target_endianness),
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

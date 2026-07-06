@@ -34,7 +34,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         BE::NAME => ascii_convert::<BE>(args),
         #[cfg(feature = "le_bins")]
         LE::NAME => ascii_convert::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

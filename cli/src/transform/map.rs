@@ -76,7 +76,7 @@ pub fn main(args: CliArgs) -> Result<()> {
                 map_par::<LE>(args)
             }
         }
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 
