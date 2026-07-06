@@ -508,7 +508,9 @@ impl<L: Clone + Copy + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone 
         let num_nodes = self.num_nodes();
         let iter = self.iters.iter().cloned().flatten();
         let mut lender = arc_list_graph::NodeLabels::new(num_nodes, iter);
-        lender.advance_by(from).unwrap();
+        // An out-of-range `from` exhausts the lender, yielding an empty
+        // iteration like the range-based implementations.
+        let _ = lender.advance_by(from);
         lender
     }
 }
