@@ -367,6 +367,11 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
                         "Expected {} nodes, but got node id {src}",
                         self.num_nodes
                     );
+                    ensure!(
+                        dst < self.num_nodes,
+                        "Expected {} nodes, but got successor node id {dst}",
+                        self.num_nodes
+                    );
                     let partition_id = src / num_nodes_per_partition;
                     let SorterThreadState {
                         worker_id,

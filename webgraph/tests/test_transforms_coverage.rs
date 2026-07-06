@@ -495,3 +495,42 @@ fn test_symmetrize_sorted_seq_eq_symmetrize_seq() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_map_rejects_out_of_range_destination() -> Result<()> {
+    // Regression: the documented contract that num_nodes exceeds every map
+    // value was unenforced, and only mapped sources were bounds-checked, so
+    // an out-of-range mapped destination silently produced a graph whose
+    // successors exceeded num_nodes.
+    let graph = VecGraph::from_arcs([(0, 1)]);
+    let map = vec![0usize, 999];
+    let res = map_seq(&graph, &map, 2, MemoryUsage::BatchSize(2), no_logging![]);
+    assert!(res.is_err());
+    Ok(())
+}
+
+#[test]
+fn test_permute_rejects_out_of_range_destination() -> Result<()> {
+    let graph = VecGraph::from_arcs([(0, 1)]);
+    let perm = vec![0usize, 999];
+    let res = permute_seq(&graph, &perm, MemoryUsage::BatchSize(2), no_logging![]);
+    assert!(res.is_err());
+    Ok(())
+}
+
+#[test]
+fn test_map_par_rejects_out_of_range_destination() -> Result<()> {
+    use webgraph::transform::map_par;
+    let graph = VecGraph::from_arcs([(0, 1)]);
+    let tmp = tempfile::NamedTempFile::new()?;
+    let path = tmp.path();
+    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
+    let seq = BvGraphSeq::with_basename(path)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
+    let m = vec![0usize, 999];
+    let res = map_par(&seq, &m, 2, MemoryUsage::BatchSize(2), no_logging![]);
+    assert!(res.is_err());
+    Ok(())
+}

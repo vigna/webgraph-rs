@@ -355,6 +355,11 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
                             "Source node {src} is out of bounds (num_nodes = {})",
                             self.num_nodes
                         );
+                        ensure!(
+                            dst < self.num_nodes,
+                            "Destination node {dst} is out of bounds (num_nodes = {})",
+                            self.num_nodes
+                        );
                         let partition_id = src / num_nodes_per_partition;
 
                         let sorted_pairs = &mut sorted_pairs[partition_id];
@@ -518,6 +523,11 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
             ensure!(
                 src < self.num_nodes,
                 "Source node {src} is out of bounds (num_nodes = {})",
+                self.num_nodes
+            );
+            ensure!(
+                dst < self.num_nodes,
+                "Destination node {dst} is out of bounds (num_nodes = {})",
                 self.num_nodes
             );
             let partition_id = src / num_nodes_per_partition;
