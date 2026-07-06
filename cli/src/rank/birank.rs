@@ -113,7 +113,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         BE::NAME => birank::<BE>(args),
         #[cfg(feature = "le_bins")]
         LE::NAME => birank::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

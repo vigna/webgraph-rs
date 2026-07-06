@@ -59,7 +59,7 @@ pub fn main(args: CliArgs) -> Result<()> {
                 build_dcf_par::<LE>(args)
             }
         }
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

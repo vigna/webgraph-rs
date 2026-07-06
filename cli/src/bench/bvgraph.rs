@@ -67,7 +67,7 @@ pub fn main(args: CliArgs) -> Result<()> {
             true => bench_webgraph::<LE, Static>(args),
             false => bench_webgraph::<LE, Dynamic>(args),
         },
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

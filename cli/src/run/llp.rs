@@ -124,7 +124,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         BE::NAME => llp::<BE>(args),
         #[cfg(feature = "le_bins")]
         LE::NAME => llp::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 

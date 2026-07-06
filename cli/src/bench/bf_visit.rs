@@ -90,7 +90,7 @@ pub fn main(args: CliArgs) -> Result<()> {
                 )?,
                 false => visit(config.clone().endianness::<LE>().load()?)?,
             },
-            (e, _) => panic!("Unknown endianness: {}", e),
+            (e, _) => anyhow::bail!("Unknown endianness: {}", e),
         };
     }
     Ok(())

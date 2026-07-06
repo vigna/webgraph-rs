@@ -30,7 +30,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         BE::NAME => build_offsets::<BE>(args),
         #[cfg(feature = "le_bins")]
         LE::NAME => build_offsets::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
+        e => anyhow::bail!("Unknown endianness: {}", e),
     }
 }
 
