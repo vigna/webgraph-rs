@@ -475,3 +475,13 @@ fn test_erdos_renyi_vs_power_method() {
         }
     }
 }
+
+#[test]
+#[should_panic(expected = "not stochastic")]
+fn test_preference_rejects_non_stochastic() {
+    // Regression: stochasticity was checked only under #[cfg(test)] of the
+    // algo crate itself, so production callers could pass malformed vectors
+    // whose NaN norm deltas never satisfy threshold predicates.
+    let transpose = VecGraph::from_arcs([(1, 0)]);
+    let _ = PageRank::new(&transpose).preference([0.9f64, 0.9].as_slice());
+}
