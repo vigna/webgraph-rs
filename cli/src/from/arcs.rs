@@ -82,9 +82,7 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
     let mut parse_error: Option<anyhow::Error> = None;
 
     let mut lines = file.lines();
-    for _ in 0..args.arcs_args.lines_to_skip {
-        let _ = lines.next();
-    }
+    let mut lines_to_skip = args.arcs_args.lines_to_skip;
     let mut line_count = 0usize;
 
     let pairs = std::iter::from_fn(|| {
@@ -105,6 +103,13 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
             line_count += 1;
 
             if line.trim().starts_with(comment) {
+                continue;
+            }
+
+            // Skipped lines are counted after ignoring comment lines, as
+            // documented.
+            if lines_to_skip > 0 {
+                lines_to_skip -= 1;
                 continue;
             }
 
@@ -177,14 +182,13 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
 
     log::info!("Arcs read: {} Nodes: {}", num_arcs, num_nodes);
     if num_arcs == 0 {
-        log::error!(
-            "No arcs read from stdin! Check that the --separator={:?} value is correct \
+        anyhow::bail!(
+            "No arcs read from the input! Check that the --separator={:?} value is correct \
              and that the --source-column={:?} and --target-column={:?} values are correct.",
             separator,
             source_column,
             target_column
         );
-        return Ok(());
     }
 
     create_parent_dir(&args.dst)?;
