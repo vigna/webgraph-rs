@@ -105,3 +105,13 @@ fn test_birank_little_endian_graph() -> Result<()> {
     assert_eq!(ranks.len(), 4);
     Ok(())
 }
+
+#[test]
+fn test_rank_parsers_are_consistent() {
+    use clap::CommandFactory;
+    // Regression: `pagerank` bound -t to both `threshold` and the flattened
+    // `num_threads`, which panics clap's debug assertions (and is ambiguous
+    // in release builds).
+    pagerank::CliArgs::command().debug_assert();
+    birank::CliArgs::command().debug_assert();
+}
