@@ -8,7 +8,7 @@
 
 use crate::create_parent_dir;
 use crate::*;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::prelude::{BE, Endianness};
 use dsi_progress_logger::prelude::*;
@@ -223,14 +223,17 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
             log_interval = args.log_interval.log_interval
         ];
 
-        let mut file = std::fs::File::create(&nodes_file).unwrap();
+        let mut file = std::fs::File::create(&nodes_file)
+            .with_context(|| format!("Could not create {}", nodes_file.display()))?;
         let mut buf = std::io::BufWriter::new(&mut file);
         let mut nodes = nodes.into_iter().collect::<Vec<_>>();
         thread_pool.install(|| nodes.par_sort_by(|(_, a), (_, b)| a.cmp(b)));
         pl.start(format!("Storing the nodes to {}...", nodes_file.display()));
         for (node, _) in nodes {
-            buf.write_all(node.as_bytes()).unwrap();
-            buf.write_all(b"\n").unwrap();
+            buf.write_all(node.as_bytes())
+                .with_context(|| format!("Could not write to {}", nodes_file.display()))?;
+            buf.write_all(b"\n")
+                .with_context(|| format!("Could not write to {}", nodes_file.display()))?;
             pl.light_update();
         }
         pl.done();

@@ -55,7 +55,10 @@ where
         )
     })?;
     let map = java_properties::read(BufReader::new(f))?;
-    let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
+    let num_nodes = map
+        .get("nodes")
+        .with_context(|| format!("Missing 'nodes' in {}", properties_path.display()))?
+        .parse::<usize>()?;
 
     // Creates the offsets file
     let of_file_path = args.basename.with_extension(OFFSETS_EXTENSION);
