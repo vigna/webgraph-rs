@@ -5,7 +5,7 @@
  */
 
 use crate::LogIntervalArg;
-use anyhow::Result;
+use anyhow::{Result, ensure};
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
@@ -73,6 +73,10 @@ where
         .load()?;
 
     let num_nodes = graph.num_nodes();
+    ensure!(
+        num_nodes > 0,
+        "Cannot compute statistics for a graph with no nodes"
+    );
     let results_basename = args.results_basename.as_ref().unwrap_or(&args.basename);
 
     let mut outdegree_count: Vec<u64> = Vec::new();
@@ -295,6 +299,7 @@ where
             scc_sizes.sort_unstable();
 
             let m = scc_sizes.len();
+            ensure!(m > 0, "The SCC sizes file is empty");
             let max_size = scc_sizes[m - 1];
             let min_size = scc_sizes[0];
 
