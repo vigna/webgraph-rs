@@ -313,11 +313,13 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
 
         let num_partitions = self.num_partitions;
         let num_buffers = rayon::current_num_threads() * num_partitions;
+        // max(1): see the same computation in ParSortPairs::sort_labeled.
         let batch_size = self
             .memory_usage
             .unwrap_or_default()
             .batch_size::<((usize, usize), C::Label)>()
-            .div_ceil(num_buffers);
+            .div_ceil(num_buffers)
+            .max(1);
         let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
 
         let mut pl = pl.concurrent();
@@ -491,11 +493,13 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>>> {
         let num_partitions = self.num_partitions;
+        // max(1): see the same computation in ParSortPairs::sort_labeled.
         let batch_size = self
             .memory_usage
             .unwrap_or_default()
             .batch_size::<((usize, usize), C::Label)>()
-            .div_ceil(num_partitions);
+            .div_ceil(num_partitions)
+            .max(1);
         let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
 
         pl.item_name("pair");

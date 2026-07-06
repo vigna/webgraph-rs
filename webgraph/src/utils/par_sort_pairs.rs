@@ -299,11 +299,16 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
 
         let num_partitions = self.num_partitions;
         let num_buffers = rayon::current_num_threads() * num_partitions;
+        // max(1): a zero batch size (BatchSize(0), or a MemorySize smaller
+        // than one element) would allocate zero-capacity buffers, whose
+        // effective batch size would then be whatever Vec's growth policy
+        // picks on the first push.
         let batch_size = self
             .memory_usage
             .unwrap_or_default()
             .batch_size::<((usize, usize), C::Label)>()
-            .div_ceil(num_buffers);
+            .div_ceil(num_buffers)
+            .max(1);
         let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
 
         let mut pl = pl.concurrent();

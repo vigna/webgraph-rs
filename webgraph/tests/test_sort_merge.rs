@@ -131,6 +131,33 @@ fn test_par_sort_pairs_single_partition() -> Result<()> {
 
 #[test]
 #[cfg(not(miri))]
+fn test_par_sort_pairs_zero_batch_size() -> Result<()> {
+    // Exercises the degenerate BatchSize(0) configuration, which is clamped
+    // to one element per buffer instead of allocating zero-capacity buffers
+    // (whose effective batch size would depend on Vec's growth policy).
+    use rayon::prelude::*;
+    use webgraph::utils::MemoryUsage;
+    use webgraph::utils::par_sort_pairs::ParSortPairs;
+
+    let pairs = vec![(1, 3), (3, 2), (2, 1), (1, 0), (0, 4)];
+    let mut expected = pairs.clone();
+    expected.sort();
+    let sorter = ParSortPairs::new(5)?
+        .num_partitions(2)
+        .memory_usage(MemoryUsage::BatchSize(0));
+
+    let split = sorter.sort(pairs.par_iter().copied(), no_logging![])?;
+    let mut all_pairs = Vec::new();
+    for iter in split.iters.into_vec() {
+        all_pairs.extend(iter.into_iter());
+    }
+    all_pairs.sort();
+    assert_eq!(all_pairs, expected);
+    Ok(())
+}
+
+#[test]
+#[cfg(not(miri))]
 fn test_par_sort_pairs_with_memory_usage() -> Result<()> {
     use rayon::prelude::*;
     use webgraph::utils::MemoryUsage;
