@@ -18,8 +18,8 @@ use super::llp::store_perm;
 #[derive(Parser, Debug)]
 #[command(name = "llp-combine", about = "Combines the pre-computed labels from Layered Label Propagation into a permutation.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
-    /// The folder where the LLP labels are stored in Java format
-    /// (big-endian 64-bit integers).​
+    /// The folder where the LLP labels are stored as ε-serde files
+    /// (labels_*.bin plus a labels_*.gap objective value per gamma).​
     pub work_dir: PathBuf,
 
     /// A filename for the LLP permutation.​
