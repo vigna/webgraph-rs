@@ -827,7 +827,7 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                             let mut iter_nodes =
                                 thread_lender.inspect(|(x, _)| last_node = *x);
                             while let Some((_, succ)) = iter_nodes.next() {
-                                bvcomp.push(succ.into_iter())?;
+                                bvcomp.push(succ)?;
                                 log_comp_stats(&bvcomp.stats(), false);
                                 comp_pl.update();
                             }
@@ -847,7 +847,7 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                             let mut iter_nodes =
                                 thread_lender.inspect(|(x, _)| last_node = *x);
                             while let Some((_, succ)) = iter_nodes.next() {
-                                bvcomp.push(succ.into_iter())?;
+                                bvcomp.push(succ)?;
                                 log_comp_stats(&bvcomp.stats(), false);
                                 comp_pl.update();
                             }
