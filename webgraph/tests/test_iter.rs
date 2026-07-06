@@ -170,7 +170,11 @@ fn test_split_iter_at_bvseq() -> Result<()> {
         .endianness::<BE>()
         .load()?;
 
-    // Cutpoints starting at 0 (required for seq, which walks from the start)
+    // Cutpoints that don't start at 0 and don't end at num_nodes
+    // (regression: the first segment used to start at node 0 anyway)
+    let cutpoints = [10, 20, 50, 100];
+    test_split_iter_at(&g, &cutpoints)?;
+
     let cutpoints = [0, 7, 42, 100];
     test_split_iter_at(&g, &cutpoints)?;
 
@@ -180,6 +184,10 @@ fn test_split_iter_at_bvseq() -> Result<()> {
 
     // Empty segments
     let cutpoints = [0, 0, 50, 50, 100];
+    test_split_iter_at(&g, &cutpoints)?;
+
+    // Empty segments with a nonzero start
+    let cutpoints = [10, 10, 30, 30, 50];
     test_split_iter_at(&g, &cutpoints)?;
 
     Ok(())
