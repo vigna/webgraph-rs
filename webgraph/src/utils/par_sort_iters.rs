@@ -430,7 +430,10 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         // Build boundaries array: [0, nodes_per_partition,
         // 2*nodes_per_partition, ..., num_nodes]
         let boundaries: Vec<usize> = (0..=num_partitions)
-            .map(|i| i.saturating_mul(num_nodes_per_partition).min(self.num_nodes))
+            .map(|i| {
+                i.saturating_mul(num_nodes_per_partition)
+                    .min(self.num_nodes)
+            })
             .collect();
 
         // Build iterators array
@@ -575,7 +578,10 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
 
         // Build boundaries array
         let boundaries: Vec<usize> = (0..=num_partitions)
-            .map(|i| i.saturating_mul(num_nodes_per_partition).min(self.num_nodes))
+            .map(|i| {
+                i.saturating_mul(num_nodes_per_partition)
+                    .min(self.num_nodes)
+            })
             .collect();
 
         // Build iterators array

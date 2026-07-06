@@ -257,7 +257,9 @@ where
                 let n = *n;
                 let num_nodes = self.graph.num_nodes();
                 let step = num_nodes.div_ceil(n);
-                let boundaries: Box<[usize]> = (0..=n).map(|i| i.saturating_mul(step).min(num_nodes)).collect();
+                let boundaries: Box<[usize]> = (0..=n)
+                    .map(|i| i.saturating_mul(step).min(num_nodes))
+                    .collect();
                 let lenders: Box<[_]> = self.graph.split_iter(n).into_iter().collect();
                 (lenders, boundaries)
             }

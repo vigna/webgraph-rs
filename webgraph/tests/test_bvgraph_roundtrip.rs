@@ -1104,8 +1104,7 @@ fn test_check_offsets_final_entry() -> Result<()> {
         offsets.push(offset);
     }
     let end = degs_iter.get_pos();
-    let mut writer =
-        buf_bit_writer::from_path::<BE, usize>(basename.with_extension("offsets"))?;
+    let mut writer = buf_bit_writer::from_path::<BE, usize>(basename.with_extension("offsets"))?;
     let mut prev = 0;
     for offset in offsets {
         writer.write_gamma(offset - prev)?;

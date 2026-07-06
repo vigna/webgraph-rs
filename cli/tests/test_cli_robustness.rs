@@ -69,10 +69,7 @@ fn test_from_arcs_lines_to_skip_ignores_comments() -> Result<()> {
         "1",
         &dst,
     ])?;
-    webgraph_cli::from::arcs::from_csv(
-        args,
-        std::io::Cursor::new("# header\n0\t1\n1\t2\n"),
-    )?;
+    webgraph_cli::from::arcs::from_csv(args, std::io::Cursor::new("# header\n0\t1\n1\t2\n"))?;
     // The first data line (0 -> 1) is skipped; only 1 -> 2 remains.
     let props = std::fs::read_to_string(format!("{dst}.properties"))?;
     assert!(props.contains("arcs=1"), "properties: {props}");
@@ -102,7 +99,15 @@ fn test_perm_comp_rejects_non_permutations() -> Result<()> {
     let res = cli_main(vec!["webgraph", "perm", "comp", &dst, &good, &duplicated]);
     assert!(res.is_err(), "duplicate accepted: {res:?}");
     // --no-check skips the validation, composing even a non-permutation.
-    cli_main(vec!["webgraph", "perm", "comp", "--no-check", &dst, &good, &duplicated])?;
+    cli_main(vec![
+        "webgraph",
+        "perm",
+        "comp",
+        "--no-check",
+        &dst,
+        &good,
+        &duplicated,
+    ])?;
     cli_main(vec!["webgraph", "perm", "comp", &dst, &good, &good])?;
     let composed = std::fs::read_to_string(&dst)?;
     assert_eq!(composed.trim(), "0\n1");

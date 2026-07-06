@@ -6,7 +6,6 @@
 
 //! Zipping (cartesian product) of labelings.
 
-
 use lender::{IntoLender, Lend, Lender, Lending, unsafe_assume_covariance};
 
 use crate::prelude::{
@@ -228,8 +227,16 @@ impl<I: Iterator, J: Iterator> Iterator for StrictZip<I, J> {
             (None, None) => None,
             (a, b) => panic!(
                 "the zipped labelings returned a different number of labels for a node (left {}, right {})",
-                if a.is_some() { "still has labels" } else { "is exhausted" },
-                if b.is_some() { "still has labels" } else { "is exhausted" },
+                if a.is_some() {
+                    "still has labels"
+                } else {
+                    "is exhausted"
+                },
+                if b.is_some() {
+                    "still has labels"
+                } else {
+                    "is exhausted"
+                },
             ),
         }
     }

@@ -1569,7 +1569,10 @@ fn test_bfs_filtered_revisit_parity() -> Result<()> {
             vec![(2, 1)]
         };
         assert_eq!(seq_revisits, expected, "seq, max_distance {max_distance}");
-        assert_eq!(par_revisits, expected, "par fair, max_distance {max_distance}");
+        assert_eq!(
+            par_revisits, expected,
+            "par fair, max_distance {max_distance}"
+        );
         assert_eq!(
             low_mem_revisits, expected,
             "par low mem, max_distance {max_distance}"
