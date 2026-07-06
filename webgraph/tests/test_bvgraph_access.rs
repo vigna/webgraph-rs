@@ -634,10 +634,11 @@ fn test_stale_ef_rejected_at_load() -> Result<()> {
     BvComp::with_basename(&small_base).comp_graph::<BE>(&small)?;
     BvComp::with_basename(&large_base).comp_graph::<BE>(&large)?;
     build_ef(&small_base)?;
-    // Use the .ef of the smaller graph for the larger one.
-    std::fs::copy(
-        small_base.with_extension("ef"),
+    // Use the .ef of the smaller graph for the larger one. read + write
+    // instead of fs::copy, whose copy_file_range is unsupported under Miri.
+    std::fs::write(
         large_base.with_extension("ef"),
+        std::fs::read(small_base.with_extension("ef"))?,
     )?;
     let res = BvGraph::with_basename(&large_base)
         .endianness::<BE>()
