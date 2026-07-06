@@ -406,3 +406,19 @@ fn test_eq_sorted_labeled_mismatch() {
     ]);
     assert!(labels::eq_sorted(&g1, &g2).is_err());
 }
+
+#[test]
+fn test_projection_successor_size_hint() {
+    // Regression: LeftSucc/RightSucc implemented ExactSizeIterator::len but
+    // inherited the default (0, None) size_hint, violating the
+    // ExactSizeIterator contract.
+    let mut left = webgraph::labels::LeftSucc(vec![(1usize, 10usize), (2, 20)].into_iter());
+    assert_eq!(left.size_hint(), (2, Some(2)));
+    assert_eq!(left.next(), Some(1));
+    assert_eq!(left.size_hint(), (1, Some(1)));
+
+    let mut right = webgraph::labels::RightSucc(vec![(1usize, 10usize), (2, 20)].into_iter());
+    assert_eq!(right.size_hint(), (2, Some(2)));
+    assert_eq!(right.next(), Some(10));
+    assert_eq!(right.size_hint(), (1, Some(1)));
+}

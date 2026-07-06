@@ -102,6 +102,11 @@ where
     }
 
     #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
+
+    #[inline(always)]
     fn count(self) -> usize {
         self.0.count()
     }
@@ -361,6 +366,11 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|x| x.into_pair().1)
+    }
+
+    #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 
     #[inline(always)]
