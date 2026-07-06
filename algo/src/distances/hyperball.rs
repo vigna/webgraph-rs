@@ -2097,7 +2097,14 @@ where
                 .for_each(|d| *d = 0.0);
         }
 
-        self.last = self.graph.num_nodes() as f64;
+        // At radius 0 each ball contains exactly its own node--or, with
+        // weights, as many elements as the node's weight--so the exact value
+        // is used instead of the estimate of the freshly loaded counters.
+        // Precision loss in the integer-to-float sums is irrelevant for an
+        // estimate baseline.
+        self.last = self.weight.map_or(self.graph.num_nodes() as f64, |w| {
+            w.iter().map(|&x| x as f64).sum()
+        });
         pl.debug(format_args!("Initializing neighborhood function"));
         self.neighborhood_function.clear();
         self.neighborhood_function.push(self.last);
@@ -2353,6 +2360,31 @@ mod test {
             HyperBallBuilder::with_hyper_log_log(&graph, Some(&wrong_arcs), &deg_cumul_func, 6, None)
                 .is_err()
         );
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(not(miri))]
+    fn test_weighted_nf_baseline() -> Result<()> {
+        use webgraph::graphs::vec_graph::VecGraph;
+        // Regression: with weights, the radius-0 neighborhood function was
+        // seeded with the number of nodes instead of the total weight, which
+        // is the exact number of elements loaded into the counters.
+        let graph = VecGraph::empty(2);
+        let deg_cumul_func = graph.build_dcf();
+        let weights = [10usize, 0];
+        let mut hb = HyperBallBuilder::with_hyper_log_log(
+            &graph,
+            None::<&VecGraph>,
+            &deg_cumul_func,
+            6,
+            Some(&weights),
+        )?
+        .build(no_logging![]);
+        let mut rng = rand::rngs::SmallRng::seed_from_u64(0);
+        hb.run_until_done(&mut rng, no_logging![])?;
+        let nf = hb.neighborhood_function()?;
+        assert_eq!(nf[0], 10.0);
         Ok(())
     }
 
