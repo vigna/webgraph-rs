@@ -133,9 +133,16 @@ impl<G> ParGraph<G> {
         assert!(num_lenders > 0, "the number of lenders must be positive");
         let num_nodes = graph.num_nodes();
         let target = num_arcs.div_ceil(num_lenders as u64);
-        let cutpoints: Box<[usize]> = std::iter::once(0)
+        let mut cutpoints: Vec<usize> = std::iter::once(0)
             .chain(FairChunks::new_with(target, dcf, num_nodes, num_arcs).map(|r| r.end))
             .collect();
+        // FairChunks yields no range for a zero-arc graph, and its last range
+        // may end before trailing zero-outdegree nodes; the cutpoints must
+        // nonetheless cover all nodes and contain at least two elements.
+        if cutpoints.len() < 2 || *cutpoints.last().unwrap() != num_nodes {
+            cutpoints.push(num_nodes);
+        }
+        let cutpoints: Box<[usize]> = cutpoints.into();
         Self {
             graph,
             splitting: Splitting::Cutpoints(cutpoints),
