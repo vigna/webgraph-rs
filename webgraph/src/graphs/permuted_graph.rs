@@ -18,8 +18,8 @@ use value_traits::slices::SliceByValue;
 pub struct PermutedGraph<'a, G: SequentialGraph, P: SliceByValue<Value = usize> + ?Sized> {
     /// The underlying graph.
     graph: &'a G,
-    /// The permutation to apply: node *i* of the permuted graph
-    /// corresponds to node `perm[`*i*`]` of the underlying graph.
+    /// The permutation to apply: node *x* of the underlying graph
+    /// becomes node `perm[`*x*`]` of the permuted graph.
     perm: &'a P,
 }
 

@@ -119,6 +119,9 @@ where
     /// consider using [`par_map_fold_ord`]
     /// instead.
     ///
+    /// As for [`par_map_fold2_with`], `A::default()` must act as an identity
+    /// for both fold functions.
+    ///
     /// # Arguments
     ///
     /// * `map` - a function that maps an item to a result.
@@ -158,6 +161,11 @@ where
     ///
     /// Moreover, you can pass an init value for the map function that will
     /// be cloned as needed.
+    ///
+    /// Note that accumulators start from `A::default()` and workers that
+    /// happen to receive no items contribute their default accumulator to
+    /// `outer_fold`, so `A::default()` must act as an identity for both fold
+    /// functions.
     ///
     /// # Arguments
     ///

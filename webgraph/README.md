@@ -194,15 +194,16 @@ bitstream-based storage with optional Zstandard compression.
 ## Graph transforms
 
 The [`transform`] module provides common graph operations, each available in
-sequential and parallel ([`SplitLabeling`]-based) variants:
+sequential (`_seq`) and parallel (`_par`) variants:
 
-- [**Transpose**][transpose]: reverse all arcs
-  ([`transpose_par`] for parallel, [`transpose_labeled`] for labeled graphs).
-- [**Symmetrize**][symmetrize]: add missing reverse arcs, optionally removing
+- [**Transpose**][`transpose_seq`]: reverse all arcs
+  ([`transpose_par`] for parallel, [`transpose_labeled_seq`] and
+  [`transpose_labeled_par`] for labeled graphs).
+- [**Symmetrize**][`symmetrize_seq`]: add missing reverse arcs, optionally removing
   self-loops ([`symmetrize_par`] for parallel).
-- [**Permute**][permute]: renumber nodes according to a permutation
-  ([`permute_split`] for parallel).
-- [**Map**][map]: renumber nodes through an arbitrary function, with
+- [**Permute**][`permute_seq`]: renumber nodes according to a permutation
+  ([`permute_par`] for parallel).
+- [**Map**][`map_seq`]: renumber nodes through an arbitrary function, with
   deduplication ([`map_par`] for parallel).
 
 ## Graph and data wrappers
@@ -275,14 +276,15 @@ opinions expressed are however those of the authors only and do not necessarily
 reflect those of the European Union or the Italian MUR. Neither the European
 Union nor the Italian MUR can be held responsible for them.
 
-[transpose]: https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose.html
+[`transpose_seq`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose_seq.html
 [`transpose_par`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose_par.html
-[`transpose_labeled`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose_labeled.html
-[symmetrize]: https://docs.rs/webgraph/latest/webgraph/transform/fn.symmetrize.html
+[`transpose_labeled_seq`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose_labeled_seq.html
+[`transpose_labeled_par`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose_labeled_par.html
+[`symmetrize_seq`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.symmetrize_seq.html
 [`symmetrize_par`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.symmetrize_par.html
-[permute]: https://docs.rs/webgraph/latest/webgraph/transform/fn.permute.html
-[`permute_split`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.permute_split.html
-[map]: https://docs.rs/webgraph/latest/webgraph/transform/fn.map.html
+[`permute_seq`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.permute_seq.html
+[`permute_par`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.permute_par.html
+[`map_seq`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.map_seq.html
 [`map_par`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.map_par.html
 [`transform`]: https://docs.rs/webgraph/latest/webgraph/transform/index.html
 [`BvGraph::with_basename`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html#method.with_basename

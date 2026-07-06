@@ -65,6 +65,11 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
     }
 
     /// Adds a labeled arc to the graph and returns whether it is a new one.
+    ///
+    /// # Panics
+    ///
+    /// Panics if either endpoint is not a node of the graph; use
+    /// [`add_node`](Self::add_node) or the bulk methods to grow the graph.
     pub fn add_arc(&mut self, u: usize, v: usize, l: L) -> bool {
         let max = u.max(v);
         if max >= self.succ.len() {
@@ -80,6 +85,10 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
     }
 
     /// Removes an arc from the graph and returns whether it was present or not.
+    ///
+    /// # Panics
+    ///
+    /// Panics if either endpoint is not a node of the graph.
     pub fn remove_arc(&mut self, u: usize, v: usize) -> bool {
         let max = u.max(v);
         if max >= self.succ.len() {
@@ -278,6 +287,11 @@ impl BTreeGraph {
     }
 
     /// Adds an arc to the graph and returns whether it is a new one.
+    ///
+    /// # Panics
+    ///
+    /// Panics if either endpoint is not a node of the graph; use
+    /// [`add_node`](Self::add_node) or the bulk methods to grow the graph.
     pub fn add_arc(&mut self, u: usize, v: usize) -> bool {
         self.0.add_arc(u, v, ())
     }
