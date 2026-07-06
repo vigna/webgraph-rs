@@ -31,8 +31,9 @@ pub(crate) fn compute_log_gap_cost<G: SequentialGraph + Sync>(
                     let mut sorted: Vec<_> = succ.into_iter().collect();
                     if !sorted.is_empty() {
                         sorted.sort();
-                        cost +=
-                            ((x as isize - sorted[0] as isize).unsigned_abs() + 1).ilog2() as usize;
+                        // usize -> u128 is lossless, and the +1 cannot
+                        // overflow in u128, so the log is always exact.
+                        cost += ((x as u128).abs_diff(sorted[0] as u128) + 1).ilog2() as usize;
                         cost += sorted
                             .windows(2)
                             .map(|w| (w[1] - w[0]).ilog2() as usize)
