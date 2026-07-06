@@ -318,6 +318,11 @@ impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
     }
 
     #[inline(always)]
+    fn num_arcs_hint(&self) -> Option<u64> {
+        self.0.num_arcs_hint()
+    }
+
+    #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         UnitLabelLender(self.0.iter_from(from))
     }
