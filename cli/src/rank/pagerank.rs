@@ -65,7 +65,7 @@ pub struct CliArgs {
     /// Maximum number of iterations.​
     pub max_iter: Option<usize>,
 
-    #[arg(short, long, default_value_t = 1e-6)]
+    #[arg(long, default_value_t = 1e-6)]
     /// The ℓ₁ norm threshold to stop.​
     pub threshold: f64,
 
