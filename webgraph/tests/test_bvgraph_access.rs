@@ -565,3 +565,58 @@ fn test_offsets_writer_no_zero() -> Result<()> {
     assert_eq!(reader.read_gamma()?, 10);
     Ok(())
 }
+
+#[test]
+fn test_static_dispatch_non_default_codes() -> Result<()> {
+    use dsi_bitstream::dispatch::code_consts;
+    // Nontrivial degrees and residual gaps so that delta- and gamma-coded
+    // streams differ. Regression: the `Decoder` aliases of
+    // `ConstCodesDecoderFactory` dropped the const code parameters, so
+    // decoding silently fell back to the default codes.
+    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([
+        (0, 1),
+        (0, 5),
+        (0, 12),
+        (0, 30),
+        (1, 0),
+        (2, 30),
+    ]);
+    let tmp = tempfile::tempdir()?;
+    let basename = tmp.path().join("graph");
+    BvComp::with_basename(&basename)
+        .comp_flags(CompFlags {
+            outdegrees: Codes::Delta,
+            references: Codes::Delta,
+            blocks: Codes::Delta,
+            intervals: Codes::Delta,
+            residuals: Codes::Delta,
+            ..CompFlags::default()
+        })
+        .comp_graph::<BE>(&graph)?;
+
+    type AllDelta = webgraph::graphs::bvgraph::Static<
+        { code_consts::DELTA },
+        { code_consts::DELTA },
+        { code_consts::DELTA },
+        { code_consts::DELTA },
+        { code_consts::DELTA },
+    >;
+
+    let seq = BvGraphSeq::with_basename(&basename)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .dispatch::<AllDelta>()
+        .load()?;
+    webgraph::traits::labels::eq_sorted(&graph, &seq)?;
+
+    build_ef(&basename)?;
+    let ra = BvGraph::with_basename(&basename)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .dispatch::<AllDelta>()
+        .load()?;
+    assert_eq!(ra.outdegree(0), 4);
+    assert_eq!(ra.successors(0).collect::<Vec<_>>(), vec![1, 5, 12, 30]);
+    assert_eq!(ra.successors(2).collect::<Vec<_>>(), vec![30]);
+    Ok(())
+}
