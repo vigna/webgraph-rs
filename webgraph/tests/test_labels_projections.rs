@@ -207,8 +207,8 @@ fn test_zip_num_arcs_hint() {
     let g1 = VecGraph::from_arcs([(0, 1), (1, 2)]);
     let g2 = VecGraph::from_arcs([(0, 1), (1, 2)]);
     let z = Zip(&g1, &g2);
-    // Zip does not override num_arcs_hint, so it returns None
-    assert_eq!(z.num_arcs_hint(), None);
+    // Zip forwards (and cross-checks) the hints of its components
+    assert_eq!(z.num_arcs_hint(), Some(2));
 }
 
 #[test]
@@ -421,4 +421,33 @@ fn test_projection_successor_size_hint() {
     assert_eq!(right.size_hint(), (2, Some(2)));
     assert_eq!(right.next(), Some(10));
     assert_eq!(right.size_hint(), (1, Some(1)));
+}
+
+#[test]
+#[should_panic(expected = "different number of labels")]
+fn test_zip_mismatched_label_counts_panic() {
+    // Regression: mismatched per-node label counts were silently truncated
+    // to the shorter side in release builds.
+    let g = VecGraph::from_arcs([(0, 1), (0, 2)]);
+    let mut l = LabeledVecGraph::<u32>::empty(3);
+    l.add_arc(0, 1, 10);
+    let z = Zip(&g, &l);
+    let mut iter = z.iter();
+    while let Some((_node, labels)) = iter.next() {
+        let _ = labels.count();
+    }
+}
+
+#[test]
+fn test_zip_num_arcs_hint_forwarded() {
+    // Regression: Zip did not forward num_arcs_hint, so build_dcf and
+    // arc-based granularity failed even though the count was known.
+    let g = VecGraph::from_arcs([(0, 1), (1, 2)]);
+    let mut l = LabeledVecGraph::<u32>::empty(3);
+    l.add_arc(0, 1, 10);
+    l.add_arc(1, 2, 20);
+    let z = Zip(&g, &l);
+    assert_eq!(z.num_arcs_hint(), Some(2));
+    let dcf = z.build_dcf();
+    assert_eq!(dcf.len(), 4);
 }

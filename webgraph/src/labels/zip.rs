@@ -6,7 +6,6 @@
 
 //! Zipping (cartesian product) of labelings.
 
-use core::iter;
 
 use lender::{IntoLender, Lend, Lender, Lending, unsafe_assume_covariance};
 
@@ -25,11 +24,12 @@ use crate::prelude::{
 /// component labelings, the resulting labeling will be [sequential] or
 /// [random-access].
 ///
-/// Note that the two labelings should be on the same graph: a [`debug_assert!`]
-/// will check if two sequential iterators have the same length and return nodes in the
-/// same order, but no such check is possible for labels as we use [`Iterator::zip`],
-/// which does not perform length checks. For extra safety, consider using
-/// [`Zip::verify`] to perform a complete scan of the two labelings.
+/// Note that the two labelings should be on the same graph: iteration will
+/// panic if the two sequential iterators have different lengths, return nodes
+/// in a different order, or return a different number of labels for a node
+/// (labels are checked lazily, while they are enumerated). For an eager
+/// check, consider using [`Zip::verify`], which performs a complete scan of
+/// the two labelings.
 ///
 /// See also [`Left`] and [`Right`] for projecting a zipped labeling back to
 /// one of its components.
@@ -84,7 +84,7 @@ where
     R: Lender + for<'next> NodeLabelsLender<'next>,
 {
     type Label = (LenderLabel<'succ, L>, LenderLabel<'succ, R>);
-    type IntoIterator = std::iter::Zip<LenderIntoIter<'succ, L>, LenderIntoIter<'succ, R>>;
+    type IntoIterator = StrictZip<LenderIntoIter<'succ, L>, LenderIntoIter<'succ, R>>;
 }
 
 impl<'succ, L, R> Lending<'succ> for NodeLabels<L, R>
@@ -107,11 +107,18 @@ where
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         let left = self.0.next();
         let right = self.1.next();
-        debug_assert_eq!(left.is_none(), right.is_none());
+        assert_eq!(
+            left.is_none(),
+            right.is_none(),
+            "the zipped labelings have different lengths"
+        );
         let left = left?.into_pair();
         let right = right?.into_pair();
-        debug_assert_eq!(left.0, right.0);
-        Some((left.0, std::iter::zip(left.1, right.1)))
+        assert_eq!(
+            left.0, right.0,
+            "the zipped labelings returned different nodes"
+        );
+        Some((left.0, StrictZip(left.1.into_iter(), right.1.into_iter())))
     }
 }
 
@@ -138,6 +145,16 @@ impl<L: SequentialLabeling, R: SequentialLabeling> SequentialLabeling for Zip<L,
         self.0.num_nodes()
     }
 
+    fn num_arcs_hint(&self) -> Option<u64> {
+        match (self.0.num_arcs_hint(), self.1.num_arcs_hint()) {
+            (Some(a), Some(b)) => {
+                assert_eq!(a, b, "the zipped labelings have different arc counts");
+                Some(a)
+            }
+            (a, b) => a.or(b),
+        }
+    }
+
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         NodeLabels(self.0.iter_from(from), self.1.iter_from(from))
     }
@@ -145,7 +162,7 @@ impl<L: SequentialLabeling, R: SequentialLabeling> SequentialLabeling for Zip<L,
 
 impl<L: RandomAccessLabeling, R: RandomAccessLabeling> RandomAccessLabeling for Zip<L, R> {
     type Labels<'succ>
-        = std::iter::Zip<
+        = StrictZip<
         <<L as RandomAccessLabeling>::Labels<'succ> as IntoIterator>::IntoIter,
         <<R as RandomAccessLabeling>::Labels<'succ> as IntoIterator>::IntoIter,
     >
@@ -163,7 +180,10 @@ impl<L: RandomAccessLabeling, R: RandomAccessLabeling> RandomAccessLabeling for 
     }
 
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        iter::zip(self.0.labels(node_id), self.1.labels(node_id))
+        StrictZip(
+            self.0.labels(node_id).into_iter(),
+            self.1.labels(node_id).into_iter(),
+        )
     }
 
     fn outdegree(&self, _node_id: usize) -> usize {
@@ -188,5 +208,65 @@ unsafe impl<
 {
 }
 
-// SAFETY: both underlying iterators are sorted, and zipping preserves order.
-unsafe impl<I: SortedIterator, J: SortedIterator> SortedIterator for core::iter::Zip<I, J> {}
+/// Zips two iterators, panicking if they have different lengths.
+///
+/// Contrarily to [`Iterator::zip`], when exactly one of the two iterators is
+/// exhausted this iterator panics instead of stopping, so zipped labelings
+/// with mismatched label counts fail fast instead of being silently
+/// truncated. The check adds no measurable cost, as [`Iterator::zip`] already
+/// examines both iterators.
+#[derive(Clone, Debug)]
+pub struct StrictZip<I, J>(I, J);
+
+impl<I: Iterator, J: Iterator> Iterator for StrictZip<I, J> {
+    type Item = (I::Item, J::Item);
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        match (self.0.next(), self.1.next()) {
+            (Some(a), Some(b)) => Some((a, b)),
+            (None, None) => None,
+            (a, b) => panic!(
+                "the zipped labelings returned a different number of labels for a node (left {}, right {})",
+                if a.is_some() { "still has labels" } else { "is exhausted" },
+                if b.is_some() { "still has labels" } else { "is exhausted" },
+            ),
+        }
+    }
+
+    #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        // Items yielded before a mismatch panics are exactly those of
+        // Iterator::zip, so the standard zip bounds apply.
+        let (l_low, l_high) = self.0.size_hint();
+        let (r_low, r_high) = self.1.size_hint();
+        let high = match (l_high, r_high) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (h, None) | (None, h) => h,
+        };
+        (l_low.min(r_low), high)
+    }
+}
+
+impl<I: ExactSizeIterator, J: ExactSizeIterator> ExactSizeIterator for StrictZip<I, J> {
+    #[inline(always)]
+    fn len(&self) -> usize {
+        let len = self.0.len();
+        assert_eq!(
+            len,
+            self.1.len(),
+            "the zipped labelings returned a different number of labels for a node"
+        );
+        len
+    }
+}
+
+impl<I: core::iter::FusedIterator, J: core::iter::FusedIterator> core::iter::FusedIterator
+    for StrictZip<I, J>
+{
+}
+
+// SAFETY: both underlying iterators enumerate in the order induced by
+// ascending successors, and zipping pairs them positionally without
+// reordering, so the pairs are enumerated in the same order.
+unsafe impl<I: SortedIterator, J: SortedIterator> SortedIterator for StrictZip<I, J> {}
