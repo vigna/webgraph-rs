@@ -172,7 +172,7 @@ impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
             .len() as usize;
         let mut file = std::fs::File::open(path)
             .with_context(|| format!("Could not open {}", path.display()))?;
-        let vec_len = file_len.div_ceil(usize::try_from(u32::BITS / 8).unwrap());
+        let vec_len = file_len.div_ceil(size_of::<u32>());
 
         let mut data = Vec::<u32>::with_capacity(vec_len);
         *data.spare_capacity_mut().last_mut().unwrap() = MaybeUninit::zeroed();
@@ -205,7 +205,7 @@ impl<E: Endianness> MemoryFactory<E, MmapHelper<u32>> {
             .len() as usize;
         let mut file = std::fs::File::open(path)
             .with_context(|| format!("Could not open {}", path.display()))?;
-        let capacity = file_len.next_multiple_of(16);
+        let capacity = file_len.next_multiple_of(16).max(16);
 
         let mut mmap = mmap_rs::MmapOptions::new(capacity)?
             .with_flags(flags.into())
