@@ -76,3 +76,4 @@ impl_fuzz_repr!(
     fuzz_bvcomp_and_read_zip,
     bvcomp_and_read
 );
+impl_fuzz_repr!(fuzz_roundtrip, fuzz_roundtrip_zip, roundtrip);
