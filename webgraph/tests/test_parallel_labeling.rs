@@ -194,3 +194,17 @@ fn test_par_comp_with_parallel_graph() -> Result<()> {
     labels::eq_sorted(&g, &loaded)?;
     Ok(())
 }
+
+#[test]
+#[cfg(not(miri))]
+fn test_par_sorted_iter_from_out_of_range() -> Result<()> {
+    use lender::prelude::*;
+    // Regression: iter_from past num_nodes panicked on advance_by instead
+    // of returning an empty lender like the range-based implementations.
+    let g = ParSortedGraph::from_pairs(3, [(0usize, 1usize)])?;
+    let mut lender = g.iter_from(4);
+    assert!(lender.next().is_none());
+    let mut lender = g.iter_from(3);
+    assert!(lender.next().is_none());
+    Ok(())
+}
