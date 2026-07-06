@@ -52,7 +52,9 @@ impl Granularity {
     ///
     /// For the variant [`Nodes`], the specified number of nodes is returned.
     /// For the variant [`Arcs`], the number of nodes is computed as the
-    /// specified number of arcs divided by the average outdegree.
+    /// specified number of arcs divided by the average outdegree. In both
+    /// cases the result is clamped to at least one node, so that it can be
+    /// used safely as a divisor or chunk size.
     ///
     /// # Panics
     ///
@@ -63,13 +65,15 @@ impl Granularity {
     /// [`Arcs`]: Self::Arcs
     pub fn node_granularity(&self, num_nodes: usize, num_arcs: Option<u64>) -> usize {
         match self {
-            Self::Nodes(n) => *n,
+            Self::Nodes(n) => (*n).max(1),
             Self::Arcs(n) => {
                 let average_degree = num_arcs.expect(
                     "You need the number of arcs to convert arc granularity to node granularity",
                 ) as f64
                     / num_nodes.max(1) as f64;
-                (*n as f64 / average_degree).min(usize::MAX as f64).ceil() as usize
+                // Soundness: the value is nonnegative, ceiled, and clamped
+                // to [1, usize::MAX], so the float-to-int cast is in range.
+                ((*n as f64 / average_degree).min(usize::MAX as f64).ceil() as usize).max(1)
             }
         }
     }
@@ -78,7 +82,9 @@ impl Granularity {
     ///
     /// For the [`Arcs`] variant, the specified number of arcs is returned. For
     /// the [`Nodes`] variant, the number of arcs is computed as the specified
-    /// number of nodes divided by the average degree.
+    /// number of nodes divided by the average degree. In both cases the
+    /// result is clamped to at least one arc, so that it can be used safely
+    /// as a divisor or chunk size.
     ///
     /// # Panics
     ///
@@ -96,7 +102,9 @@ impl Granularity {
                     / num_nodes.max(1) as f64;
                 (*n as f64 * average_degree).ceil().max(1.) as usize
             }
-            Self::Arcs(n) => *n as usize,
+            // Soundness: on a 64-bit target usize == u64; on smaller targets
+            // a saturating conversion keeps the chunk size meaningful.
+            Self::Arcs(n) => usize::try_from(*n).unwrap_or(usize::MAX).max(1),
         }
     }
 }
