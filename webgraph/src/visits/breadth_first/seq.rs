@@ -284,7 +284,8 @@ impl<'a, 'b, G: RandomAccessGraph> IntoIterator for &'a mut Seq<'b, G> {
     }
 }
 
-/// Iterator on **all nodes** of the graph in a BFS order
+/// Iterator on **all nodes** of the graph in a BFS order (empty for a graph
+/// with no nodes)
 pub struct BfsOrder<'a, 'b, G: RandomAccessGraph> {
     visit: &'a mut Seq<'b, G>,
     /// The root of the current visit.
@@ -295,20 +296,16 @@ pub struct BfsOrder<'a, 'b, G: RandomAccessGraph> {
     /// The current distance from the root.
     distance: usize,
     /// The successors of the `parent` node, this is done to be able to return
-    /// also the parent.
-    succ: <<G as RandomAccessLabeling>::Labels<'a> as IntoIterator>::IntoIter,
+    /// also the parent; it is `None` only for a graph with no nodes.
+    succ: Option<<<G as RandomAccessLabeling>::Labels<'a> as IntoIterator>::IntoIter>,
     /// Number of visited nodes, used to compute the length of the iterator.
     visited_nodes: usize,
 }
 
 impl<'a, 'b, G: RandomAccessGraph> BfsOrder<'a, 'b, G> {
     pub fn new(visit: &'a mut Seq<'b, G>) -> BfsOrder<'a, 'b, G> {
-        assert!(
-            visit.graph.num_nodes() > 0,
-            "BfsOrder requires a non-empty graph"
-        );
         visit.reset(); // ensure we start from a clean state
-        let succ = visit.graph.successors(0).into_iter();
+        let succ = (visit.graph.num_nodes() > 0).then(|| visit.graph.successors(0).into_iter());
         BfsOrder {
             visit,
             root: 0,
@@ -340,6 +337,9 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for BfsOrder<'a, 'b, G> {
         // handle the first node separately, as we need to pre-fill the succ
         // iterator to be able to implement `new`
         if self.visited_nodes == 0 {
+            if self.visit.graph.num_nodes() == 0 {
+                return None;
+            }
             self.visited_nodes += 1;
             self.visit.visited.set(self.root, true);
             self.visit.queue.push_back(None);
@@ -353,7 +353,7 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for BfsOrder<'a, 'b, G> {
         }
         loop {
             // fast path, if the successors iterator is not exhausted, we can just return the next node
-            for succ in &mut self.succ {
+            for succ in self.succ.as_mut()? {
                 if self.visit.visited[succ] {
                     continue; // skip already visited nodes
                 }
@@ -384,7 +384,7 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for BfsOrder<'a, 'b, G> {
                     Some(node) => {
                         self.parent = node.into();
                         // reset the successors iterator for the new current node
-                        self.succ = self.visit.graph.successors(self.parent).into_iter();
+                        self.succ = Some(self.visit.graph.successors(self.parent).into_iter());
                         break;
                     }
                     // new level separator, so we increment the distance
@@ -409,7 +409,7 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for BfsOrder<'a, 'b, G> {
                         self.distance = 1;
 
                         self.parent = self.root;
-                        self.succ = self.visit.graph.successors(self.root).into_iter();
+                        self.succ = Some(self.visit.graph.successors(self.root).into_iter());
 
                         return Some(IterEvent {
                             root: self.root,

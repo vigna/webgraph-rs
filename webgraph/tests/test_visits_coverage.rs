@@ -1577,3 +1577,14 @@ fn test_bfs_filtered_revisit_parity() -> Result<()> {
     }
     Ok(())
 }
+
+#[test]
+fn test_bfs_order_empty_graph() {
+    // Regression: BfsOrder asserted a non-empty graph, so iterating all
+    // nodes of an empty graph (e.g., in 'webgraph perm bfs') panicked.
+    let graph = VecGraph::empty(0);
+    let mut visit = webgraph::visits::breadth_first::Seq::new(&graph);
+    let mut iter = (&mut visit).into_iter();
+    assert_eq!(iter.len(), 0);
+    assert!(iter.next().is_none());
+}
