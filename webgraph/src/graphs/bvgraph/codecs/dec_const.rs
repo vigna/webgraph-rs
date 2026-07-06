@@ -261,7 +261,15 @@ where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     type Decoder<'a>
-        = ConstCodesDecoder<E, <F as CodesReaderFactory<E>>::CodesReader<'a>>
+        = ConstCodesDecoder<
+        E,
+        <F as CodesReaderFactory<E>>::CodesReader<'a>,
+        OUTDEGREES,
+        REFERENCES,
+        BLOCKS,
+        INTERVALS,
+        RESIDUALS,
+    >
     where
         Self: 'a;
 
@@ -289,7 +297,15 @@ impl<
     for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     type Decoder<'a>
-        = ConstCodesDecoder<E, <F as CodesReaderFactory<E>>::CodesReader<'a>>
+        = ConstCodesDecoder<
+        E,
+        <F as CodesReaderFactory<E>>::CodesReader<'a>,
+        OUTDEGREES,
+        REFERENCES,
+        BLOCKS,
+        INTERVALS,
+        RESIDUALS,
+    >
     where
         Self: 'a;
 
