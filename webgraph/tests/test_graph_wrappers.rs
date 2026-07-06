@@ -286,3 +286,12 @@ fn test_union_graph_split_different_sizes() -> Result<()> {
     assert_eq!(arcs, seq_arcs);
     Ok(())
 }
+
+#[test]
+fn test_no_selfloops_num_arcs_hint() {
+    // Regression: the hint forwarded the underlying arc count, overstating
+    // the filtered graph (the type docs say no exact count is available).
+    let g = VecGraph::from_arcs([(0, 0), (0, 1), (1, 1)]);
+    let nsl = NoSelfLoopsGraph(g);
+    assert_eq!(nsl.num_arcs_hint(), None);
+}
