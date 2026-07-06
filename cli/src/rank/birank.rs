@@ -7,13 +7,15 @@
 use crate::{FloatSliceFormat, GranularityArgs, LogIntervalArg, NumThreadsArg, get_thread_pool};
 use anyhow::{Result, ensure};
 use clap::Parser;
+use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::progress_logger;
 use predicates::prelude::*;
 use std::path::PathBuf;
 use value_traits::slices::SliceByValue;
 use webgraph::graphs::bvgraph::get_endianness;
-use webgraph::prelude::BvGraph;
+use webgraph::prelude::{BvGraph, LoadModeCodesReader, Mmap};
+use webgraph::utils::MmapHelper;
 use webgraph::traits::RandomAccessGraph;
 use webgraph_algo::rank::BiRank;
 use webgraph_algo::rank::birank::PredParams;
@@ -139,7 +141,11 @@ fn run_and_store<
     Ok(())
 }
 
-pub fn birank<E: Endianness>(args: CliArgs) -> Result<()> {
+pub fn birank<E: Endianness>(args: CliArgs) -> Result<()>
+where
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,
+{
     let mut pl = progress_logger![
         display_memory = true,
         log_interval = args.log_interval.log_interval,
@@ -148,10 +154,12 @@ pub fn birank<E: Endianness>(args: CliArgs) -> Result<()> {
     let thread_pool = get_thread_pool(args.num_threads.num_threads);
 
     log::info!("Loading graph from {}", args.graph.display());
-    let graph = BvGraph::with_basename(&args.graph).load()?;
+    let graph = BvGraph::with_basename(&args.graph).endianness::<E>().load()?;
 
     log::info!("Loading transpose graph from {}", args.transpose.display());
-    let transpose = BvGraph::with_basename(&args.transpose).load()?;
+    let transpose = BvGraph::with_basename(&args.transpose)
+        .endianness::<E>()
+        .load()?;
 
     let preference: Option<Vec<f64>> = args
         .preference

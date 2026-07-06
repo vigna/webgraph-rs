@@ -7,13 +7,15 @@
 use crate::{FloatSliceFormat, GranularityArgs, LogIntervalArg, NumThreadsArg, get_thread_pool};
 use anyhow::{Result, ensure};
 use clap::Parser;
+use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::progress_logger;
 use predicates::prelude::*;
 use std::path::PathBuf;
 use value_traits::slices::SliceByValue;
 use webgraph::graphs::bvgraph::get_endianness;
-use webgraph::prelude::BvGraph;
+use webgraph::prelude::{BvGraph, LoadModeCodesReader, Mmap};
+use webgraph::utils::MmapHelper;
 use webgraph::traits::RandomAccessGraph;
 use webgraph_algo::rank::pagerank::PredParams;
 use webgraph_algo::rank::preds::{L1Norm, MaxIter};
@@ -133,7 +135,11 @@ fn run_and_store<G: RandomAccessGraph + Sync + Send, V: SliceByValue<Value = f64
     Ok(())
 }
 
-pub fn pagerank<E: Endianness>(args: CliArgs) -> Result<()> {
+pub fn pagerank<E: Endianness>(args: CliArgs) -> Result<()>
+where
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,
+{
     let mut pl = progress_logger![
         display_memory = true,
         log_interval = args.log_interval.log_interval,
@@ -145,7 +151,9 @@ pub fn pagerank<E: Endianness>(args: CliArgs) -> Result<()> {
         "Loading the transpose graph from {}",
         args.transpose.display()
     );
-    let transpose = BvGraph::with_basename(&args.transpose).load()?;
+    let transpose = BvGraph::with_basename(&args.transpose)
+        .endianness::<E>()
+        .load()?;
 
     let preference: Option<Vec<f64>> = args
         .preference
