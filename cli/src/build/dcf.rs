@@ -124,8 +124,14 @@ where
         )
     })?;
     let map = java_properties::read(BufReader::new(f))?;
-    let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
-    let num_arcs = map.get("arcs").unwrap().parse::<u64>()?;
+    let num_nodes = map
+        .get("nodes")
+        .with_context(|| format!("Missing 'nodes' in {}", properties_path.display()))?
+        .parse::<usize>()?;
+    let num_arcs = map
+        .get("arcs")
+        .with_context(|| format!("Missing 'arcs' in {}", properties_path.display()))?
+        .parse::<u64>()?;
 
     let graph = webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(&basename)
         .endianness::<E>()
@@ -201,8 +207,14 @@ where
         )
     })?;
     let map = java_properties::read(BufReader::new(f))?;
-    let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
-    let num_arcs = map.get("arcs").unwrap().parse::<u64>()?;
+    let num_nodes = map
+        .get("nodes")
+        .with_context(|| format!("Missing 'nodes' in {}", properties_path.display()))?
+        .parse::<usize>()?;
+    let num_arcs = map
+        .get("arcs")
+        .with_context(|| format!("Missing 'arcs' in {}", properties_path.display()))?
+        .parse::<u64>()?;
 
     let mut efb = EliasFanoBuilder::new(num_nodes + 1, num_arcs);
 

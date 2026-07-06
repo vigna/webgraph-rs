@@ -109,7 +109,10 @@ where
                 )
             })?;
             let map = java_properties::read(std::io::BufReader::new(f))?;
-            Ok(map.get("nodes").unwrap().parse::<usize>()?)
+            Ok(map
+                .get("nodes")
+                .with_context(|| format!("Missing 'nodes' in {}", properties_path.display()))?
+                .parse::<usize>()?)
         })?;
     pl.expected_updates(num_nodes);
 
