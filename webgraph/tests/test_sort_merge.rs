@@ -478,3 +478,19 @@ fn test_par_sort_pairs_zero_partitions() {
     use webgraph::utils::par_sort_pairs::ParSortPairs;
     let _ = ParSortPairs::new(5).unwrap().num_partitions(0);
 }
+
+#[test]
+#[cfg(not(miri))]
+fn test_partition_boundaries_huge_num_nodes() -> Result<()> {
+    use webgraph::utils::par_sort_pairs::ParSortPairs;
+    // Regression: partition boundaries were computed as
+    // (i * partition_size).min(num_nodes), which overflows for node counts
+    // near usize::MAX; the multiplication now saturates. No pairs are
+    // needed: the boundaries are derived from num_nodes alone.
+    let sorter = ParSortPairs::new(usize::MAX)?.num_partitions(2);
+    let split = sorter.sort(rayon::iter::empty::<(usize, usize)>(), no_logging![])?;
+    assert_eq!(*split.boundaries.first().unwrap(), 0);
+    assert_eq!(*split.boundaries.last().unwrap(), usize::MAX);
+    assert!(split.boundaries.windows(2).all(|w| w[0] <= w[1]));
+    Ok(())
+}
