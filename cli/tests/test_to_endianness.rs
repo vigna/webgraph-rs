@@ -4,6 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+// The CLI loads graphs and Elias-Fano structures through mmap, which Miri
+// does not support (same convention as the other CLI integration tests).
+#![cfg(not(miri))]
+
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use webgraph::graphs::vec_graph::VecGraph;
