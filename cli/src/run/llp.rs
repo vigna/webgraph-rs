@@ -35,8 +35,9 @@ pub struct CliArgs {
     /// --work-dir should be set to preserve the labels.​
     pub perm: Option<PathBuf>,
 
-    /// The folder where the LLP labels are stored in Java format (big-endian
-    /// 64-bit integers). If not specified, a temporary directory is used and
+    /// The folder where the LLP labels are stored as ε-serde files
+    /// (labels_*.bin plus a labels_*.gap objective value per gamma). If not
+    /// specified, a temporary directory is used and
     /// deleted at the end; the parent folder for temporary directories can be
     /// set with the TMPDIR environment variable. A work directory serves to
     /// save the labels and to resume the computation of gammas, whose
