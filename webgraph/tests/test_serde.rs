@@ -79,3 +79,12 @@ fn test_fixed_width_signed() {
         assert_eq!(sd.deserialize(&mut reader).unwrap(), *v);
     }
 }
+
+#[test]
+#[should_panic(expected = "at most 64 bits")]
+fn test_fixed_width_rejects_wide_types() {
+    // Regression: FixedWidth::<i128>::with_bits(5) was accepted but
+    // round-tripped negative values through a 64-bit sign extension,
+    // deserializing -1 as 2^64 - 1.
+    let _ = FixedWidth::<i128>::with_bits(5);
+}

@@ -167,18 +167,21 @@ impl<T: PrimitiveInteger> FixedWidth<T> {
     ///
     /// # Panics
     ///
-    /// Panics if `bits` is greater than `T::BITS` or greater than 64.
+    /// Panics if `T` has more than 64 bits, or if `bits` is greater than
+    /// `T::BITS`.
     pub fn with_bits(bits: usize) -> Self {
         assert!(
+            T::BITS <= 64,
+            "FixedWidth only supports types with at most 64 bits, but {} has {} bits",
+            std::any::type_name::<T>(),
+            T::BITS,
+        );
+        assert!(
+            // u32 -> usize is lossless on all supported targets
             bits <= T::BITS as usize,
             "FixedWidth: bits ({}) exceeds T::BITS ({})",
             bits,
             T::BITS,
-        );
-        assert!(
-            bits <= 64,
-            "FixedWidth only supports types with at most 64 bits, got {}",
-            bits,
         );
         FixedWidth {
             bits,
