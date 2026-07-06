@@ -71,7 +71,7 @@ pub trait SplitLabeling: SequentialLabeling {
     fn split_iter(&self, n: usize) -> Self::IntoIterator<'_> {
         let step = self.num_nodes().div_ceil(n);
         let num_nodes = self.num_nodes();
-        self.split_iter_at((0..n + 1).map(move |i| (i * step).min(num_nodes)))
+        self.split_iter_at((0..=n).map(move |i| i.saturating_mul(step).min(num_nodes)))
     }
 }
 

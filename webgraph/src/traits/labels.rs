@@ -666,7 +666,7 @@ macro_rules! impl_parallel_from_split {
                 let step = self.num_nodes().div_ceil(n);
                 let num_nodes = self.num_nodes();
                 let boundaries: Box<[usize]> =
-                    (0..=n).map(|i| (i * step).min(num_nodes)).collect();
+                    (0..=n).map(|i| i.saturating_mul(step).min(num_nodes)).collect();
                 let lenders: Box<[_]> = self.split_iter(n).into_iter().collect();
                 (lenders, boundaries)
             }
