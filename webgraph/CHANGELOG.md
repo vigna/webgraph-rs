@@ -29,6 +29,45 @@
 
 ### Fixed
 
+- The `Decoder` aliases of `ConstCodesDecoderFactory` were not forwarding the
+  const code parameters, so `Static` dispatch with non-default codes silently
+  decoded with the default codes.
+
+- The sequential `split_iter_at` helper ignored a nonzero first cutpoint,
+  returning the wrong node ranges.
+
+- `ParSortPairs`/`ParSortIters` now validate destination node ids, so
+  `map_*`, `permute_*`, and pair sorting cannot silently produce graphs whose
+  successors exceed the number of nodes.
+
+- `ParSortedGraph::iter_from` returns an empty lender past the last node
+  instead of panicking.
+
+- Parallel compression now works on missing chunks instead of silently
+  writing a truncated graph, and stores temporary files in a fresh
+  subdirectory of the configured temporary directory instead of deleting the
+  caller-supplied directory wholesale.
+
+- `Granularity` conversions are clamped to at least one node/arc, avoiding
+  divisions by zero with zero granularities.
+
+- `UnionGraph::split_iter_at` panicked when the two graphs had different
+  numbers of nodes.
+
+- `ParGraph::with_dcf` panicked on zero-arc graphs.
+
+- `par_map_fold` and its variants deadlocked in a single-thread Rayon pool.
+
+- `CompFlags::from_properties` panicked on malformed `.properties` content.
+
+- `BvCompZ::push` panicked on label-store errors instead of propagating them.
+
+- `FixedWidth` now rejects types wider than 64 bits, whose negative values
+  could not be deserialized correctly.
+
+- The successor iterators of `Left`/`Right` projections now forward
+  `size_hint`.
+
 - `NonZeroUsize` has been replaced everywhere by `usize`, as there were no niche
   optimizations involved.
 

@@ -33,6 +33,17 @@
 
 ### Fixed
 
+- `ExactSumSweep` could return a non-minimal radius on symmetric graphs, as
+  backward sweeps were not updating the radius upper bound; moreover, the
+  iteration count of the all-CC bound step was over-reported in the symmetric
+  case.
+
+- `BiRank` returned an all-zero rank vector when all nodes were on the same
+  side of the bipartition.
+
+- All `HyperBall` builder constructors now validate that the transpose has
+  the same number of nodes and arcs as the graph.
+
 - Fixed problems with granularity interpretation in HyperBall.
 
 - Fixed minor discrepancies with the ExactSumSweep paper.

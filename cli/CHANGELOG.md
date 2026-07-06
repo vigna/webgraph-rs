@@ -73,6 +73,19 @@
 
 ### Fixed
 
+- `to endianness` wrote the offsets shifted by one node (missing the initial
+  zero), corrupting random access on converted graphs.
+
+- The `rank` commands now load little-endian graphs; `pagerank` no longer
+  binds `-t` to both `--threshold` and `--num-threads`.
+
+- An unknown `endianness` property value is reported as an error instead of a
+  panic, and `build ef`/`build dcf`/`check ef`/`from arcs --labels` return
+  contextual errors on malformed properties files or I/O failures.
+
+- `analyze stats` rejects zero-node graphs and empty `--scc-sizes` files
+  instead of emitting NaN/sentinel statistics or panicking.
+
 - Sequential transposition was using big-endian format regardless of the
   specified endianness.
 
