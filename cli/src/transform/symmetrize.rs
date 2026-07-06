@@ -52,7 +52,7 @@ pub struct CliArgs {
     /// The format of the permutation file.​
     pub fmt: IntSliceFormat,
 
-    #[arg(long, conflicts_with = "sequential")]
+    #[arg(long, conflicts_with = "sequential", requires = "permutation")]
     /// Uses the degree cumulative function to balance work by arcs rather than
     /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.​
     pub dcf: bool,
