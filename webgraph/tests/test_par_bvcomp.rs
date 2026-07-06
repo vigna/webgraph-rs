@@ -100,6 +100,113 @@ fn _test_par_bvcomp(basename: &std::path::Path) -> Result<()> {
 }
 
 #[test]
+fn test_par_comp_empty_interior_chunk_ok() -> Result<()> {
+    use lender::prelude::*;
+    use webgraph::graphs::par_graphs::ParGraph;
+    // Regression: a valid IntoParLenders implementation with an empty
+    // non-tail segment sent no message for it, and the ordered merge
+    // silently wrote a truncated graph while stamping the full node count
+    // in the properties. Empty segments are now reported explicitly and the
+    // merge produces the full graph.
+    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
+    let tmp = tempfile::tempdir()?;
+    let basename = tmp.path().join("interior");
+    let pg = ParGraph::with_cutpoints(graph.clone(), vec![0, 0, 3]);
+    BvComp::with_basename(&basename).par_comp::<BE, _>(&pg)?;
+    let seq = BvGraphSeq::with_basename(&basename)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
+    assert_eq!(seq.num_nodes(), 3);
+    let mut arcs = vec![];
+    let mut iter = seq.iter();
+    while let Some((node, succ)) = iter.next() {
+        for s in succ {
+            arcs.push((node, s));
+        }
+    }
+    assert_eq!(arcs, vec![(0, 1), (1, 2), (2, 0)]);
+    Ok(())
+}
+
+#[test]
+fn test_par_comp_worker_error_propagates() -> Result<()> {
+    use webgraph::graphs::vec_graph::LabeledVecGraph;
+    use webgraph::traits::{StoreLabels, StoreLabelsConf};
+    // Regression: worker I/O and label-store failures were unwrapped inside
+    // the rayon scope, panicking instead of returning the contextual error.
+    struct FailingStore;
+    impl StoreLabels for FailingStore {
+        type Label = u32;
+        fn init(&mut self) -> Result<()> {
+            Ok(())
+        }
+        fn push_node(&mut self) -> Result<()> {
+            Ok(())
+        }
+        fn push_label(&mut self, _label: &u32) -> Result<()> {
+            anyhow::bail!("label storage failed")
+        }
+        fn flush(&mut self) -> Result<()> {
+            Ok(())
+        }
+        fn label_written_bits(&self) -> u64 {
+            0
+        }
+        fn offsets_written_bits(&self) -> u64 {
+            0
+        }
+    }
+    struct FailingConf;
+    impl StoreLabelsConf for FailingConf {
+        type StoreLabels = FailingStore;
+        fn new_storage(
+            &self,
+            _labels_path: &std::path::Path,
+            _offsets_path: &std::path::Path,
+        ) -> Result<FailingStore> {
+            Ok(FailingStore)
+        }
+        fn init_concat(
+            &mut self,
+            _labels_path: &std::path::Path,
+            _offsets_path: &std::path::Path,
+        ) -> Result<()> {
+            Ok(())
+        }
+        fn concat_part(
+            &mut self,
+            _labels_path: &std::path::Path,
+            _labels_written_bits: u64,
+            _offsets_path: &std::path::Path,
+            _offsets_written_bits: u64,
+        ) -> Result<()> {
+            Ok(())
+        }
+        fn flush_concat(&mut self) -> Result<()> {
+            Ok(())
+        }
+        fn label_serializer_name(&self) -> String {
+            "()".into()
+        }
+    }
+
+    let graph = LabeledVecGraph::from_arcs([((0, 1), 10u32), ((1, 2), 20)]);
+    let tmp = tempfile::tempdir()?;
+    let basename = tmp.path().join("failing");
+    let res = BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, FailingConf);
+    let err = match res {
+        Err(e) => e,
+        Ok(_) => anyhow::bail!("expected error, got Ok"),
+    };
+    assert!(
+        format!("{err:#}").contains("label storage failed"),
+        "unexpected error chain: {err:#}"
+    );
+    Ok(())
+}
+
+#[test]
 fn test_par_comp_empty_tail_chunk_ok() -> Result<()> {
     use webgraph::graphs::par_graphs::ParGraph;
     // Empty tail segments are benign: everything up to num_nodes is covered.
