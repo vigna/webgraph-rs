@@ -252,3 +252,37 @@ fn test_erdos_renyi() -> Result<()> {
     assert_eq!(total_arcs, 90);
     Ok(())
 }
+
+#[test]
+fn test_union_graph_split_different_sizes() -> Result<()> {
+    use webgraph::traits::SplitLabeling;
+    // Regression: split_iter forwarded union-sized cutpoints to both
+    // children, panicking on the smaller one.
+    let mut g0 = VecGraph::empty(2);
+    g0.add_arc(0, 1);
+    let mut g1 = VecGraph::empty(4);
+    g1.add_arc(0, 1);
+    g1.add_arc(2, 3);
+    let u = UnionGraph(g0, g1);
+    let mut arcs = vec![];
+    for mut iter in u.split_iter(2) {
+        while let Some((node, succ)) = iter.next() {
+            for s in succ {
+                arcs.push((node, s));
+            }
+        }
+    }
+    arcs.sort();
+    assert_eq!(arcs, vec![(0, 1), (2, 3)]);
+    // Sequential iteration agrees with the split iteration.
+    let mut seq_arcs = vec![];
+    let mut it = u.iter();
+    while let Some((node, succ)) = it.next() {
+        for s in succ {
+            seq_arcs.push((node, s));
+        }
+    }
+    seq_arcs.sort();
+    assert_eq!(arcs, seq_arcs);
+    Ok(())
+}

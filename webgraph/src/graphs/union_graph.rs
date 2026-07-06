@@ -66,9 +66,17 @@ where
 
     fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
         let cutpoints: Vec<usize> = cutpoints.into_iter().collect();
+        // Clamp the cutpoints to each component's number of nodes, as in
+        // iter_from: the two graphs may have different sizes.
+        let n0 = self.0.num_nodes();
+        let n1 = self.1.num_nodes();
         SplitIter(
-            self.0.split_iter_at(cutpoints.iter().copied()).into_iter(),
-            self.1.split_iter_at(cutpoints).into_iter(),
+            self.0
+                .split_iter_at(cutpoints.iter().map(|&c| c.min(n0)))
+                .into_iter(),
+            self.1
+                .split_iter_at(cutpoints.iter().map(|&c| c.min(n1)))
+                .into_iter(),
         )
     }
 }
