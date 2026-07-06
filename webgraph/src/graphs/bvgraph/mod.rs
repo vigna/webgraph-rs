@@ -362,12 +362,16 @@ pub fn check_offsets<F: for<'a> SequentialDecoderFactory<Decoder<'a>: BitSeek>>(
     let mut offsets_reader = buf_bit_reader::from_path::<BE, u32>(&offsets_path)?;
 
     let mut offset = 0;
-    for (real_offset, _degree) in graph.offset_deg_iter() {
+    let mut iter = graph.offset_deg_iter();
+    for (real_offset, _degree) in &mut iter {
         let gap_offset = offsets_reader.read_gamma()?;
         offset += gap_offset;
         if offset != real_offset {
             return Ok(false);
         }
     }
-    Ok(true)
+    // The offsets file contains one final entry recording the total length
+    // of the graph bitstream.
+    offset += offsets_reader.read_gamma()?;
+    Ok(offset == iter.get_pos())
 }
