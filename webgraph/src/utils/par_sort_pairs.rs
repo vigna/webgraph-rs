@@ -545,6 +545,13 @@ pub(crate) fn flush_buffer<C: BatchCodec>(
     sorted_pairs: &mut Vec<CodecIter<C>>,
     buf: &mut Vec<((usize, usize), C::Label)>,
 ) -> Result<()> {
+    // Skip empty buffers: the end-of-sort flush covers every partition of
+    // every worker state, and sparse inputs would otherwise create and mmap
+    // an empty batch file for each of them.
+    if buf.is_empty() {
+        return Ok(());
+    }
+
     let path = tmp_dir.join(format!(
         "sorted_batch_{worker_id}_{partition_id}_{}",
         sorted_pairs.len()
