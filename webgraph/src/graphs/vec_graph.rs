@@ -90,7 +90,8 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
     /// - if one of the given nodes is greater or equal than the number of nodes
     ///   in the graph;
     /// - if the successor is lesser than or equal to the current last successor
-    ///   of the source node.
+    ///   of the source node (in particular, if the arc is a duplicate of the
+    ///   last added arc).
     pub fn add_arc(&mut self, u: usize, v: usize, l: L) {
         let max = u.max(v);
         if max >= self.succ.len() {
@@ -111,7 +112,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
                 if v <= *last {
                     // arcs have to be inserted in increasing successor order
                     panic!(
-                        "Error adding arc ({u}, {v}): successor is not increasing; the last arc inserted was ({u}, {last})"
+                        "Error adding arc ({u}, {v}): the successor is not strictly increasing (duplicate arcs are not allowed); the last arc inserted was ({u}, {last})"
                     );
                 }
                 succ.push((v, l).into());
@@ -253,10 +254,22 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
     /// Adds labeled arcs from an [`IntoIterator`], adding new nodes as needed.
     ///
     /// The items must be labeled pairs of the form `((usize, usize), l)` specifying an
-    /// arc and its label.
+    /// arc and its label. Duplicate arcs are added once, keeping the label of
+    /// the last occurrence, as in [`LabeledBTreeGraph`].
+    ///
+    /// [`LabeledBTreeGraph`]: crate::graphs::btree_graph::LabeledBTreeGraph
     pub fn add_arcs(&mut self, arcs: impl IntoIterator<Item = ((usize, usize), L)>) {
         let mut arcs = arcs.into_iter().collect::<Vec<_>>();
         arcs.sort_by_key(|x| x.0);
+        // Keep the label of the last occurrence of each arc: `b` is the
+        // element that survives deduplication, `a` the one that is removed.
+        arcs.dedup_by(|a, b| {
+            let dup = a.0 == b.0;
+            if dup {
+                core::mem::swap(a, b);
+            }
+            dup
+        });
         for ((u, v), l) in arcs {
             self.add_node(u);
             self.add_node(v);
@@ -543,7 +556,8 @@ impl VecGraph {
 
     /// Adds arcs from an [`IntoIterator`], adding new nodes as needed.
     ///
-    /// The items must be pairs of the form `(usize, usize)` specifying an arc.
+    /// The items must be pairs of the form `(usize, usize)` specifying an
+    /// arc. Duplicate arcs are added once.
     pub fn add_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
         self.0.add_arcs(arcs.into_iter().map(|pair| (pair, ())));
     }
