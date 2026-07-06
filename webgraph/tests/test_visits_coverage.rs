@@ -1501,3 +1501,79 @@ fn test_bfs_par_low_mem_with_granularity() -> Result<()> {
     assert_eq!(count.load(Ordering::Relaxed), 4);
     Ok(())
 }
+
+#[test]
+#[cfg(not(miri))]
+fn test_bfs_filtered_revisit_parity() -> Result<()> {
+    use no_break::NoBreak;
+    use std::ops::ControlFlow::Continue;
+    use std::sync::Mutex;
+    use webgraph::visits::{Parallel, Sequential, breadth_first};
+
+    // Regression: the sequential BFS emitted Revisit events without
+    // consulting the filter, unlike ParFairPred and ParLowMem.
+    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
+
+    for max_distance in [1, 2] {
+        let mut seq_revisits = Vec::new();
+        breadth_first::Seq::new(&graph)
+            .visit_filtered_with(
+                [0],
+                (),
+                |_, event| {
+                    if let breadth_first::EventPred::Revisit { node, pred } = event {
+                        seq_revisits.push((node, pred));
+                    }
+                    Continue(())
+                },
+                |_, args: breadth_first::FilterArgsPred| args.distance <= max_distance,
+            )
+            .continue_value_no_break();
+        seq_revisits.sort();
+
+        let par_revisits = Mutex::new(Vec::new());
+        breadth_first::ParFairPred::new(&graph)
+            .par_visit_filtered(
+                [0],
+                |event| {
+                    if let breadth_first::EventPred::Revisit { node, pred } = event {
+                        par_revisits.lock().unwrap().push((node, pred));
+                    }
+                    Continue(())
+                },
+                |args: breadth_first::FilterArgsPred| args.distance <= max_distance,
+            )
+            .continue_value_no_break();
+        let mut par_revisits = par_revisits.into_inner().unwrap();
+        par_revisits.sort();
+
+        let low_mem_revisits = Mutex::new(Vec::new());
+        breadth_first::ParLowMem::new(&graph)
+            .par_visit_filtered(
+                [0],
+                |event| {
+                    if let breadth_first::EventPred::Revisit { node, pred } = event {
+                        low_mem_revisits.lock().unwrap().push((node, pred));
+                    }
+                    Continue(())
+                },
+                |args: breadth_first::FilterArgsPred| args.distance <= max_distance,
+            )
+            .continue_value_no_break();
+        let mut low_mem_revisits = low_mem_revisits.into_inner().unwrap();
+        low_mem_revisits.sort();
+
+        let expected: Vec<(usize, usize)> = if max_distance == 1 {
+            vec![]
+        } else {
+            vec![(2, 1)]
+        };
+        assert_eq!(seq_revisits, expected, "seq, max_distance {max_distance}");
+        assert_eq!(par_revisits, expected, "par fair, max_distance {max_distance}");
+        assert_eq!(
+            low_mem_revisits, expected,
+            "par low mem, max_distance {max_distance}"
+        );
+    }
+    Ok(())
+}

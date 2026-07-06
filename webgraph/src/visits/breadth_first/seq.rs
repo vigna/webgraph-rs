@@ -215,16 +215,19 @@ impl<'a, G: RandomAccessGraph> Sequential<EventPred> for Seq<'a, G> {
                     let node = node.into();
                     for succ in self.graph.successors(node) {
                         let (node, pred) = (succ, node);
-                        if !self.visited[succ] {
-                            if filter(
-                                &mut init,
-                                FilterArgsPred {
-                                    node,
-                                    pred,
+                        // As in the parallel implementations, the filter is
+                        // consulted first, so that filtered-out successors
+                        // produce no event at all.
+                        if filter(
+                            &mut init,
+                            FilterArgsPred {
+                                node,
+                                pred,
 
-                                    distance,
-                                },
-                            ) {
+                                distance,
+                            },
+                        ) {
+                            if !self.visited[succ] {
                                 self.visited.set(succ, true);
                                 callback(
                                     &mut init,
@@ -239,9 +242,9 @@ impl<'a, G: RandomAccessGraph> Sequential<EventPred> for Seq<'a, G> {
                                     NonMaxUsize::new(succ)
                                         .expect("node index should never be usize::MAX"),
                                 ))
+                            } else {
+                                callback(&mut init, EventPred::Revisit { node, pred })?;
                             }
-                        } else {
-                            callback(&mut init, EventPred::Revisit { node, pred })?;
                         }
                     }
                 }
