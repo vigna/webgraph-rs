@@ -306,10 +306,10 @@ pub struct BvCompConf<PL = Option<ProgressLogger>> {
     chunk_size: usize,
     /// Custom basename for label files, overriding the default derivation.
     labels_basename: Option<PathBuf>,
-    /// Temporary directory for all operations.
+    /// Base directory for temporary files; a fresh subdirectory is created
+    /// inside it (or inside the system temporary directory if unset) by each
+    /// parallel compression.
     tmp_dir: Option<PathBuf>,
-    /// Owns the TempDir that [`Self::tmp_dir`] refers to, if it was created by default.
-    owned_tmp_dir: Option<tempfile::TempDir>,
     /// Progress logger for compression methods.
     pl: PL,
 }
@@ -332,7 +332,6 @@ impl BvCompConf {
             chunk_size: 10_000,
             labels_basename: None,
             tmp_dir: None,
-            owned_tmp_dir: None,
             pl: None,
         }
     }
@@ -360,9 +359,10 @@ impl<PL> BvCompConf<PL> {
         self
     }
 
-    /// Sets the temporary directory used by [`par_comp`] to store
-    /// partial bitstreams. If not set, a system temporary directory is created
-    /// automatically.
+    /// Sets the base directory used by [`par_comp`] for partial bitstreams.
+    /// Each compression stores them in a fresh subdirectory of the given
+    /// directory, which is removed when the compression completes. If not
+    /// set, a system temporary directory is used.
     ///
     /// [`par_comp`]: Self::par_comp
     pub fn tmp_dir(mut self, tmp_dir: impl AsRef<Path>) -> Self {
@@ -417,7 +417,6 @@ impl<PL> BvCompConf<PL> {
             chunk_size: self.chunk_size,
             labels_basename: self.labels_basename,
             tmp_dir: self.tmp_dir,
-            owned_tmp_dir: self.owned_tmp_dir,
             pl,
         }
     }
@@ -428,21 +427,24 @@ impl<PL> BvCompConf<PL> {
             .unwrap_or_else(|| BvCompConf::default_labels_basename(&self.basename))
     }
 
-    fn resolve_tmp_dir(&mut self) -> Result<PathBuf> {
-        if self.tmp_dir.is_none() {
-            let tmp_dir = tempfile::tempdir()?;
-            self.tmp_dir = Some(tmp_dir.path().to_owned());
-            self.owned_tmp_dir = Some(tmp_dir);
+    /// Creates the temporary directory for one parallel compression: a fresh
+    /// subdirectory of the configured base (or of the system temporary
+    /// directory), so that cleanup cannot touch preexisting content of a
+    /// caller-supplied directory.
+    fn resolve_tmp_dir(&self) -> Result<tempfile::TempDir> {
+        match &self.tmp_dir {
+            Some(base) => {
+                std::fs::create_dir_all(base)
+                    .with_context(|| format!("Could not create {}", base.display()))?;
+                tempfile::tempdir_in(base).with_context(|| {
+                    format!(
+                        "Could not create a temporary directory in {}",
+                        base.display()
+                    )
+                })
+            }
+            None => tempfile::tempdir().context("Could not create a temporary directory"),
         }
-
-        let tmp_dir = self.tmp_dir.clone().unwrap();
-        if !std::fs::exists(&tmp_dir)
-            .with_context(|| format!("Could not check whether {} exists", tmp_dir.display()))?
-        {
-            std::fs::create_dir_all(&tmp_dir)
-                .with_context(|| format!("Could not create {}", tmp_dir.display()))?;
-        }
-        Ok(tmp_dir)
     }
 }
 
@@ -736,7 +738,8 @@ impl<PL: ProgressLog> BvCompConf<PL> {
     {
         let (lenders, boundaries) = graph.into_par_lenders();
         let num_nodes = *boundaries.last().unwrap_or(&0);
-        let tmp_dir = self.resolve_tmp_dir()?;
+        let tmp_dir_guard = self.resolve_tmp_dir()?;
+        let tmp_dir = tmp_dir_guard.path().to_owned();
 
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
         let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);

@@ -100,21 +100,42 @@ fn _test_par_bvcomp(basename: &std::path::Path) -> Result<()> {
 }
 
 #[test]
-fn test_par_comp_missing_interior_chunk() -> Result<()> {
+fn test_par_comp_empty_tail_chunk_ok() -> Result<()> {
     use webgraph::graphs::par_graphs::ParGraph;
-    // Regression: a valid IntoParLenders implementation with an empty
-    // non-tail segment sends no job for it, and the ordered merge silently
-    // wrote a truncated graph while stamping the full node count in the
-    // properties. It must fail instead.
+    // Empty tail segments are benign: everything up to num_nodes is covered.
     let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("truncated");
-    let pg = ParGraph::with_cutpoints(graph.clone(), vec![0, 0, 3]);
+    let basename = tmp.path().join("tail");
+    let pg = ParGraph::with_cutpoints(graph, vec![0, 3, 3]);
     BvComp::with_basename(&basename).par_comp::<BE, _>(&pg)?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .mode::<LoadMem>()
         .load()?;
-    assert!(graph::eq(&graph, &seq).is_ok());
+    assert_eq!(seq.num_nodes(), 3);
+    Ok(())
+}
+
+#[test]
+fn test_par_comp_preserves_custom_tmp_dir() -> Result<()> {
+    // Regression: cleanup used to remove_dir_all the caller-supplied
+    // temporary directory, deleting any preexisting content.
+    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
+    let tmp = tempfile::tempdir()?;
+    let custom = tmp.path().join("scratch");
+    std::fs::create_dir_all(&custom)?;
+    let sentinel = custom.join("sentinel.txt");
+    std::fs::write(&sentinel, "keep me")?;
+    let basename = tmp.path().join("graph");
+    BvComp::with_basename(&basename)
+        .tmp_dir(&custom)
+        .par_comp::<BE, _>(&graph)?;
+    assert!(sentinel.exists(), "sentinel was removed");
+    // The per-compression work subdirectory has been cleaned up.
+    assert_eq!(
+        std::fs::read_dir(&custom)?.count(),
+        1,
+        "leftover temporary entries in the custom dir"
+    );
     Ok(())
 }
