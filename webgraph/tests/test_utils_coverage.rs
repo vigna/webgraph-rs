@@ -73,6 +73,16 @@ fn test_granularity_nodes_no_arcs_info() {
     let _ = g.arc_granularity(1000, None);
 }
 
+#[test]
+fn test_granularity_zero_clamped() {
+    // Regression: zero granularity (reachable from the CLI) used to
+    // propagate as a zero divisor/chunk size to par_node_apply/par_apply.
+    assert_eq!(Granularity::Nodes(0).node_granularity(10, None), 1);
+    assert_eq!(Granularity::Arcs(0).node_granularity(10, Some(20)), 1);
+    assert_eq!(Granularity::Nodes(0).arc_granularity(10, Some(20)), 1);
+    assert_eq!(Granularity::Arcs(0).arc_granularity(10, Some(20)), 1);
+}
+
 // ── par_node_apply ──
 
 #[test]
