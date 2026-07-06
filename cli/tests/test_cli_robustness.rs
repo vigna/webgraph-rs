@@ -78,3 +78,33 @@ fn test_from_arcs_lines_to_skip_ignores_comments() -> Result<()> {
     assert!(props.contains("arcs=1"), "properties: {props}");
     Ok(())
 }
+
+#[test]
+fn test_perm_comp_rejects_non_permutations() -> Result<()> {
+    // Regression: 'perm comp' panicked on out-of-range values and silently
+    // composed duplicate values into a non-permutation.
+    let tmp = tempfile::tempdir()?;
+    let good = tmp.path().join("good.txt");
+    let out_of_range = tmp.path().join("oor.txt");
+    let duplicated = tmp.path().join("dup.txt");
+    let dst = tmp.path().join("out.txt");
+    std::fs::write(&good, "1\n0\n")?;
+    std::fs::write(&out_of_range, "0\n2\n")?;
+    std::fs::write(&duplicated, "0\n0\n")?;
+    let (good, out_of_range, duplicated, dst) = (
+        good.display().to_string(),
+        out_of_range.display().to_string(),
+        duplicated.display().to_string(),
+        dst.display().to_string(),
+    );
+    let res = cli_main(vec!["webgraph", "perm", "comp", &dst, &good, &out_of_range]);
+    assert!(res.is_err(), "out-of-range accepted: {res:?}");
+    let res = cli_main(vec!["webgraph", "perm", "comp", &dst, &good, &duplicated]);
+    assert!(res.is_err(), "duplicate accepted: {res:?}");
+    // --no-check skips the validation, composing even a non-permutation.
+    cli_main(vec!["webgraph", "perm", "comp", "--no-check", &dst, &good, &duplicated])?;
+    cli_main(vec!["webgraph", "perm", "comp", &dst, &good, &good])?;
+    let composed = std::fs::read_to_string(&dst)?;
+    assert_eq!(composed.trim(), "0\n1");
+    Ok(())
+}
