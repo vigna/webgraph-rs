@@ -151,6 +151,7 @@ where
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
         .endianness::<E>()
         .load()?;
+    let num_nodes = graph.num_nodes();
 
     // Load degree cumulative function in THP memory
     log::info!("Loading DCF in THP memory...");
@@ -231,9 +232,15 @@ where
         log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
 
         if let Some(perm_path) = args.perm {
-            let labels = combine_labels(work_dir)?;
-            log::info!("Combined labels...");
-            let rank_perm = labels_to_ranks(&labels);
+            // An empty graph stores no label files, and its permutation is
+            // empty.
+            let rank_perm = if num_nodes == 0 {
+                Vec::new().into_boxed_slice()
+            } else {
+                let labels = combine_labels(work_dir)?;
+                log::info!("Combined labels...");
+                labels_to_ranks(&labels)
+            };
             log::info!("Saving permutation...");
             store_perm(&rank_perm, perm_path, args.fmt)?;
         }

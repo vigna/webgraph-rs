@@ -138,3 +138,23 @@ fn test_max_ref_count_validation() {
     let flags: webgraph::prelude::CompFlags = args.ca.into();
     assert_eq!(flags.max_ref_count, usize::MAX);
 }
+
+#[test]
+fn test_run_llp_empty_graph() -> Result<()> {
+    // Regression: 'run llp' with --perm on an empty graph failed with
+    // "No labels were found" because the label-computation stage stores no
+    // files for zero nodes; the permutation is now empty.
+    use dsi_bitstream::prelude::BE;
+    use webgraph::graphs::vec_graph::VecGraph;
+    use webgraph::prelude::BvComp;
+    let tmp = tempfile::tempdir()?;
+    let basename = tmp.path().join("empty");
+    BvComp::with_basename(&basename).comp_graph::<BE>(&VecGraph::empty(0))?;
+    let base = basename.display().to_string();
+    cli_main(vec!["webgraph", "build", "ef", &base])?;
+    cli_main(vec!["webgraph", "build", "dcf", &base])?;
+    let perm = tmp.path().join("empty.perm").display().to_string();
+    cli_main(vec!["webgraph", "run", "llp", &base, &perm])?;
+    assert_eq!(std::fs::read_to_string(&perm)?.trim(), "");
+    Ok(())
+}
