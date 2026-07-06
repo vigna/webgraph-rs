@@ -10,6 +10,8 @@ use anyhow::{Result, ensure};
 use clap::Parser;
 use dsi_progress_logger::prelude::*;
 use std::path::PathBuf;
+use sux::bits::BitVec;
+use sux::traits::{BitVecOps, BitVecOpsMut};
 use value_traits::slices::SliceByValue;
 
 #[derive(Parser, Debug)]
@@ -29,6 +31,10 @@ pub struct CliArgs {
     #[arg(long, value_enum, default_value_t)]
     /// The format of the destination permutation file.​
     pub dst_fmt: IntSliceFormat,
+
+    #[arg(long)]
+    /// Skip the check that each input is a permutation.
+    pub no_check: bool,
 
     #[clap(flatten)]
     pub log_interval: LogIntervalArg,
@@ -72,6 +78,30 @@ pub fn main(args: CliArgs) -> Result<()> {
         perms.iter().all(|p| p.len() == len),
         "All permutations must have the same length"
     );
+
+    // Verify that each input is a permutation of 0..len: a malformed file
+    // would otherwise panic during composition (out-of-range values) or
+    // silently produce a non-permutation (duplicate values). The check can
+    // be skipped with --no-check.
+    if !args.no_check {
+        for (path, perm) in args.perms.iter().zip(&perms) {
+            let mut seen: BitVec = BitVec::new(len);
+            for i in 0..len {
+                let v = perm.index_value(i);
+                ensure!(
+                    v < len,
+                    "{} is not a permutation: value {v} at position {i} is out of range",
+                    path.display()
+                );
+                ensure!(
+                    !seen.get(v),
+                    "{} is not a permutation: value {v} at position {i} is a duplicate",
+                    path.display()
+                );
+                seen.set(v, true);
+            }
+        }
+    }
     pl.expected_updates(len);
 
     // Dispatch on the concrete type for static dispatch in the composition
