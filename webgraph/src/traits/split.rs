@@ -149,8 +149,16 @@ pub mod seq {
             if self.i + 1 >= self.cutpoints.len() {
                 return None;
             }
-            if self.i > 0 {
-                let advance = self.cutpoints[self.i] - self.cutpoints[self.i - 1];
+            // The lender is positioned at the end of the previous segment,
+            // or at node 0 before the first segment is returned; advance to
+            // the start of the current segment.
+            let previous = if self.i == 0 {
+                0
+            } else {
+                self.cutpoints[self.i - 1]
+            };
+            let advance = self.cutpoints[self.i] - previous;
+            if advance > 0 {
                 self.lender.advance_by(advance).ok()?;
             }
             let len = self.cutpoints[self.i + 1] - self.cutpoints[self.i];
