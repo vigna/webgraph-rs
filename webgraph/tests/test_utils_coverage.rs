@@ -417,3 +417,25 @@ fn test_par_map_fold_ord_with() {
     let expected: Vec<usize> = (0..100).map(|x: usize| x + 10).collect();
     assert_eq!(result, expected);
 }
+
+#[test]
+fn test_par_map_fold_single_thread_pool() {
+    use webgraph::traits::par_map_fold::ParMapFold;
+    // Regression: with a one-thread Rayon pool the caller occupied the only
+    // pool thread, the scoped workers never ran, and the bounded input
+    // channel deadlocked. Run in a helper thread so a regression fails
+    // instead of hanging the suite.
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(1)
+            .build()
+            .unwrap();
+        let sum: usize = pool.install(|| (0..100usize).par_map_fold(|x| x, |a, b| a + b));
+        tx.send(sum).unwrap();
+    });
+    let sum = rx
+        .recv_timeout(std::time::Duration::from_secs(60))
+        .expect("par_map_fold deadlocked in a single-thread pool");
+    assert_eq!(sum, 4950);
+}

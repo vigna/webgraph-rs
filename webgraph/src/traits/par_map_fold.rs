@@ -193,6 +193,19 @@ where
         }
         num_scoped_threads = num_scoped_threads.max(1);
 
+        if num_scoped_threads == 1 {
+            // With a single worker there might be no free pool thread to run
+            // it (e.g., a one-thread Rayon pool whose only thread is the
+            // caller), which would deadlock on the bounded channels; map and
+            // fold inline instead.
+            let mut init = map_init;
+            let mut res = A::default();
+            for val in self {
+                res = inner_fold(res, map(&mut init, val));
+            }
+            return outer_fold(A::default(), res);
+        }
+
         // create a channel to receive the result
         let (out_tx, out_rx) = crossbeam_channel::bounded(num_scoped_threads);
         let (in_tx, in_rx) = crossbeam_channel::bounded(2 * num_scoped_threads);
