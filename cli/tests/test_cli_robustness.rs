@@ -108,3 +108,33 @@ fn test_perm_comp_rejects_non_permutations() -> Result<()> {
     assert_eq!(composed.trim(), "0\n1");
     Ok(())
 }
+
+#[test]
+fn test_max_ref_count_validation() {
+    use clap::Parser;
+    // Regression: --max-ref-count -2 passed argument parsing and panicked
+    // later in the CompFlags conversion.
+    assert!(
+        webgraph_cli::from::arcs::CliArgs::try_parse_from([
+            "arcs",
+            "--num-nodes",
+            "3",
+            "--max-ref-count",
+            "-2",
+            "out",
+        ])
+        .is_err()
+    );
+    let args = webgraph_cli::from::arcs::CliArgs::try_parse_from([
+        "arcs",
+        "--num-nodes",
+        "3",
+        "--max-ref-count",
+        "-1",
+        "out",
+    ])
+    .unwrap();
+    assert_eq!(args.ca.max_ref_count, -1);
+    let flags: webgraph::prelude::CompFlags = args.ca.into();
+    assert_eq!(flags.max_ref_count, usize::MAX);
+}

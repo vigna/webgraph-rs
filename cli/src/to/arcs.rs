@@ -63,9 +63,16 @@ where
     let num_nodes = graph.num_nodes();
 
     let labels = if let Some(labels) = args.labels {
+        // Split on newlines rather than using lines(): the file written by
+        // 'from arcs --labels' terminates every label with a newline, and an
+        // empty label on the last line must not be lost.
+        let mut content = std::fs::read_to_string(labels)?;
+        if content.ends_with('\n') {
+            content.pop();
+        }
         Some(
-            std::fs::read_to_string(labels)?
-                .lines()
+            content
+                .split('\n')
                 .map(|l| l.to_string())
                 .collect::<Vec<_>>(),
         )
