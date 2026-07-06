@@ -237,3 +237,51 @@ impl<E: EncodeAndEstimate> EncodeAndEstimate for EncoderValidator<E> {
         EncoderValidator::new_estimator(self.encoder.estimator())
     }
 }
+
+#[test]
+fn test_bvcompz_push_label_error_propagates() -> anyhow::Result<()> {
+    use dsi_bitstream::prelude::*;
+    use webgraph::graphs::bvgraph::DynCodesEncoder;
+    use webgraph::prelude::*;
+    use webgraph::traits::StoreLabels;
+
+    struct FailingStore;
+    impl StoreLabels for FailingStore {
+        type Label = usize;
+        fn init(&mut self) -> anyhow::Result<()> {
+            Ok(())
+        }
+        fn push_node(&mut self) -> anyhow::Result<()> {
+            Ok(())
+        }
+        fn push_label(&mut self, _label: &usize) -> anyhow::Result<()> {
+            anyhow::bail!("label storage failed")
+        }
+        fn flush(&mut self) -> anyhow::Result<()> {
+            Ok(())
+        }
+        fn label_written_bits(&self) -> u64 {
+            0
+        }
+        fn offsets_written_bits(&self) -> u64 {
+            0
+        }
+    }
+
+    let tmp_dir = tempfile::Builder::new().prefix("bvcompz_fail").tempdir()?;
+    let writer = buf_bit_writer::from_path::<BE, usize>(tmp_dir.path().join("g.graph"))?;
+    let encoder = <DynCodesEncoder<BE, _>>::new(writer, &CompFlags::default())?;
+    let mut comp = BvCompZ::new(
+        encoder,
+        OffsetsWriter::from_path(tmp_dir.path().join("g.offsets"), false)?,
+        7,
+        4,
+        3,
+        2,
+        0,
+        FailingStore,
+    );
+    // Regression: label-store errors panicked instead of propagating.
+    assert!(comp.push([(1usize, 42usize)]).is_err());
+    Ok(())
+}
