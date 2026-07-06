@@ -291,10 +291,15 @@ impl CompFlags {
         );
         // check that the version was properly set for LE
         if core::any::TypeId::of::<E>() == core::any::TypeId::of::<LittleEndian>() {
+            let version = map
+                .get("version")
+                .map(|x| x.parse::<u32>())
+                .transpose()
+                .context("Invalid 'version' property")?;
             anyhow::ensure!(
-                map.get("version").map(|x| x.parse::<u32>().unwrap()) == Some(1),
+                version == Some(1),
                 "Wrong version, got {} while expected 1",
-                map.get("version").unwrap_or(&"None".to_string())
+                map.get("version").map_or("None", String::as_str)
             );
         }
 
@@ -310,9 +315,12 @@ impl CompFlags {
         if let Some(comp_flags) = map.get("compressionflags") {
             if !comp_flags.is_empty() {
                 for flag in comp_flags.split('|') {
-                    let s: Vec<_> = flag.split('_').collect();
-                    let code = CompFlags::code_from_str(s[1], k).unwrap();
-                    match s[0] {
+                    let (name, code) = flag
+                        .split_once('_')
+                        .with_context(|| format!("Invalid compression flag {flag}"))?;
+                    let code = CompFlags::code_from_str(code, k)
+                        .with_context(|| format!("Unknown code in compression flag {flag}"))?;
+                    match name {
                         "OUTDEGREES" => cf.outdegrees = code,
                         "REFERENCES" => cf.references = code,
                         "BLOCKS" => cf.blocks = code,

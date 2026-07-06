@@ -212,3 +212,29 @@ fn test_from_properties_empty_compression_flags() -> Result<()> {
     assert_eq!(cf.outdegrees, Codes::Gamma);
     Ok(())
 }
+
+#[test]
+fn test_from_properties_malformed_inputs() {
+    // Regression: malformed but reachable .properties content panicked
+    // instead of returning an error.
+    use std::collections::HashMap;
+
+    // Bad LE version
+    let mut map = HashMap::new();
+    map.insert("endianness".to_string(), "little".to_string());
+    map.insert("version".to_string(), "abc".to_string());
+    assert!(CompFlags::from_properties::<LE>(&map).is_err());
+
+    // Compression flag without an underscore
+    let mut map = HashMap::new();
+    map.insert("compressionflags".to_string(), "OUTDEGREES".to_string());
+    assert!(CompFlags::from_properties::<BE>(&map).is_err());
+
+    // Unknown code name
+    let mut map = HashMap::new();
+    map.insert(
+        "compressionflags".to_string(),
+        "OUTDEGREES_BOGUS".to_string(),
+    );
+    assert!(CompFlags::from_properties::<BE>(&map).is_err());
+}
