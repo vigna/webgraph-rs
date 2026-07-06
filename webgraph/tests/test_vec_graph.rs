@@ -88,3 +88,30 @@ fn test_add_exact_lender_partial() -> anyhow::Result<()> {
     graph::eq_labeled(&b, &c)?;
     Ok(())
 }
+
+#[test]
+fn test_add_arcs_dedups() {
+    use webgraph::graphs::btree_graph::LabeledBTreeGraph;
+    use webgraph::traits::{RandomAccessGraph, RandomAccessLabeling};
+    // Regression: duplicate arcs in the bulk methods panicked with a
+    // misleading "successor is not increasing" message, while BTreeGraph
+    // dedups them.
+    let g = VecGraph::from_arcs([(0, 1), (0, 1), (1, 0)]);
+    assert_eq!(g.num_arcs(), 2);
+    assert_eq!(g.successors(0).into_iter().collect::<Vec<_>>(), vec![1]);
+
+    // The label of the last occurrence in the input wins, as in
+    // LabeledBTreeGraph, even when the duplicates are not adjacent.
+    let arcs = [((0, 1), 10u32), ((0, 2), 99), ((0, 1), 20)];
+    let lg = LabeledVecGraph::<u32>::from_arcs(arcs);
+    assert_eq!(lg.num_arcs(), 2);
+    assert_eq!(
+        RandomAccessLabeling::labels(&lg, 0).collect::<Vec<_>>(),
+        vec![(1, 20), (2, 99)]
+    );
+    let bg = LabeledBTreeGraph::<u32>::from_arcs(arcs);
+    assert_eq!(
+        RandomAccessLabeling::labels(&bg, 0).collect::<Vec<_>>(),
+        vec![(1, 20), (2, 99)]
+    );
+}
