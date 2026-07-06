@@ -1338,7 +1338,10 @@ impl<
             (self.radius_high, self.radius_vertex) = radius.into_inner().unwrap();
         }
 
-        self.iterations += 3;
+        // One graph-visit equivalent per BFS plus one for the linear
+        // refinement scan: the directed branch performs a forward and a
+        // backward pivot BFS, the symmetric branch a single BFS.
+        self.iterations += if self.symmetric { 2 } else { 3 };
 
         pl.done();
     }
