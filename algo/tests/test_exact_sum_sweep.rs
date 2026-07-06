@@ -384,3 +384,118 @@ fn test_er() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_symm_radius_backward_pivot() -> Result<()> {
+    // Regression: symmetric backward sweeps finalized the eccentricity of
+    // the start vertex without lowering the radius upper bound, so
+    // `Radius::run_symm` could return a non-minimal eccentricity. On this
+    // graph the true radius is 2, but the buggy version returned 3.
+    let arcs = [
+        (0, 1),
+        (0, 5),
+        (1, 2),
+        (1, 7),
+        (2, 3),
+        (3, 4),
+        (3, 8),
+        (4, 5),
+        (4, 6),
+        (5, 6),
+        (6, 7),
+        (7, 8),
+    ];
+    let mut graph = VecGraph::empty(9);
+    for &(u, v) in &arcs {
+        graph.add_arc(u, v);
+        graph.add_arc(v, u);
+    }
+    for use_tot in [true, false] {
+        let res = Radius::run_symm(&graph, use_tot, no_logging![]);
+        assert_eq!(res.radius, 2);
+    }
+    Ok(())
+}
+
+/// Deterministic 64-bit LCG for the brute-force test below.
+fn lcg(state: &mut u64) -> u64 {
+    *state = state
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
+    *state
+}
+
+/// BFS eccentricities of a connected symmetric graph.
+fn bfs_eccentricities(graph: &VecGraph) -> Vec<usize> {
+    use webgraph::traits::RandomAccessGraph;
+    let n = graph.num_nodes();
+    let mut eccs = vec![0; n];
+    for start in 0..n {
+        let mut dist = vec![usize::MAX; n];
+        let mut queue = std::collections::VecDeque::new();
+        dist[start] = 0;
+        queue.push_back(start);
+        while let Some(node) = queue.pop_front() {
+            for succ in graph.successors(node) {
+                if dist[succ] == usize::MAX {
+                    dist[succ] = dist[node] + 1;
+                    queue.push_back(succ);
+                }
+            }
+        }
+        eccs[start] = dist.into_iter().max().unwrap();
+    }
+    eccs
+}
+
+#[test]
+fn test_symm_brute_force_small() -> Result<()> {
+    let mut state = 0x243F_6A88_85A3_08D3u64;
+    for trial in 0..400u32 {
+        // n in 3..=10; the modulus keeps values tiny, so the cast is sound
+        let n = 3 + usize::try_from(lcg(&mut state) % 8).unwrap();
+        let mut arcs = std::collections::BTreeSet::new();
+        // Spanning path for connectivity, so that all nodes are radial.
+        for i in 0..n - 1 {
+            arcs.insert((i, i + 1));
+        }
+        for _ in 0..n {
+            let u = usize::try_from(lcg(&mut state) % u64::try_from(n).unwrap()).unwrap();
+            let v = usize::try_from(lcg(&mut state) % u64::try_from(n).unwrap()).unwrap();
+            if u != v {
+                arcs.insert((u.min(v), u.max(v)));
+            }
+        }
+        let mut graph = VecGraph::empty(n);
+        for &(u, v) in &arcs {
+            graph.add_arc(u, v);
+            graph.add_arc(v, u);
+        }
+        let eccs = bfs_eccentricities(&graph);
+        let radius_true = *eccs.iter().min().unwrap();
+        let diameter_true = *eccs.iter().max().unwrap();
+
+        for use_tot in [true, false] {
+            let res = Radius::run_symm(&graph, use_tot, no_logging![]);
+            assert_eq!(
+                res.radius, radius_true,
+                "radius mismatch on trial {trial} (use_tot {use_tot}) arcs {arcs:?}"
+            );
+            let res = All::run_symm(&graph, use_tot, no_logging![]);
+            assert_eq!(
+                res.radius, radius_true,
+                "all-radius mismatch on trial {trial} (use_tot {use_tot}) arcs {arcs:?}"
+            );
+            assert_eq!(
+                res.diameter, diameter_true,
+                "diameter mismatch on trial {trial} (use_tot {use_tot}) arcs {arcs:?}"
+            );
+            assert_eq!(
+                res.eccentricities.as_ref(),
+                eccs.as_slice(),
+                "ecc mismatch on trial {trial} (use_tot {use_tot}) arcs {arcs:?}"
+            );
+        }
+    }
+    Ok(())
+}
