@@ -154,6 +154,23 @@ impl JobId for Job {
     }
 }
 
+/// The message sent by a compression worker to the ordered merge: the
+/// outcome of one chunk, in job-id order.
+///
+/// `Ok(None)` reports an empty lender (a legal empty segment), so that the
+/// merge can keep pulling later jobs in order; `Err` carries a worker
+/// failure, surfaced by the merge in job order.
+struct WorkerResult {
+    job_id: usize,
+    result: Result<Option<Job>>,
+}
+
+impl JobId for WorkerResult {
+    fn id(&self) -> usize {
+        self.job_id
+    }
+}
+
 /// Writes γ-coded delta offsets to a bitstream.
 ///
 /// Used internally by [`BvComp`] and [`BvCompConf`] to produce the
@@ -779,93 +796,89 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                 s.spawn(move |_| {
                     log::debug!("Thread {thread_id} started");
 
-                    let Some((node_id, successors)) = thread_lender.next() else {
-                        tx.send(Job {
+                    let result = (|| -> Result<Option<Job>> {
+                        // An empty lender is a legal empty segment.
+                        let Some((node_id, successors)) = thread_lender.next() else {
+                            return Ok(None);
+                        };
+
+                        let first_node = node_id;
+                        let writer = buf_bit_writer::from_path::<E, usize>(&chunk_graph_path)
+                            .with_context(|| {
+                                format!("Could not create {}", chunk_graph_path.display())
+                            })?;
+                        let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags)?;
+
+                        let stats;
+                        let mut last_node;
+                        if bvgraphz {
+                            let mut bvcomp = BvCompZ::new(
+                                codes_encoder,
+                                OffsetsWriter::from_path(&chunk_offsets_path, false)?,
+                                cp_flags.compression_window,
+                                chunk_size,
+                                cp_flags.max_ref_count,
+                                cp_flags.min_interval_length,
+                                node_id,
+                                store_labels,
+                            );
+                            bvcomp.push(successors)?;
+                            last_node = first_node;
+                            let mut iter_nodes =
+                                thread_lender.inspect(|(x, _)| last_node = *x);
+                            while let Some((_, succ)) = iter_nodes.next() {
+                                bvcomp.push(succ.into_iter())?;
+                                log_comp_stats(&bvcomp.stats(), false);
+                                comp_pl.update();
+                            }
+                            stats = bvcomp.flush()?;
+                        } else {
+                            let mut bvcomp = BvComp::new(
+                                codes_encoder,
+                                OffsetsWriter::from_path(&chunk_offsets_path, false)?,
+                                cp_flags.compression_window,
+                                cp_flags.max_ref_count,
+                                cp_flags.min_interval_length,
+                                node_id,
+                                store_labels,
+                            );
+                            bvcomp.push(successors)?;
+                            last_node = first_node;
+                            let mut iter_nodes =
+                                thread_lender.inspect(|(x, _)| last_node = *x);
+                            while let Some((_, succ)) = iter_nodes.next() {
+                                bvcomp.push(succ.into_iter())?;
+                                log_comp_stats(&bvcomp.stats(), false);
+                                comp_pl.update();
+                            }
+                            stats = bvcomp.flush()?;
+                        }
+
+                        log::debug!(
+                            "Finished Compression thread {thread_id} and wrote {} bits for the graph and {} bits for the offsets",
+                            stats.written_bits, stats.offsets_written_bits,
+                        );
+                        Ok(Some(Job {
                             job_id: thread_id,
-                            first_node: 0,
-                            last_node: 0,
+                            first_node,
+                            last_node,
                             chunk_graph_path,
-                            written_bits: 0,
+                            written_bits: stats.written_bits,
                             chunk_offsets_path,
-                            offsets_written_bits: 0,
-                            num_arcs: 0,
-                            tot_ref: 0,
-                            tot_dist: 0,
+                            offsets_written_bits: stats.offsets_written_bits,
+                            num_arcs: stats.num_arcs,
+                            tot_ref: stats.tot_ref,
+                            tot_dist: stats.tot_dist,
                             part_labels_path: Some(part_labels_path),
-                            labels_written_bits: 0,
+                            labels_written_bits: stats.labels_written_bits,
                             part_label_offsets_path: Some(part_label_offsets_path),
-                            label_offsets_written_bits: 0,
-                        })
-                        .ok(); // If channel is closed, main thread already has an error
-                        return
-                    };
+                            label_offsets_written_bits: stats.label_offsets_written_bits,
+                        }))
+                    })();
 
-                    let first_node = node_id;
-                    let writer = buf_bit_writer::from_path::<E, usize>(&chunk_graph_path).unwrap();
-                    let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags).unwrap();
-
-                    let stats;
-                    let mut last_node;
-                    if bvgraphz {
-                        let mut bvcomp = BvCompZ::new(
-                            codes_encoder,
-                            OffsetsWriter::from_path(&chunk_offsets_path, false).unwrap(),
-                            cp_flags.compression_window,
-                            chunk_size,
-                            cp_flags.max_ref_count,
-                            cp_flags.min_interval_length,
-                            node_id,
-                            store_labels,
-                        );
-                        bvcomp.push(successors).unwrap();
-                        last_node = first_node;
-                        let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
-                        for_! ( (_, succ) in iter_nodes {
-                            bvcomp.push(succ.into_iter()).unwrap();
-                            log_comp_stats(&bvcomp.stats(), false);
-                            comp_pl.update();
-                        });
-                        stats = bvcomp.flush().unwrap();
-                    } else {
-                        let mut bvcomp = BvComp::new(
-                            codes_encoder,
-                            OffsetsWriter::from_path(&chunk_offsets_path, false).unwrap(),
-                            cp_flags.compression_window,
-                            cp_flags.max_ref_count,
-                            cp_flags.min_interval_length,
-                            node_id,
-                            store_labels,
-                        );
-                        bvcomp.push(successors).unwrap();
-                        last_node = first_node;
-                        let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
-                        for_! ( (_, succ) in iter_nodes {
-                            bvcomp.push(succ.into_iter()).unwrap();
-                            log_comp_stats(&bvcomp.stats(), false);
-                            comp_pl.update();
-                        });
-                        stats = bvcomp.flush().unwrap();
-                    }
-
-                    log::debug!(
-                        "Finished Compression thread {thread_id} and wrote {} bits for the graph and {} bits for the offsets",
-                        stats.written_bits, stats.offsets_written_bits,
-                    );
-                    tx.send(Job {
+                    tx.send(WorkerResult {
                         job_id: thread_id,
-                        first_node,
-                        last_node,
-                        chunk_graph_path,
-                        written_bits: stats.written_bits,
-                        chunk_offsets_path,
-                        offsets_written_bits: stats.offsets_written_bits,
-                        num_arcs: stats.num_arcs,
-                        tot_ref: stats.tot_ref,
-                        tot_dist: stats.tot_dist,
-                        part_labels_path: Some(part_labels_path),
-                        labels_written_bits: stats.labels_written_bits,
-                        part_label_offsets_path: Some(part_label_offsets_path),
-                        label_offsets_written_bits: stats.label_offsets_written_bits,
+                        result,
                     })
                     .ok(); // If channel is closed, main thread already has an error
                 });
@@ -891,26 +904,30 @@ impl<PL: ProgressLog> BvCompConf<PL> {
             let mut next_node = 0;
             // glue together the bitstreams as they finish, this allows us to do
             // task pipelining for better performance
-            for Job {
-                job_id,
-                first_node,
-                last_node,
-                chunk_graph_path,
-                written_bits,
-                chunk_offsets_path,
-                offsets_written_bits,
-                num_arcs,
-                tot_ref,
-                tot_dist,
-                part_labels_path,
-                labels_written_bits,
-                part_label_offsets_path,
-                label_offsets_written_bits,
-            } in TaskQueue::new(rx.into_rayon_iter())
-            {
-                if first_node == last_node {
+            for worker_result in TaskQueue::new(rx.into_rayon_iter()) {
+                let job = worker_result.result.with_context(|| {
+                    format!("Compression thread {} failed", worker_result.job_id)
+                })?;
+                // An empty lender contributes nothing.
+                let Some(Job {
+                    job_id,
+                    first_node,
+                    last_node,
+                    chunk_graph_path,
+                    written_bits,
+                    chunk_offsets_path,
+                    offsets_written_bits,
+                    num_arcs,
+                    tot_ref,
+                    tot_dist,
+                    part_labels_path,
+                    labels_written_bits,
+                    part_label_offsets_path,
+                    label_offsets_written_bits,
+                }) = job
+                else {
                     continue;
-                }
+                };
                 ensure!(
                     first_node == next_node,
                     "Non-adjacent lenders: lender {} has first node {} instead of {}",
@@ -986,6 +1003,13 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                 };
                 self.pl.update_with_count(last_node - first_node + 1);
             }
+
+            // A worker that fails before sending (or a lender skipping part
+            // of its segment) must not silently truncate the output graph.
+            ensure!(
+                next_node == num_nodes,
+                "The lenders covered only nodes [0..{next_node}), but the graph has {num_nodes} nodes"
+            );
 
             store_labels_config.flush_concat()?;
 
