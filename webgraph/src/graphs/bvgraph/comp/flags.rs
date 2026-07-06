@@ -161,14 +161,21 @@ impl CompFlags {
         s.push_str(&format!("minintervallength={}\n", self.min_interval_length));
         s.push_str(&format!("maxrefcount={}\n", self.max_ref_count));
         s.push_str(&format!("windowsize={}\n", self.compression_window));
+        // Ratios are emitted only when their denominators are meaningful:
+        // zero-node or zero-arc graphs would produce NaN/inf values, which
+        // Java-compatible property consumers may reject.
         let n = num_nodes as f64;
-        s.push_str(&format!("avgref={:.3}\n", stats.tot_ref as f64 / n));
-        s.push_str(&format!("avgdist={:.3}\n", stats.tot_dist as f64 / n));
-        s.push_str(&format!(
-            "bitsperlink={}\n",
-            bitstream_len as f64 / num_arcs as f64
-        ));
-        s.push_str(&format!("bitspernode={}\n", bitstream_len as f64 / n));
+        if num_nodes > 0 {
+            s.push_str(&format!("avgref={:.3}\n", stats.tot_ref as f64 / n));
+            s.push_str(&format!("avgdist={:.3}\n", stats.tot_dist as f64 / n));
+            s.push_str(&format!("bitspernode={}\n", bitstream_len as f64 / n));
+        }
+        if num_arcs > 0 {
+            s.push_str(&format!(
+                "bitsperlink={}\n",
+                bitstream_len as f64 / num_arcs as f64
+            ));
+        }
         s.push_str(&format!("length={bitstream_len}\n"));
 
         fn stirling(n: f64) -> f64 {
@@ -177,14 +184,16 @@ impl CompFlags {
 
         // We compute in floating point to avoid overflows
         let n_squared = num_nodes as f64 * num_nodes as f64;
-        let theoretical_bound = (stirling(n_squared)
-            - stirling(num_arcs as f64)
-            - stirling(n_squared - num_arcs as f64))
-            / 2.0_f64.ln();
-        s.push_str(&format!(
-            "compratio={:.3}\n",
-            bitstream_len as f64 / theoretical_bound
-        ));
+        if num_arcs > 0 && (num_arcs as f64) < n_squared {
+            let theoretical_bound = (stirling(n_squared)
+                - stirling(num_arcs as f64)
+                - stirling(n_squared - num_arcs as f64))
+                / 2.0_f64.ln();
+            s.push_str(&format!(
+                "compratio={:.3}\n",
+                bitstream_len as f64 / theoretical_bound
+            ));
+        }
 
         s.push_str("compressionflags=");
         let mut comp_flags = false;
@@ -254,7 +263,9 @@ impl CompFlags {
                             if let Some(old_k) = k {
                                 ensure!(
                                     old_k == new_k,
-                                    "Only one value of k is supported in version 0"
+                                    "Only one value of k is supported in version 0 \
+                                     (the Java-compatible 'zetak' property is global); \
+                                     got both zeta_{old_k} and zeta_{new_k}"
                                 )
                             }
                             k = Some(new_k)
