@@ -33,6 +33,21 @@
 
 ### Fixed
 
+- With node weights, `HyperBall` now seeds the radius-0 neighborhood
+  function with the total weight (the exact number of elements loaded in
+  the counters) instead of the number of nodes; moreover, empty graphs and
+  malformed weights are handled with clean errors instead of panics deep in
+  the counter machinery.
+
+- `PageRank` validates the stochasticity of preference vectors in
+  production builds (it used to check only under `cfg(test)`) and `BiRank`
+  rejects negative or non-finite query vectors, as NaN norm deltas prevent
+  threshold-based stopping criteria from ever being satisfied. The
+  divergence from the Java LAW default mode is now documented.
+
+- The first log-gap cost of LLP is computed without signed casts, which
+  wrapped for node ids above `isize::MAX`.
+
 - `ExactSumSweep` could return a non-minimal radius on symmetric graphs, as
   backward sweeps were not updating the radius upper bound; moreover, the
   iteration count of the all-CC bound step was over-reported in the symmetric

@@ -29,6 +29,41 @@
 
 ### Fixed
 
+- `Zip` now zips labels strictly (panicking on mismatched per-node label
+  counts instead of silently truncating), checks node streams in release
+  builds, and forwards `num_arcs_hint`, as does `UnitLabelGraph`.
+
+- `NoSelfLoopsGraph::num_arcs_hint` no longer reports the arc count of the
+  underlying graph, which overstates the filtered graph.
+
+- The bulk construction methods of `VecGraph`/`LabeledVecGraph` deduplicate
+  arcs (keeping the label of the last occurrence, like `BTreeGraph`) instead
+  of panicking with a misleading message.
+
+- `check_offsets` verifies the final length entry of the offsets file, and
+  the random-access load paths reject offsets files with a number of entries
+  different from the number of nodes plus one (e.g., stale `.ef` files).
+
+- Compression workers now report failures and empty lenders through the
+  ordered merge, so `par_comp` returns contextual errors instead of
+  panicking, and legal interior empty segments compress correctly.
+
+- `ParGraph::with_cutpoints` and `ParSortedLabeledGraph::from_parts`
+  validate their documented invariants at construction.
+
+- `Matrix` indexing debug-asserts that the column index is in bounds, which
+  would otherwise silently alias an element of the next row.
+
+- Partition-boundary computations no longer overflow for node counts near
+  `usize::MAX`.
+
+- The all-nodes BFS iterator handles empty graphs, and the sequential BFS
+  consults the filter before emitting `Revisit` events, matching the
+  parallel implementations.
+
+- `to_properties` omits ratio metrics with degenerate denominators
+  (zero-node, zero-arc, or complete graphs) instead of emitting NaN/inf.
+
 - The `Decoder` aliases of `ConstCodesDecoderFactory` were not forwarding the
   const code parameters, so `Static` dispatch with non-default codes silently
   decoded with the default codes.

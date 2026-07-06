@@ -73,6 +73,17 @@
 
 ### Fixed
 
+- `from arcs` counts `--lines-to-skip` after ignoring comment lines, as
+  documented, and fails when no arcs are read instead of exiting
+  successfully without producing a graph; `to arcs --labels` no longer
+  loses an empty label on the last line.
+
+- `perm comp` verifies that its inputs are permutations (unless
+  `--no-check` is passed), `check ef` compares the final Elias-Fano entry
+  against the graph length, `bench bvgraph` rejects empty graphs,
+  `--max-ref-count` values below -1 are rejected at parse time, and
+  `run llp --perm` produces an empty permutation for empty graphs.
+
 - `to endianness` wrote the offsets shifted by one node (missing the initial
   zero), corrupting random access on converted graphs.
 
