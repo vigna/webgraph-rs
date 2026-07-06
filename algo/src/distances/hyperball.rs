@@ -2380,14 +2380,26 @@ mod test {
 
         let wrong_nodes = VecGraph::empty(1);
         assert!(
-            HyperBallBuilder::with_hyper_log_log(&graph, Some(&wrong_nodes), &deg_cumul_func, 6, None)
-                .is_err()
+            HyperBallBuilder::with_hyper_log_log(
+                &graph,
+                Some(&wrong_nodes),
+                &deg_cumul_func,
+                6,
+                None
+            )
+            .is_err()
         );
 
         let wrong_arcs = VecGraph::from_arcs([(1, 0), (2, 1), (2, 0)]);
         assert!(
-            HyperBallBuilder::with_hyper_log_log(&graph, Some(&wrong_arcs), &deg_cumul_func, 6, None)
-                .is_err()
+            HyperBallBuilder::with_hyper_log_log(
+                &graph,
+                Some(&wrong_arcs),
+                &deg_cumul_func,
+                6,
+                None
+            )
+            .is_err()
         );
         Ok(())
     }

@@ -15,8 +15,8 @@ use std::path::PathBuf;
 use value_traits::slices::SliceByValue;
 use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::prelude::{BvGraph, LoadModeCodesReader, Mmap};
-use webgraph::utils::MmapHelper;
 use webgraph::traits::RandomAccessGraph;
+use webgraph::utils::MmapHelper;
 use webgraph_algo::rank::BiRank;
 use webgraph_algo::rank::birank::PredParams;
 use webgraph_algo::rank::preds::{L1Norm, LInfNorm, MaxIter};
@@ -154,7 +154,9 @@ where
     let thread_pool = get_thread_pool(args.num_threads.num_threads);
 
     log::info!("Loading graph from {}", args.graph.display());
-    let graph = BvGraph::with_basename(&args.graph).endianness::<E>().load()?;
+    let graph = BvGraph::with_basename(&args.graph)
+        .endianness::<E>()
+        .load()?;
 
     log::info!("Loading transpose graph from {}", args.transpose.display());
     let transpose = BvGraph::with_basename(&args.transpose)

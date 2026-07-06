@@ -121,7 +121,11 @@ where
     }
     // The final entry is the total length of the graph bitstream.
     let ef_res = ef.index_value(num_nodes as _);
-    assert_eq!(degs_iter.get_pos(), ef_res, "final offset (node_id: {num_nodes})");
+    assert_eq!(
+        degs_iter.get_pos(),
+        ef_res,
+        "final offset (node_id: {num_nodes})"
+    );
     pl.done();
     Ok(())
 }

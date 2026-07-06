@@ -71,7 +71,9 @@ macro_rules! impl_convert {
 
         // The offsets file contains num_nodes + 1 offsets: a leading zero
         // followed by the end of each successor list, γ-coded as gaps.
-        offsets_writer.write_gamma(0).context("Could not write gamma")?;
+        offsets_writer
+            .write_gamma(0)
+            .context("Could not write gamma")?;
         let mut offset = 0;
         for _ in 0..num_nodes {
             iter.next_degree()?;
