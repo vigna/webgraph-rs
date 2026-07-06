@@ -110,13 +110,11 @@ where
     pl.start("Checking graph against Elias–Fano...");
     // read the graph a write the offsets
     let mut degs_iter = seq_graph.offset_deg_iter();
-    let mut node = 0;
-    for (new_offset, _degree) in &mut degs_iter {
+    for (node, (new_offset, _degree)) in (&mut degs_iter).enumerate() {
         // decode the next nodes so we know where the next node_id starts
         // read ef
         let ef_res = ef.index_value(node as _);
         assert_eq!(new_offset, ef_res, "node_id: {}", node);
-        node += 1;
         pl.light_update();
     }
     // The final entry is the total length of the graph bitstream.
