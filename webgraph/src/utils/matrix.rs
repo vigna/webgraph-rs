@@ -23,6 +23,12 @@ impl<T> Index<(usize, usize)> for Matrix<T> {
 
     fn index(&self, index: (usize, usize)) -> &Self::Output {
         let (row, col) = index;
+        debug_assert!(
+            col < self.cols,
+            "column index out of bounds: the matrix has {} columns but the column index is {}",
+            self.cols,
+            col
+        );
         &self.data[row * self.cols + col]
     }
 }
@@ -30,6 +36,12 @@ impl<T> Index<(usize, usize)> for Matrix<T> {
 impl<T> IndexMut<(usize, usize)> for Matrix<T> {
     fn index_mut(&mut self, index: (usize, usize)) -> &mut Self::Output {
         let (row, col) = index;
+        debug_assert!(
+            col < self.cols,
+            "column index out of bounds: the matrix has {} columns but the column index is {}",
+            self.cols,
+            col
+        );
         &mut self.data[row * self.cols + col]
     }
 }
