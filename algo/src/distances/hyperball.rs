@@ -888,6 +888,20 @@ impl<
                 "weights should have length equal to the graph's number of nodes"
             );
         }
+        if let Some(t) = transpose {
+            ensure!(
+                t.num_nodes() == graph.num_nodes(),
+                "the transpose should have the same number of nodes as the graph ({}), got {}",
+                graph.num_nodes(),
+                t.num_nodes()
+            );
+            ensure!(
+                t.num_arcs() == graph.num_arcs(),
+                "the transpose should have the same number of arcs as the graph ({}), got {}",
+                graph.num_arcs(),
+                t.num_arcs()
+            );
+        }
         Ok(Self {
             graph,
             transpose,
@@ -2317,6 +2331,30 @@ mod test {
                 .build(no_logging![]);
         Ok::<_, anyhow::Error>((hb, seq_logic))
     });
+
+    #[test]
+    #[cfg(not(miri))]
+    fn test_rejects_mismatched_transpose() -> Result<()> {
+        use webgraph::graphs::vec_graph::VecGraph;
+        // Regression: the high-level constructors accepted a transpose with
+        // a different number of nodes/arcs, panicking or silently skipping
+        // nodes only once systolic iterations started.
+        let graph = VecGraph::from_arcs([(0, 1), (1, 2)]);
+        let deg_cumul_func = graph.build_dcf();
+
+        let wrong_nodes = VecGraph::empty(1);
+        assert!(
+            HyperBallBuilder::with_hyper_log_log(&graph, Some(&wrong_nodes), &deg_cumul_func, 6, None)
+                .is_err()
+        );
+
+        let wrong_arcs = VecGraph::from_arcs([(1, 0), (2, 1), (2, 0)]);
+        assert!(
+            HyperBallBuilder::with_hyper_log_log(&graph, Some(&wrong_arcs), &deg_cumul_func, 6, None)
+                .is_err()
+        );
+        Ok(())
+    }
 
     #[test]
     #[cfg(not(miri))]
