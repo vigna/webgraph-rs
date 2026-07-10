@@ -98,3 +98,23 @@ fn _test_par_bvcomp(basename: &std::path::Path) -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_par_comp_missing_interior_chunk() -> Result<()> {
+    use webgraph::graphs::par_graphs::ParGraph;
+    // Regression: a valid IntoParLenders implementation with an empty
+    // non-tail segment sends no job for it, and the ordered merge silently
+    // wrote a truncated graph while stamping the full node count in the
+    // properties. It must fail instead.
+    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
+    let tmp = tempfile::tempdir()?;
+    let basename = tmp.path().join("truncated");
+    let pg = ParGraph::with_cutpoints(graph.clone(), vec![0, 0, 3]);
+    BvComp::with_basename(&basename).par_comp::<BE, _>(&pg)?;
+    let seq = BvGraphSeq::with_basename(&basename)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
+    assert!(graph::eq(&graph, &seq).is_ok());
+    Ok(())
+}

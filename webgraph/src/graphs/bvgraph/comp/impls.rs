@@ -777,7 +777,24 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                     log::debug!("Thread {thread_id} started");
 
                     let Some((node_id, successors)) = thread_lender.next() else {
-                        return;
+                        tx.send(Job {
+                            job_id: thread_id,
+                            first_node: 0,
+                            last_node: 0,
+                            chunk_graph_path,
+                            written_bits: 0,
+                            chunk_offsets_path,
+                            offsets_written_bits: 0,
+                            num_arcs: 0,
+                            tot_ref: 0,
+                            tot_dist: 0,
+                            part_labels_path: Some(part_labels_path),
+                            labels_written_bits: 0,
+                            part_label_offsets_path: Some(part_label_offsets_path),
+                            label_offsets_written_bits: 0,
+                        })
+                        .ok(); // If channel is closed, main thread already has an error
+                        return
                     };
 
                     let first_node = node_id;
@@ -888,6 +905,9 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                 label_offsets_written_bits,
             } in TaskQueue::new(rx.into_rayon_iter())
             {
+                if first_node == last_node {
+                    continue;
+                }
                 ensure!(
                     first_node == next_node,
                     "Non-adjacent lenders: lender {} has first node {} instead of {}",
