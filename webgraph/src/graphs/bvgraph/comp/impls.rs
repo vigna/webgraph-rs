@@ -56,15 +56,12 @@ where
                     return item.take();
                 }
             }
-            if let Some(item) = self.iter.next() {
-                let id = item.id();
-                if id >= self.jobs.len() {
-                    self.jobs.resize_with(id + 1, || None);
-                }
-                self.jobs[id] = Some(item);
-            } else {
-                return None;
+            let item = self.iter.next()?;
+            let id = item.id();
+            if id >= self.jobs.len() {
+                self.jobs.resize_with(id + 1, || None);
             }
+            self.jobs[id] = Some(item);
         }
     }
 }
