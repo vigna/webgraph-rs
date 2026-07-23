@@ -114,7 +114,7 @@ fn test_static_dispatch_seq_load_default_codes() -> Result<()> {
         .dispatch::<webgraph::graphs::bvgraph::Static>()
         .load()?;
     assert_eq!(seq.num_nodes(), 4);
-    assert_eq!(seq.num_arcs_hint(), Some(5));
+    assert_eq!(seq.get_num_arcs(), Some(5));
     // Iterate to exercise all ConstCodesDecoder::read_* methods
     let mut total_arcs = 0;
     let mut iter = seq.iter();
@@ -227,7 +227,7 @@ fn test_static_dispatch_large_graph_with_all_codec_paths() -> Result<()> {
     while let Some((_node, succ)) = iter.next() {
         total_arcs += succ.count();
     }
-    assert_eq!(total_arcs as u64, seq.num_arcs_hint().unwrap());
+    assert_eq!(total_arcs as u64, seq.get_num_arcs().unwrap());
     Ok(())
 }
 
@@ -265,7 +265,7 @@ fn test_static_dispatch_verify_same_as_dynamic() -> Result<()> {
         .load()?;
 
     assert_eq!(seq_dyn.num_nodes(), seq_static.num_nodes());
-    assert_eq!(seq_dyn.num_arcs_hint(), seq_static.num_arcs_hint());
+    assert_eq!(seq_dyn.get_num_arcs(), seq_static.get_num_arcs());
 
     // Compare all successor lists
     let mut iter_dyn = seq_dyn.iter();

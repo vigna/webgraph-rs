@@ -185,8 +185,8 @@ impl<G: SequentialLabeling> SequentialLabeling for ParGraph<G> {
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<u64> {
-        self.graph.num_arcs_hint()
+    fn get_num_arcs(&self) -> Option<u64> {
+        self.graph.get_num_arcs()
     }
 
     #[inline(always)]

@@ -176,7 +176,7 @@ impl<L: Clone + 'static> SequentialLabeling for LabeledBTreeGraph<L> {
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<u64> {
+    fn get_num_arcs(&self) -> Option<u64> {
         Some(self.num_arcs())
     }
 
@@ -372,7 +372,7 @@ impl SequentialLabeling for BTreeGraph {
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<u64> {
+    fn get_num_arcs(&self) -> Option<u64> {
         Some(self.num_arcs())
     }
 

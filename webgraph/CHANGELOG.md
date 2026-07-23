@@ -31,9 +31,9 @@
 
 - `Zip` now zips labels strictly (panicking on mismatched per-node label
   counts instead of silently truncating), checks node streams in release
-  builds, and forwards `num_arcs_hint`, as does `UnitLabelGraph`.
+  builds, and forwards `get_num_arcs`, as does `UnitLabelGraph`.
 
-- `NoSelfLoopsGraph::num_arcs_hint` no longer reports the arc count of the
+- `NoSelfLoopsGraph::get_num_arcs` no longer reports the arc count of the
   underlying graph, which overstates the filtered graph.
 
 - The bulk construction methods of `VecGraph`/`LabeledVecGraph` deduplicate
@@ -213,6 +213,8 @@
 - All transformation methods have been uniformly renamed with `_par`/`_seq`
   suffixes to distinguish between the parallel and sequential versions.
   `_split` is no longer used.
+
+- `num_arcs_hint` has been renamed `get_num_arcs`.
 
 ### Improved
 

@@ -98,7 +98,7 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<u64> {
+    fn get_num_arcs(&self) -> Option<u64> {
         self.number_of_arcs
     }
 
@@ -126,8 +126,8 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
     fn build_dcf(&self) -> DCF {
         let n = self.num_nodes();
         let num_arcs = self
-            .num_arcs_hint()
-            .expect("build_dcf requires num_arcs_hint()");
+            .get_num_arcs()
+            .expect("build_dcf requires get_num_arcs()");
         let mut efb = sux::dict::EliasFanoBuilder::new(n + 1, num_arcs);
         efb.push(0);
         let mut cumul_deg = 0u64;

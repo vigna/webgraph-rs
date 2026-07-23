@@ -164,7 +164,7 @@ where
                         .load()?;
                 let num_nodes = graph.num_nodes();
 
-                let cp = crate::cutpoints(&src, num_nodes, graph.num_arcs_hint(), use_dcf)?;
+                let cp = crate::cutpoints(&src, num_nodes, graph.get_num_arcs(), use_dcf)?;
 
                 thread_pool.install(|| {
                     let mut pl =

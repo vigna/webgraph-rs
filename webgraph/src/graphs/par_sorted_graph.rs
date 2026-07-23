@@ -816,8 +816,8 @@ impl<I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> SequentialL
     }
 
     #[inline]
-    fn num_arcs_hint(&self) -> Option<u64> {
-        self.0.num_arcs_hint()
+    fn get_num_arcs(&self) -> Option<u64> {
+        self.0.get_num_arcs()
     }
 
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {

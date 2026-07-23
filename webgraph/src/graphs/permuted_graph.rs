@@ -65,8 +65,8 @@ impl<G: SequentialGraph, P: SliceByValue<Value = usize>> SequentialLabeling
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<u64> {
-        self.graph.num_arcs_hint()
+    fn get_num_arcs(&self) -> Option<u64> {
+        self.graph.get_num_arcs()
     }
 
     #[inline(always)]
@@ -233,7 +233,7 @@ fn test_permuted_graph() -> anyhow::Result<()> {
         perm: &[2, 0, 1],
     };
     assert_eq!(p.num_nodes(), 3);
-    assert_eq!(p.num_arcs_hint(), Some(4));
+    assert_eq!(p.get_num_arcs(), Some(4));
     let v = VecGraph::from_lender(p.iter());
 
     assert_eq!(v.num_nodes(), 3);

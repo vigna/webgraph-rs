@@ -173,7 +173,7 @@ fn test_par_comp_with_sorted_graph() -> Result<()> {
         .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 5);
-    assert_eq!(seq.num_arcs_hint(), Some(7));
+    assert_eq!(seq.get_num_arcs(), Some(7));
     labels::eq_sorted(&g, &seq)?;
     Ok(())
 }

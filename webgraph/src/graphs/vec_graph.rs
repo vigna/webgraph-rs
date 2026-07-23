@@ -309,7 +309,7 @@ impl<L: Clone + 'static> SequentialLabeling for LabeledVecGraph<L> {
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<u64> {
+    fn get_num_arcs(&self) -> Option<u64> {
         Some(self.num_arcs())
     }
 
@@ -604,8 +604,8 @@ impl SequentialLabeling for VecGraph {
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<u64> {
-        self.0.num_arcs_hint()
+    fn get_num_arcs(&self) -> Option<u64> {
+        self.0.get_num_arcs()
     }
 
     #[inline(always)]

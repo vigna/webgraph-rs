@@ -144,8 +144,8 @@ impl<L: SequentialLabeling, R: SequentialLabeling> SequentialLabeling for Zip<L,
         self.0.num_nodes()
     }
 
-    fn num_arcs_hint(&self) -> Option<u64> {
-        match (self.0.num_arcs_hint(), self.1.num_arcs_hint()) {
+    fn get_num_arcs(&self) -> Option<u64> {
+        match (self.0.get_num_arcs(), self.1.get_num_arcs()) {
             (Some(a), Some(b)) => {
                 assert_eq!(a, b, "the zipped labelings have different arc counts");
                 Some(a)

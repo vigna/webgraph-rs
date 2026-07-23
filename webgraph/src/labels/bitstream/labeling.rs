@@ -293,7 +293,7 @@ where
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<u64> {
+    fn get_num_arcs(&self) -> Option<u64> {
         Some(self.num_arcs)
     }
 
@@ -514,7 +514,7 @@ where
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<u64> {
+    fn get_num_arcs(&self) -> Option<u64> {
         Some(self.num_arcs)
     }
 

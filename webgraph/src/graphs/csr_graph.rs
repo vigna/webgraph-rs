@@ -116,13 +116,13 @@ impl CsrGraph {
 
     /// Internal method to create a graph from a lender with optional size hints.
     ///
-    /// The `num_nodes_hint` and `num_arcs_hint` parameters are used to
+    /// The `num_nodes_hint` and `get_num_arcs` parameters are used to
     /// pre-allocate the vectors, improving performance when the sizes are known
     /// in advance.
     fn _from_lender<I: IntoLender>(
         iter_nodes: I,
         num_nodes_hint: Option<usize>,
-        num_arcs_hint: Option<usize>,
+        get_num_arcs: Option<usize>,
     ) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
@@ -130,7 +130,7 @@ impl CsrGraph {
         let mut max_node = 0;
         let mut dcf = Vec::with_capacity(num_nodes_hint.unwrap_or(0) + 1);
         dcf.push(0);
-        let mut successors = Vec::with_capacity(num_arcs_hint.unwrap_or(0));
+        let mut successors = Vec::with_capacity(get_num_arcs.unwrap_or(0));
 
         let mut last_src = 0;
         let mut empty = true;
@@ -194,7 +194,7 @@ impl CsrGraph {
         Self::_from_lender(
             g.iter(),
             Some(g.num_nodes()),
-            g.num_arcs_hint().map(|n| n as usize),
+            g.get_num_arcs().map(|n| n as usize),
         )
     }
 }
@@ -232,7 +232,7 @@ impl CompressedCsrGraph {
         for<'a> G::Lender<'a>: SortedLender,
     {
         let n = g.num_nodes();
-        let u = g.num_arcs_hint().ok_or(anyhow::Error::msg(
+        let u = g.get_num_arcs().ok_or(anyhow::Error::msg(
             "This sequential graph does not provide the number of arcs",
         ))?;
         let mut efb = EliasFanoBuilder::new(n + 1, u + 1);
@@ -334,7 +334,7 @@ where
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<u64> {
+    fn get_num_arcs(&self) -> Option<u64> {
         Some(self.successors.len() as u64)
     }
 
@@ -359,7 +359,7 @@ where
 
     fn build_dcf(&self) -> crate::graphs::bvgraph::DCF {
         let n = self.num_nodes();
-        let num_arcs = self.num_arcs_hint().unwrap();
+        let num_arcs = self.get_num_arcs().unwrap();
         let mut efb = EliasFanoBuilder::new(n + 1, num_arcs);
         for val in self.dcf.iter_value_from(0).take(n + 1) {
             efb.push(val.as_to::<u64>());
@@ -392,8 +392,8 @@ where
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<u64> {
-        self.0.num_arcs_hint()
+    fn get_num_arcs(&self) -> Option<u64> {
+        self.0.get_num_arcs()
     }
 
     #[inline(always)]

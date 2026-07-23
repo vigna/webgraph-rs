@@ -203,26 +203,26 @@ fn test_left_projection_num_arcs_outdegree() -> Result<()> {
 }
 
 #[test]
-fn test_zip_num_arcs_hint() {
+fn test_zip_get_num_arcs() {
     let g1 = VecGraph::from_arcs([(0, 1), (1, 2)]);
     let g2 = VecGraph::from_arcs([(0, 1), (1, 2)]);
     let z = Zip(&g1, &g2);
     // Zip forwards (and cross-checks) the hints of its components
-    assert_eq!(z.num_arcs_hint(), Some(2));
+    assert_eq!(z.get_num_arcs(), Some(2));
 }
 
 #[test]
-fn test_left_num_arcs_hint() {
+fn test_left_get_num_arcs() {
     let g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((1, 0), 20)]);
     let left = Left(g);
-    assert_eq!(left.num_arcs_hint(), Some(2));
+    assert_eq!(left.get_num_arcs(), Some(2));
 }
 
 #[test]
-fn test_right_num_arcs_hint() {
+fn test_right_get_num_arcs() {
     let g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((1, 0), 20)]);
     let right = Right(g);
-    assert_eq!(right.num_arcs_hint(), Some(2));
+    assert_eq!(right.get_num_arcs(), Some(2));
 }
 
 #[test]
@@ -439,15 +439,15 @@ fn test_zip_mismatched_label_counts_panic() {
 }
 
 #[test]
-fn test_zip_num_arcs_hint_forwarded() {
-    // Regression: Zip did not forward num_arcs_hint, so build_dcf and
+fn test_zip_get_num_arcs_forwarded() {
+    // Regression: Zip did not forward get_num_arcs, so build_dcf and
     // arc-based granularity failed even though the count was known.
     let g = VecGraph::from_arcs([(0, 1), (1, 2)]);
     let mut l = LabeledVecGraph::<u32>::empty(3);
     l.add_arc(0, 1, 10);
     l.add_arc(1, 2, 20);
     let z = Zip(&g, &l);
-    assert_eq!(z.num_arcs_hint(), Some(2));
+    assert_eq!(z.get_num_arcs(), Some(2));
     let dcf = z.build_dcf();
     assert_eq!(dcf.len(), 4);
 }

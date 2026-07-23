@@ -32,7 +32,7 @@ fn test_bvcomp_default_codes_be() -> Result<()> {
         .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 4);
-    assert_eq!(seq.num_arcs_hint(), Some(5));
+    assert_eq!(seq.get_num_arcs(), Some(5));
     labels::eq_sorted(&graph, &seq)?;
     assert!(webgraph::graphs::bvgraph::check_offsets(&seq, path)?);
     Ok(())
@@ -98,7 +98,7 @@ fn test_bvcomp_delta_codes() -> Result<()> {
         .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 11);
-    assert_eq!(seq.num_arcs_hint(), Some(5));
+    assert_eq!(seq.get_num_arcs(), Some(5));
     labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
@@ -141,7 +141,7 @@ fn test_bvcomp_empty_graph() -> Result<()> {
         .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 5);
-    assert_eq!(seq.num_arcs_hint(), Some(0));
+    assert_eq!(seq.get_num_arcs(), Some(0));
     labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
@@ -164,7 +164,7 @@ fn test_bvcomp_no_reference_compression() -> Result<()> {
         .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 4);
-    assert_eq!(seq.num_arcs_hint(), Some(5));
+    assert_eq!(seq.get_num_arcs(), Some(5));
     labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
@@ -256,7 +256,7 @@ fn test_bvcomp_par_comp() -> Result<()> {
         .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 4);
-    assert_eq!(seq.num_arcs_hint(), Some(5));
+    assert_eq!(seq.get_num_arcs(), Some(5));
     labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
@@ -323,7 +323,7 @@ fn test_bvcomp_recompress_with_different_flags() -> Result<()> {
         .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq2.num_nodes(), 4);
-    assert_eq!(seq2.num_arcs_hint(), Some(3));
+    assert_eq!(seq2.get_num_arcs(), Some(3));
     labels::eq_sorted(&graph, &seq2)?;
     Ok(())
 }
@@ -349,7 +349,7 @@ fn test_bvcomp_par_comp_lenders() -> Result<()> {
         .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq2.num_nodes(), 4);
-    assert_eq!(seq2.num_arcs_hint(), Some(5));
+    assert_eq!(seq2.get_num_arcs(), Some(5));
     labels::eq_sorted(&graph, &seq2)?;
     Ok(())
 }
@@ -478,7 +478,7 @@ fn test_bvcomp_dense_graph() -> Result<()> {
         .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 10);
-    assert_eq!(seq.num_arcs_hint(), Some(90));
+    assert_eq!(seq.get_num_arcs(), Some(90));
     labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
@@ -496,7 +496,7 @@ fn test_bvcomp_chain_graph() -> Result<()> {
         .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 101);
-    assert_eq!(seq.num_arcs_hint(), Some(100));
+    assert_eq!(seq.get_num_arcs(), Some(100));
     labels::eq_sorted(&graph, &seq)?;
     // Also test with static dispatch
     let seq_static = BvGraphSeq::with_basename(&basename)
@@ -527,7 +527,7 @@ fn test_bvcomp_star_graph() -> Result<()> {
         .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 50);
-    assert_eq!(seq.num_arcs_hint(), Some(49));
+    assert_eq!(seq.get_num_arcs(), Some(49));
     labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
@@ -553,7 +553,7 @@ fn test_bvcomp_with_delta_codes() -> Result<()> {
         .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 4);
-    assert_eq!(seq.num_arcs_hint(), Some(5));
+    assert_eq!(seq.get_num_arcs(), Some(5));
     labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
@@ -576,7 +576,7 @@ fn test_bvcomp_with_zeta_codes() -> Result<()> {
         .mode::<LoadMem>()
         .load()?;
     assert_eq!(seq.num_nodes(), 8);
-    assert_eq!(seq.num_arcs_hint(), Some(5));
+    assert_eq!(seq.get_num_arcs(), Some(5));
     labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }

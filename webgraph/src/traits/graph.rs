@@ -318,8 +318,8 @@ impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<u64> {
-        self.0.num_arcs_hint()
+    fn get_num_arcs(&self) -> Option<u64> {
+        self.0.get_num_arcs()
     }
 
     #[inline(always)]

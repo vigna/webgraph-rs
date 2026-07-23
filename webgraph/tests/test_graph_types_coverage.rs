@@ -93,9 +93,9 @@ fn test_vec_graph_from_lender_variants() -> Result<()> {
 }
 
 #[test]
-fn test_vec_graph_num_arcs_hint() -> Result<()> {
+fn test_vec_graph_get_num_arcs() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    assert_eq!(g.num_arcs_hint(), Some(3));
+    assert_eq!(g.get_num_arcs(), Some(3));
     Ok(())
 }
 
@@ -296,9 +296,9 @@ fn test_btree_graph_outdegree() -> Result<()> {
 }
 
 #[test]
-fn test_btree_graph_num_arcs_hint() {
+fn test_btree_graph_get_num_arcs() {
     let g = BTreeGraph::from_arcs([(0, 1), (1, 2)]);
-    assert_eq!(g.num_arcs_hint(), Some(2));
+    assert_eq!(g.get_num_arcs(), Some(2));
 }
 
 #[test]
@@ -384,9 +384,9 @@ fn test_labeled_btree_graph_outdegree() {
 }
 
 #[test]
-fn test_labeled_btree_graph_num_arcs_hint() {
+fn test_labeled_btree_graph_get_num_arcs() {
     let g = LabeledBTreeGraph::<u32>::from_arcs([((0, 1), 10), ((1, 0), 20)]);
-    assert_eq!(g.num_arcs_hint(), Some(2));
+    assert_eq!(g.get_num_arcs(), Some(2));
 }
 
 #[test]
@@ -498,10 +498,10 @@ fn test_csr_sorted_graph_from_lender() -> Result<()> {
 }
 
 #[test]
-fn test_csr_graph_num_arcs_hint() {
+fn test_csr_graph_get_num_arcs() {
     let g = VecGraph::from_arcs([(0, 1), (1, 2)]);
     let csr = CsrGraph::from_seq_graph(&g);
-    assert_eq!(csr.num_arcs_hint(), Some(2));
+    assert_eq!(csr.get_num_arcs(), Some(2));
 }
 
 #[test]

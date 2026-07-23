@@ -121,8 +121,8 @@ where
         .load()?;
 
     let num_nodes = graph.num_nodes();
-    let num_arcs_hint = graph.num_arcs_hint();
-    let cp = crate::cutpoints(&args.src, num_nodes, num_arcs_hint, args.dcf)?;
+    let get_num_arcs = graph.get_num_arcs();
+    let cp = crate::cutpoints(&args.src, num_nodes, get_num_arcs, args.dcf)?;
 
     // transpose the graph
     let par_graph = webgraph::graphs::par_graphs::ParGraph::with_cutpoints(graph, cp);

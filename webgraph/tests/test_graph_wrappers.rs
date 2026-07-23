@@ -90,11 +90,11 @@ fn test_union_graph_iter_from() -> Result<()> {
 }
 
 #[test]
-fn test_union_graph_num_arcs_hint() {
+fn test_union_graph_get_num_arcs() {
     let g0 = VecGraph::from_arcs([(0, 1)]);
     let g1 = VecGraph::from_arcs([(1, 0)]);
     let u = UnionGraph(g0, g1);
-    assert_eq!(u.num_arcs_hint(), None);
+    assert_eq!(u.get_num_arcs(), None);
 }
 
 #[test]
@@ -288,10 +288,10 @@ fn test_union_graph_split_different_sizes() -> Result<()> {
 }
 
 #[test]
-fn test_no_selfloops_num_arcs_hint() {
+fn test_no_selfloops_get_num_arcs() {
     // Regression: the hint forwarded the underlying arc count, overstating
     // the filtered graph (the type docs say no exact count is available).
     let g = VecGraph::from_arcs([(0, 0), (0, 1), (1, 1)]);
     let nsl = NoSelfLoopsGraph(g);
-    assert_eq!(nsl.num_arcs_hint(), None);
+    assert_eq!(nsl.get_num_arcs(), None);
 }

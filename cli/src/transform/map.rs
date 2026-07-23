@@ -139,8 +139,8 @@ where
             .load()?;
 
         let graph_num_nodes = graph.num_nodes();
-        let graph_num_arcs_hint = graph.num_arcs_hint();
-        let cp = crate::cutpoints(&src, graph_num_nodes, graph_num_arcs_hint, use_dcf)?;
+        let graph_get_num_arcs = graph.get_num_arcs();
+        let cp = crate::cutpoints(&src, graph_num_nodes, graph_get_num_arcs, use_dcf)?;
         let par_graph = webgraph::graphs::par_graphs::ParGraph::with_cutpoints(graph, cp);
 
         thread_pool.install(|| {

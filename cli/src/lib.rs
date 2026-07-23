@@ -918,7 +918,7 @@ pub fn cutpoints(
             num_nodes + 1
         );
         ensure!(dcf.index_value(0) == 0, "DCF does not start with 0");
-        let num_arcs: u64 = num_arcs.expect("num_arcs_hint required for --dcf");
+        let num_arcs: u64 = num_arcs.expect("get_num_arcs required for --dcf");
         ensure!(
             dcf.index_value(num_nodes) == num_arcs,
             "DCF ends with {}, expected {} (num_arcs)",

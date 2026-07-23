@@ -136,7 +136,7 @@ fn bench_seq(graph: impl SequentialGraph, repeats: usize) {
             (start.elapsed().as_secs_f64() / c as f64) * 1e9
         );
 
-        assert_eq!(c, graph.num_arcs_hint().unwrap());
+        assert_eq!(c, graph.get_num_arcs().unwrap());
     }
 }
 
@@ -181,7 +181,7 @@ where
                 (start.elapsed().as_secs_f64() / c as f64) * 1e9
             );
 
-            assert_eq!(c, seq_graph.num_arcs_hint().unwrap());
+            assert_eq!(c, seq_graph.get_num_arcs().unwrap());
         }
     } else {
         match (

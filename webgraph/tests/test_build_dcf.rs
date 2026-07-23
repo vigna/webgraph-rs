@@ -148,6 +148,6 @@ fn test_build_dcf_cnr_2000() -> Result<()> {
         );
     }
     assert_eq!(node_idx, n);
-    assert_eq!(cumul, seq.num_arcs_hint().unwrap());
+    assert_eq!(cumul, seq.get_num_arcs().unwrap());
     Ok(())
 }

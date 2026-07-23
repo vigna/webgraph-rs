@@ -96,7 +96,7 @@ pub trait SequentialLabeling {
     fn num_nodes(&self) -> usize;
 
     /// Returns the number of arcs in the graph, if available.
-    fn num_arcs_hint(&self) -> Option<u64> {
+    fn get_num_arcs(&self) -> Option<u64> {
         None
     }
 
@@ -125,14 +125,14 @@ pub trait SequentialLabeling {
     ///
     /// # Panics
     ///
-    /// Panics if [`num_arcs_hint`] returns `None`.
+    /// Panics if [`get_num_arcs`] returns `None`.
     ///
-    /// [`num_arcs_hint`]: SequentialLabeling::num_arcs_hint
+    /// [`get_num_arcs`]: SequentialLabeling::get_num_arcs
     fn build_dcf(&self) -> DCF {
         let n = self.num_nodes();
         let num_arcs = self
-            .num_arcs_hint()
-            .expect("build_dcf requires num_arcs_hint()");
+            .get_num_arcs()
+            .expect("build_dcf requires get_num_arcs()");
         let mut efb = EliasFanoBuilder::new(n + 1, num_arcs);
         efb.push(0);
         let mut cumul = 0u64;
@@ -185,7 +185,7 @@ pub trait SequentialLabeling {
         pl: &mut impl ConcurrentProgressLog,
     ) -> A {
         let num_nodes = self.num_nodes();
-        let node_granularity = granularity.node_granularity(num_nodes, self.num_arcs_hint());
+        let node_granularity = granularity.node_granularity(num_nodes, self.get_num_arcs());
         (0..num_nodes.div_ceil(node_granularity))
             .map(|i| i * node_granularity..num_nodes.min((i + 1) * node_granularity))
             .par_map_fold_with(
