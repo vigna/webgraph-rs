@@ -383,6 +383,12 @@ fn test_par_map_fold2_basic() {
 }
 
 #[test]
+// Excluded under Miri: the ordered `par_map_fold` path passes in isolation, but
+// when co-scheduled with the rest of this binary the extra tests perturb Miri's
+// cooperative scheduler enough to expose a protector conflict in rayon-core's
+// `in_place_scope` teardown, tripping experimental Tree Borrows. See the note in
+// `test_par_map_fold_single_thread_pool.rs`.
+#[cfg(not(miri))]
 fn test_par_map_fold_ord() {
     use webgraph::traits::par_map_fold::ParMapFold;
     // Verifies that results are folded in the original iterator order
@@ -402,6 +408,8 @@ fn test_par_map_fold_ord() {
 }
 
 #[test]
+// Excluded under Miri for the same reason as `test_par_map_fold_ord` above.
+#[cfg(not(miri))]
 fn test_par_map_fold_ord_with() {
     use webgraph::traits::par_map_fold::ParMapFold;
     // Verifies that map_init is properly cloned and passed to each worker.
