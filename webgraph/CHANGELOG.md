@@ -143,6 +143,8 @@
 
 ### Changed
 
+- License is now MIT or Apache.
+
 - All breadth-first visits now emit the same initial event sequence: `Init`,
   then `FrontierSize` at distance zero with the number of accepted roots, and
   then the `Visit` events for the roots. The `FrontierSize` event is now

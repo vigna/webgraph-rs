@@ -1,7 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
  *
- * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
 //! Tests for graph equality functions, eq_sorted, eq_succs, check_impl, and Zip verify.

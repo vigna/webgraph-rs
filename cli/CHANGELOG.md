@@ -30,6 +30,8 @@
 
 ### Changed
 
+- License is now MIT or Apache.
+
 - The number of threads is now specified `-t`/`--num-threads` instead of `-j`.
   Consequently, in LLP `gain_threshold` has short name `-G` instead of `-t`.
 

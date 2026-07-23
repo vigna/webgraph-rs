@@ -4,6 +4,8 @@
 
 ### Changed
 
+- License is now MIT or Apache.
+
 - The `PageRank` preference vector is now a `SliceByValue`, making it possible
   to have functionally or algorithmically generated preference vectors without
   the need to materialize them in memory.

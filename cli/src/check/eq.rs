@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2024 Davide Cologni
  * SPDX-FileCopyrightText: 2026 Sebastiano Vigna
  *
- * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
 use anyhow::Result;

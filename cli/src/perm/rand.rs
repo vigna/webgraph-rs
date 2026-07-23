@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2023 Tommaso Fontana
  * SPDX-FileCopyrightText: 2026 Sebastiano Vigna
  *
- * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
 use crate::{IntSliceFormat, create_parent_dir};

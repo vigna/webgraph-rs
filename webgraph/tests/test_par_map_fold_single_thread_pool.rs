@@ -1,7 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2026 Tommaso Fontana
  *
- * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
 //! Isolated regression test for `par_map_fold` in a one-thread Rayon pool.
