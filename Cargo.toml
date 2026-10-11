@@ -11,41 +11,41 @@ webgraph-algo = { path = "./algo", version = "0.6.1" }
 webgraph-cli = { path = "./cli" }
 
 card-est-array = "0.6.0"
-epserde = "0.12.0"
-dsi-bitstream = "0.9.1"
-dsi-progress-logger = "0.8"
-sux = { version = "0.14.0", features = ["epserde", "rayon", "mmap"] }
-#sux = { git = "https://github.com/vigna/sux-rs", rev = "35d4eca185f6d3265f5b62f2be511b475d6fc3b7", features = ["epserde", "rayon", "mmap"] }
-dary_heap = "0.3.6"
-num-traits = { version = "0.2", default-features = false }
-lender = "0.6.0"
-log = "0.4.22"
-anyhow = { version = "1.0.79", features = ["backtrace"] }
-rand = "0.10.0"
-tempfile = "3.10.1"
-itertools = "0.14.0"
-rayon = "1.10.0"
+epserde = "0.13.1"
+dsi-bitstream = "0.10.1"
+dsi-progress-logger = "0.8.9"
+#sux = { version = "0.14.0", features = ["epserde", "rayon", "mmap"] }
+sux = { git = "https://github.com/vigna/sux-rs", features = ["epserde", "rayon", "mmap"] }
+dary_heap = "0.3.9"
+num-traits = { version = "0.2.19", default-features = false }
+lender = "0.8.0"
+log = "0.4.34"
+anyhow = { version = "1.0.104", features = ["backtrace"] }
+rand = "0.10.3"
+tempfile = "3.27.0"
+itertools = "0.15.0"
+rayon = "1.12.0"
 mmap-rs = "0.7.0"
-predicates = "3.1.2"
+predicates = "3.1.4"
 java-properties = "2.0.0"
-env_logger = { version = "0.11.5", default-features = false, features = [
+env_logger = { version = "0.11.11", default-features = false, features = [
     "auto-color",
     "regex",
 ] }
-clap = { version = "4.5.11", features = ["derive", "string", "wrap_help"] }
-sync-cell-slice = "0.9.12"
-arbitrary = { version = "1.3.2", features = ["derive"] }
-serde = { version = "1.0.217", features = ["serde_derive"] }
-serde_json = "1.0.137"
-zstd = "0.13"
-num-primitive = "0.2.1"
-value-traits = "0.2.0"
-thiserror = "2.0.12"
-no-break = "0.2.0"
+clap = { version = "4.6.7", features = ["derive", "string", "wrap_help"] }
+sync-cell-slice = "0.9.14"
+arbitrary = { version = "1.5.0", features = ["derive"] }
+serde = { version = "1.0.229", features = ["serde_derive"] }
+serde_json = "1.0.152"
+zstd = "0.14.2"
+num-primitive = ">=0.2.1, <0.4"
+value-traits = "0.3.1"
+thiserror = "2.0.21"
+no-break = "0.2.1"
 nonmax = "0.5.5"
-crossbeam-utils = "0.8.21"
-sysinfo = ">=0.35.0,<0.37"
-funcperm = "0.2.1"
+crossbeam-utils = "0.8.23"
+sysinfo = ">=0.35.0, <0.40"
+funcperm = "0.2.2"
 
 [profile.release]
 opt-level = 3 # like --release

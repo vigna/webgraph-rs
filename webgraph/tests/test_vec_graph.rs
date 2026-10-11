@@ -98,7 +98,7 @@ fn test_add_arcs_dedups() {
     // dedups them.
     let g = VecGraph::from_arcs([(0, 1), (0, 1), (1, 0)]);
     assert_eq!(g.num_arcs(), 2);
-    assert_eq!(g.successors(0).into_iter().collect::<Vec<_>>(), vec![1]);
+    assert_eq!(g.successors(0).collect::<Vec<_>>(), vec![1]);
 
     // The label of the last occurrence in the input wins, as in
     // LabeledBTreeGraph, even when the duplicates are not adjacent.

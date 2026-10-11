@@ -1162,7 +1162,11 @@ impl<
             }
         });
 
-        (dist_pivot, transmute_boxed_slice_from_atomic(ecc_pivot))
+        // If the atomic and non-atomic alignments differ, we cannot transmute
+        // the buffer in place, so we copy it.
+        let ecc_pivot = transmute_boxed_slice_from_atomic(ecc_pivot)
+            .unwrap_or_else(|e| e.1.iter().map(|a| a.load(Ordering::Relaxed)).collect());
+        (dist_pivot, ecc_pivot)
     }
 
     /// Performs a step of the ExactSumSweep algorithm.

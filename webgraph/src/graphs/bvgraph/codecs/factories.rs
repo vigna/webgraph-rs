@@ -261,7 +261,7 @@ impl<I, O> SliceByValue for EmptyDict<I, O> {
     }
 }
 
-impl<I: for<'a> PartialEq<O> + PartialEq, O: PartialEq<I> + PartialEq> Default for EmptyDict<I, O> {
+impl<I: PartialEq<O> + PartialEq, O: PartialEq<I> + PartialEq> Default for EmptyDict<I, O> {
     fn default() -> Self {
         Self {
             _marker: PhantomData,

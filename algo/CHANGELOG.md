@@ -6,11 +6,15 @@
 
 - License is now MIT or Apache.
 
+- Upgraded to `sux` 0.15.0, ε-serde 0.13.1, `lender` 0.8.0, and
+  `value-traits` 0.3.1; all other dependencies have been upgraded to their
+  latest version.
+
 - The `PageRank` preference vector is now a `SliceByValue`, making it possible
   to have functionally or algorithmically generated preference vectors without
   the need to materialize them in memory.
 
-- Upgraded to `card-est-array` 0.3.0.
+- Upgraded to `card-est-array` 0.6.0.
 
 - The LLP computation now uses a functional permutation from the `funcperm` crate
   instead of a permutation array. As a result, LLP computation now requires two

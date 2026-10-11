@@ -138,7 +138,7 @@ fn test_dfs_seq_no_pred_visit_with() -> Result<()> {
     let mut visited = Vec::new();
     visit
         .visit_with([0], &mut visited, |visited, event| {
-            if let depth_first::EventNoPred::Previsit { node, root: _, .. } = event {
+            if let depth_first::EventNoPred::Previsit { node, .. } = event {
                 visited.push(node);
             }
             Continue(())

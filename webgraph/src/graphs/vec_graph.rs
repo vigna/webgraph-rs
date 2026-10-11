@@ -46,6 +46,7 @@ pub struct LabeledVecGraph<L: Clone + 'static> {
     /// The number of arcs in the graph.
     num_arcs: u64,
     /// For each node, its list of successors.
+    #[epserde(force_full_copy)]
     succ: Vec<Vec<LabeledArc<L>>>,
 }
 

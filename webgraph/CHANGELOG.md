@@ -151,11 +151,27 @@
   always emitted as soon as the frontier of nodes at a given distance has
   been entirely computed.
 
-- Upgraded to `sux` 0.14.0. This is a major release in which the structure
+- Upgraded to `sux` 0.15.0. This is a major release in which the structure
   of types has changed significantly, so the `EF` and `DCF` types are no
   longer compatible (in particular, their serializations).
 
-- Upgraded to `dsi-bitstream` 0.9.0.
+- Upgraded to ε-serde 0.13.1, whose file format is incompatible with that
+  of previous versions: all `.ef` and `.dcf` files must be rebuilt with
+  `webgraph build ef` and `webgraph build dcf`. `LabeledVecGraph`, too, must
+  be serialized again.
+
+- Upgraded to `dsi-bitstream` 0.10.1, `lender` 0.8.0, and `value-traits`
+  0.3.1; all other dependencies have been upgraded to their latest version.
+
+- Dependencies whose latest version requires a Rust version newer than our
+  MSRV (`sysinfo`, `num-primitive`, and `maybe-dangling`) are specified by
+  version ranges, so that the MSRV-aware resolver picks the latest version
+  compatible with your compiler.
+
+- `ParGraph::with_dcf` now requires the DCF to implement `IndexedSeq`, and
+  panics if the DCF does not match the graph (i.e., if it does not have one
+  more element than the number of nodes, or if its last element is not the
+  number of arcs), as a mismatch would have caused undefined behavior.
 
 - Reallocation strategies in `BvComp` and `BvCompZ` do not shrink below capacity 1024.
 

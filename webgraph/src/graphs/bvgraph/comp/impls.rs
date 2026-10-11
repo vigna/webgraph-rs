@@ -806,9 +806,8 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                             })?;
                         let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags)?;
 
-                        let stats;
                         let mut last_node;
-                        if bvgraphz {
+                        let stats = if bvgraphz {
                             let mut bvcomp = BvCompZ::new(
                                 codes_encoder,
                                 OffsetsWriter::from_path(&chunk_offsets_path, false)?,
@@ -828,7 +827,7 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                                 log_comp_stats(&bvcomp.stats(), false);
                                 comp_pl.update();
                             }
-                            stats = bvcomp.flush()?;
+                            bvcomp.flush()?
                         } else {
                             let mut bvcomp = BvComp::new(
                                 codes_encoder,
@@ -848,8 +847,8 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                                 log_comp_stats(&bvcomp.stats(), false);
                                 comp_pl.update();
                             }
-                            stats = bvcomp.flush()?;
-                        }
+                            bvcomp.flush()?
+                        };
 
                         log::debug!(
                             "Finished Compression thread {thread_id} and wrote {} bits for the graph and {} bits for the offsets",

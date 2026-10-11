@@ -21,7 +21,10 @@
 
 use crate::prelude::*;
 use lender::*;
-use sux::{traits::SuccUnchecked, utils::FairChunks};
+use sux::{
+    traits::{IndexedSeq, SuccUnchecked},
+    utils::FairChunks,
+};
 
 /// How to partition the graph for parallel lenders.
 #[derive(Debug, Clone)]
@@ -147,16 +150,33 @@ impl<G> ParGraph<G> {
     ///
     /// The cutpoints are computed immediately from the DCF using
     /// [`FairChunks`]; the DCF is not stored.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of lenders is zero, if the DCF does not have
+    /// one more element than the number of nodes of the graph, or if its
+    /// last element is not `num_arcs`.
     pub fn with_dcf<D>(graph: G, num_arcs: u64, dcf: D, num_lenders: usize) -> Self
     where
         G: SequentialLabeling,
-        D: for<'b> SuccUnchecked<Input = u64, Output<'b> = u64>,
+        D: for<'b> SuccUnchecked<Input = u64, Output<'b> = u64>
+            + for<'b> IndexedSeq<Input = u64, Output<'b> = u64>,
     {
         assert!(num_lenders > 0, "the number of lenders must be positive");
         let num_nodes = graph.num_nodes();
+        assert_eq!(
+            dcf.len(),
+            num_nodes + 1,
+            "the DCF must have one more element than the number of nodes"
+        );
+        assert_eq!(
+            dcf.get(num_nodes),
+            num_arcs,
+            "the last element of the DCF must be the number of arcs"
+        );
         let target = num_arcs.div_ceil(num_lenders as u64);
         let mut cutpoints: Vec<usize> = std::iter::once(0)
-            .chain(FairChunks::new_with(target, dcf, num_nodes, num_arcs).map(|r| r.end))
+            .chain(FairChunks::new(target, dcf).map(|r| r.end))
             .collect();
         // FairChunks yields no range for a zero-arc graph, and its last range
         // may end before trailing zero-outdegree nodes; the cutpoints must
