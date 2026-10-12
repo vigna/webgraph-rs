@@ -65,8 +65,8 @@ impl<W> TryFrom<Mmap> for MmapHelper<W> {
     fn try_from(value: Mmap) -> std::result::Result<Self, Self::Error> {
         #[cfg(windows)]
         {
-            /// Only on windows is required, on linux we can handle these cases
-            /// with the implicit zero padding that mmap guarantees.
+            // Only on windows is required, on linux we can handle these cases
+            // with the implicit zero padding that mmap guarantees.
             ensure!(
                 value.len() % size_of::<W>() == 0,
                 "The size of the mmap is not a multiple of the size of W"

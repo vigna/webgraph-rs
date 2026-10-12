@@ -3,34 +3,72 @@ name: Rust Release Artifacts
 on:
   release:
     types: [created]
-    
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to build binaries for (e.g., webgraph-cli-0.5.0)'
+        required: true
+      dry_run:
+        description: 'Build and package, but do not upload'
+        type: boolean
+        default: false
+
 env:
   CARGO_TERM_COLOR: always
+  # The release profile enables debug info for local profiling; distributed
+  # binaries do not need it
+  CARGO_PROFILE_RELEASE_DEBUG: false
 
 jobs:
   release:
     name: release ${{ matrix.target }}
-    runs-on: ubuntu-latest
+    # Library releases trigger this workflow, too, but only the CLI has binaries
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'webgraph-cli-')
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
-          - target: x86_64-pc-windows-gnu
-            archive: zip
+          # RUSTFLAGS replaces target-cpu=native from .cargo/config.toml, which
+          # would tie the binaries to the CPU of the runner; x86-64-v3 gives us
+          # BMI2, LZCNT, and POPCNT
           - target: x86_64-unknown-linux-musl
-            archive: zip tar.gz
+            os: ubuntu-latest
+            rustflags: -C target-cpu=x86-64-v3
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            rustflags: -C target-cpu=x86-64-v3 -C target-feature=+crt-static
           - target: x86_64-apple-darwin
-            archive: zip tar.gz
+            os: macos-latest
+            rustflags: -C target-cpu=x86-64-v3
     steps:
       - uses: actions/checkout@v6
-      - name: Compile and release
-        uses: rust-build/rust-build.action@v1.4.5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUSTFLAGS: "-C target-cpu=x86-64-v3" # Compile with BMI2 LZCNT and POPCNT support
         with:
-          RUSTTARGET: ${{ matrix.target }}
-          ARCHIVE_TYPES: ${{ matrix.archive }}
-          EXTRA_FILES: "README.md LICENSE-MIT LICENSE-Apache-2.0"
-          EXTRA_COMMAND_FLAGS: "--release"
-          MINIFY: false # UPX makes the binaries smaller, but it slows down the executable startup time
+          ref: ${{ inputs.tag || github.ref }}
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install musl tools
+        if: contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: List binaries
+        id: bins
+        shell: bash
+        run: |
+          echo "bins=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "webgraph-cli") | [.targets[] | select(.kind[] == "bin") | .name] | join(",")')" >> "$GITHUB_OUTPUT"
+      - name: Build and upload binaries
+        uses: taiki-e/upload-rust-binary-action@v1
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
+        with:
+          bin: ${{ steps.bins.outputs.bins }}
+          target: ${{ matrix.target }}
+          build-tool: cargo
+          archive: $tag-$target
+          include: README.md,LICENSE-MIT,LICENSE-Apache-2.0
+          tar: unix
+          zip: all
+          ref: refs/tags/${{ inputs.tag || github.event.release.tag_name }}
+          dry-run: ${{ inputs.dry_run || false }}
+          token: ${{ secrets.GITHUB_TOKEN }}
