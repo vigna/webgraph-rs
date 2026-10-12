@@ -150,7 +150,6 @@ use lender::prelude::*;
 use rayon::prelude::*;
 use std::cell::UnsafeCell;
 use std::hash::{BuildHasherDefault, DefaultHasher};
-use std::mem::transmute;
 use std::sync::{Mutex, atomic::*};
 use sux::traits::AtomicBitVecOps;
 use sux::{
@@ -1579,17 +1578,11 @@ where
             .item_name("arc")
             .expected_updates(ic.last_visited_arcs);
 
-        // We're just gonna read this
-        // TODO: put back once we release the new sux
-        // let curr_modified: AtomicBitVec<&mut [AtomicUsize]> = (&mut self.curr_modified).into();
-        // let curr_modified: BitVec<&mut [usize]> = curr_modified.into();
-        let curr_modified = unsafe {
-            <BitVec<&[usize]>>::from_raw_parts(
-                #[allow(clippy::missing_transmute_annotations)]
-                transmute(self.curr_modified.as_ref()),
-                self.curr_modified.len(),
-            )
-        };
+        // We're just gonna read this: the exclusive borrow makes it possible
+        // to view it as a non-atomic bit vector
+        let curr_modified: AtomicBitVec<&mut [AtomicUsize]> = (&mut self.curr_modified).into();
+        let curr_modified: BitVec<&mut [usize]> = curr_modified.into();
+        let curr_modified: BitVec<&[usize]> = (&curr_modified).into();
 
         arc_pl.start("Scanning arcs...");
         {
@@ -2362,6 +2355,7 @@ mod test {
     macro_rules! spill_store_test {
         ($name:ident, $mem:ident, $ext:ident, $seed:expr) => {
             #[test]
+            #[cfg(not(miri))]
             fn $name() -> Result<()> {
                 use webgraph::graphs::vec_graph::VecGraph;
                 let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);

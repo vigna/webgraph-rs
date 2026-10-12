@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Tommaso Fontana
+ * SPDX-FileCopyrightText: 2024 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
+ */
+
 #![cfg(feature = "slow_tests")]
 
 mod common;

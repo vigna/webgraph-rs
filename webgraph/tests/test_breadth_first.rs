@@ -55,12 +55,16 @@ fn correct_distances<G: RandomAccessGraph>(graph: &G, start: usize) -> Vec<usize
 }
 
 /// A breadth-first event, independent of the presence of predecessors.
+///
+/// Visits carry the node, the distance, and the predecessor, and revisits
+/// carry the node and the predecessor; predecessors are `None` for visits
+/// without predecessors.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Ev {
     Init,
     FrontierSize(usize, usize),
-    Visit(usize, usize),
-    Revisit(usize),
+    Visit(usize, usize, Option<usize>),
+    Revisit(usize, Option<usize>),
     Done,
 }
 
@@ -69,8 +73,12 @@ impl From<EventPred> for Ev {
         match event {
             EventPred::Init {} => Ev::Init,
             EventPred::FrontierSize { distance, size } => Ev::FrontierSize(distance, size),
-            EventPred::Visit { node, distance, .. } => Ev::Visit(node, distance),
-            EventPred::Revisit { node, .. } => Ev::Revisit(node),
+            EventPred::Visit {
+                node,
+                pred,
+                distance,
+            } => Ev::Visit(node, distance, Some(pred)),
+            EventPred::Revisit { node, pred } => Ev::Revisit(node, Some(pred)),
             EventPred::Done {} => Ev::Done,
         }
     }
@@ -81,8 +89,8 @@ impl From<EventNoPred> for Ev {
         match event {
             EventNoPred::Init {} => Ev::Init,
             EventNoPred::FrontierSize { distance, size } => Ev::FrontierSize(distance, size),
-            EventNoPred::Visit { node, distance, .. } => Ev::Visit(node, distance),
-            EventNoPred::Revisit { node, .. } => Ev::Revisit(node),
+            EventNoPred::Visit { node, distance, .. } => Ev::Visit(node, distance, None),
+            EventNoPred::Revisit { node, .. } => Ev::Revisit(node, None),
             EventNoPred::Done {} => Ev::Done,
         }
     }
@@ -93,7 +101,7 @@ fn visits(events: &[Ev]) -> Vec<(usize, usize)> {
     let mut visits: Vec<_> = events
         .iter()
         .filter_map(|ev| match *ev {
-            Ev::Visit(node, distance) => Some((node, distance)),
+            Ev::Visit(node, distance, _) => Some((node, distance)),
             _ => None,
         })
         .collect();
@@ -106,12 +114,31 @@ fn revisits(events: &[Ev]) -> Vec<usize> {
     let mut revisits: Vec<_> = events
         .iter()
         .filter_map(|ev| match *ev {
-            Ev::Revisit(node) => Some(node),
+            Ev::Revisit(node, _) => Some(node),
             _ => None,
         })
         .collect();
     revisits.sort();
     revisits
+}
+
+/// Returns the sorted arcs, as (predecessor, node) pairs, of the visit events
+/// of non-root nodes (i.e., tree arcs) and of the revisit events.
+///
+/// The result is empty for visits without predecessors. For visits with
+/// predecessors in which all nodes are reachable from the roots, each arc of
+/// the graph appears exactly once, independently of the visit order.
+fn arcs(events: &[Ev]) -> Vec<(usize, usize)> {
+    let mut arcs: Vec<_> = events
+        .iter()
+        .filter_map(|ev| match *ev {
+            Ev::Visit(node, _, Some(pred)) if pred != node => Some((pred, node)),
+            Ev::Revisit(node, Some(pred)) => Some((pred, node)),
+            _ => None,
+        })
+        .collect();
+    arcs.sort();
+    arcs
 }
 
 /// Returns the sorted (distance, size) pairs of the frontier-size events.
@@ -134,7 +161,7 @@ fn check_prefix_and_suffix(events: &[Ev], roots: &[usize]) {
     assert_eq!(events[1], Ev::FrontierSize(0, roots.len()));
     for ev in &events[2..2 + roots.len()] {
         match ev {
-            Ev::Visit(node, 0) => assert!(roots.contains(node), "unexpected root {node}"),
+            Ev::Visit(node, 0, _) => assert!(roots.contains(node), "unexpected root {node}"),
             ev => panic!("expected a root visit, got {ev:?}"),
         }
     }
@@ -145,7 +172,7 @@ fn check_prefix_and_suffix(events: &[Ev], roots: &[usize]) {
 /// building a visit from a graph, the type of the filter arguments, and the
 /// names of the visit methods.
 macro_rules! bfs_tests {
-    ($name:ident, $new:expr, $FilterArgs:ty, $visit:ident, $visit_filtered:ident, $visit_with:ident, $visit_filtered_with:ident) => {
+    ($name:ident, $new:expr, $FilterArgs:ty, $preds:literal, $visit:ident, $visit_filtered:ident, $visit_with:ident, $visit_filtered_with:ident) => {
         mod $name {
             use super::*;
 
@@ -187,7 +214,7 @@ macro_rules! bfs_tests {
                 for root in roots {
                     visit
                         .$visit([root], |event| {
-                            if let Ev::Visit(node, distance) = Ev::from(event) {
+                            if let Ev::Visit(node, distance, _) = Ev::from(event) {
                                 distances[node].store(distance, Ordering::Relaxed);
                             }
                             Continue(())
@@ -227,6 +254,13 @@ macro_rules! bfs_tests {
                 );
                 // Each of the 11 - 7 non-tree arcs generates a revisit
                 assert_eq!(revisits(&events), [2, 4, 6, 6]);
+                // Visits with predecessors report each arc exactly once
+                let expected: &[_] = if $preds {
+                    &common::TEST_GRAPH_ARCS
+                } else {
+                    &[]
+                };
+                assert_eq!(arcs(&events), expected);
                 assert_eq!(frontier_sizes(&events), [(0, 1), (1, 2), (2, 3), (3, 2)]);
             }
 
@@ -256,8 +290,17 @@ macro_rules! bfs_tests {
                 let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
                 let events = filtered_events(&graph, &[0], |args| args.distance <= 1);
                 assert_eq!(revisits(&events), []);
+                let expected: &[_] = if $preds { &[(0, 1), (0, 2)] } else { &[] };
+                assert_eq!(arcs(&events), expected);
                 let events = filtered_events(&graph, &[0], |args| args.distance <= 2);
                 assert_eq!(revisits(&events), [2]);
+                // The revisit of 2 comes from 1
+                let expected: &[_] = if $preds {
+                    &[(0, 1), (0, 2), (1, 2)]
+                } else {
+                    &[]
+                };
+                assert_eq!(arcs(&events), expected);
             }
 
             #[test]
@@ -314,7 +357,7 @@ macro_rules! bfs_tests {
             fn test_early_termination() {
                 let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 4)]);
                 let result = $new(&graph).$visit([0], |event| {
-                    if let Ev::Visit(2, _) = Ev::from(event) {
+                    if let Ev::Visit(2, ..) = Ev::from(event) {
                         return Break("found");
                     }
                     Continue(())
@@ -341,7 +384,7 @@ macro_rules! bfs_cnr_2000_tests {
                 for i in 0..n {
                     visit
                         .$visit([(i + 10000) % n], |event| {
-                            if let Ev::Visit(node, distance) = Ev::from(event) {
+                            if let Ev::Visit(node, distance, _) = Ev::from(event) {
                                 distances[node].store(distance, Ordering::Relaxed);
                             }
                             Continue(())
@@ -387,6 +430,7 @@ bfs_tests!(
     seq,
     webgraph::visits::breadth_first::Seq::new,
     FilterArgsPred,
+    true,
     visit,
     visit_filtered,
     visit_with,
@@ -407,6 +451,7 @@ mod par {
         fair_pred,
         |g| ParFairPred::with_granularity(g, Granularity::Nodes(32)),
         FilterArgsPred,
+        true,
         par_visit,
         par_visit_filtered,
         par_visit_with,
@@ -416,6 +461,7 @@ mod par {
         fair_pred_fine,
         |g| ParFairPred::with_granularity(g, Granularity::Nodes(1)),
         FilterArgsPred,
+        true,
         par_visit,
         par_visit_filtered,
         par_visit_with,
@@ -425,6 +471,7 @@ mod par {
         fair_no_pred,
         ParFairNoPred::new,
         FilterArgsNoPred,
+        false,
         par_visit,
         par_visit_filtered,
         par_visit_with,
@@ -434,6 +481,7 @@ mod par {
         fair_no_pred_fine,
         |g| ParFairNoPred::with_granularity(g, Granularity::Nodes(2)),
         FilterArgsNoPred,
+        false,
         par_visit,
         par_visit_filtered,
         par_visit_with,
@@ -443,6 +491,7 @@ mod par {
         low_mem,
         |g| ParLowMem::with_granularity(g, Granularity::Nodes(32)),
         FilterArgsPred,
+        true,
         par_visit,
         par_visit_filtered,
         par_visit_with,
@@ -452,6 +501,7 @@ mod par {
         low_mem_fine,
         |g| ParLowMem::with_granularity(g, Granularity::Nodes(1)),
         FilterArgsPred,
+        true,
         par_visit,
         par_visit_filtered,
         par_visit_with,

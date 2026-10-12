@@ -77,7 +77,7 @@ const OLD_CODES: [Codes; 10] = [
 ];
 
 impl CompFlags {
-    /// Convert a string from the `compflags` field from the `.properties` file
+    /// Converts a string from the `compflags` field from the `.properties` file
     /// into which code to use.
     ///
     /// Note that ζ codes are supported both with parameterless names (e.g.,
@@ -263,8 +263,8 @@ impl CompFlags {
         Ok(s)
     }
 
-    /// Convert the decoded `.properties` file into a `CompFlags` struct.
-    /// Also check that the endianness is correct.
+    /// Converts the decoded `.properties` file into a `CompFlags` struct.
+    /// Also checks that the endianness is correct.
     pub fn from_properties<E: Endianness>(map: &HashMap<String, String>) -> Result<Self> {
         let endianness = super::super::endianness_property(map);
         anyhow::ensure!(

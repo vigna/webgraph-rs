@@ -431,17 +431,17 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
         self.retype()
     }
 
-    /// Choose between [`Static`] and [`Dynamic`] dispatch.
+    /// Chooses between [`Static`] and [`Dynamic`] dispatch.
     pub fn dispatch<D2: Dispatch>(self) -> LoadConf<E, A, D2, GLM, OLM> {
         self.retype()
     }
 
-    /// Choose the [`LoadMode`] for the graph and offsets.
+    /// Chooses the [`LoadMode`] for the graph and offsets.
     pub fn mode<LM: LoadMode>(self) -> LoadConf<E, A, D, LM, LM> {
         self.retype()
     }
 
-    /// Choose the [`LoadMode`] for the graph only.
+    /// Chooses the [`LoadMode`] for the graph only.
     pub fn graph_mode<NGLM: LoadMode>(self) -> LoadConf<E, A, D, NGLM, OLM> {
         self.retype()
     }
@@ -501,7 +501,7 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: MmapMode, OLM: LoadMode>
 }
 
 impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> LoadConf<E, Random, D, GLM, OLM> {
-    /// Choose the [`LoadMode`] for the offsets only.
+    /// Chooses the [`LoadMode`] for the offsets only.
     pub fn offsets_mode<NOLM: LoadMode>(self) -> LoadConf<E, Random, D, GLM, NOLM> {
         self.retype()
     }

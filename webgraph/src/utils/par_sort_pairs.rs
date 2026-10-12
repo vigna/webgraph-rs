@@ -240,7 +240,7 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
                 // * tiny iterators, and we don't want to create as many tiny
                 // BatchIterators because that's extremely inefficient.
                 //
-                // * unsorted_buffers arrays with batch_size as capacity, but are
+                // * unsorted buffers with batch_size as capacity, but are
                 // mostly empty and sit in memory until we flush them
                 //
                 // Thus, we use ThreadLocal to have one SorterThreadState per
@@ -308,11 +308,11 @@ impl<C: BatchCodec> Drop for SorterThreadState<C> {
             None => {
                 assert!(
                     self.buffers.sorted.iter().all(|vec| vec.is_empty()),
-                    "Dropped SorterThreadState without consuming sorted_pairs"
+                    "Dropped SorterThreadState without consuming its sorted batches"
                 );
                 assert!(
                     self.buffers.unsorted.iter().all(|vec| vec.is_empty()),
-                    "Dropped SorterThreadState without consuming unsorted_buffers"
+                    "Dropped SorterThreadState without consuming its unsorted buffers"
                 );
             }
         }

@@ -83,6 +83,12 @@ fn test_transpose_labeled() -> Result<()> {
     let expected = LabeledVecGraph::from_arcs(TEST_GRAPH_ARCS.map(|(s, d)| ((d, s), label(s, d))));
     let t = transpose_labeled_seq(&g, BATCH, FixedWidth::<u32>::new(), no_logging![])?;
     graph::eq_labeled(&LabeledVecGraph::from_lender(&t), &expected)?;
+
+    // Unit labels, with the unit serializer
+    let g = LabeledVecGraph::<()>::from_arcs(TEST_GRAPH_ARCS.map(|arc| (arc, ())));
+    let expected = LabeledVecGraph::<()>::from_arcs(TEST_GRAPH_ARCS.map(|(s, d)| ((d, s), ())));
+    let t = transpose_labeled_seq(&g, BATCH, (), no_logging![])?;
+    graph::eq_labeled(&LabeledVecGraph::from_lender(&t), &expected)?;
     Ok(())
 }
 
@@ -157,6 +163,9 @@ fn check_symmetrize<const NO_LOOPS: bool>(g: &VecGraph) -> Result<()> {
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .load()?;
+
+    let s = symmetrize_par::<NO_LOOPS, _>(&seq, BATCH, no_logging![])?;
+    graph::eq(&VecGraph::from_lender(&s), &expected)?;
 
     let s = symmetrize_sorted_seq::<NO_LOOPS, _>(&seq, BATCH, no_logging![])?;
     assert_eq!(par_arcs(s), arcs(&expected));

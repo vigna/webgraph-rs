@@ -206,6 +206,8 @@
   0.3.1; all other dependencies have been upgraded to their latest version,
   except for `sysinfo`, `num-primitive`, and `maybe-dangling`, which are
   kept at the versions used by `dsi-progress-logger`, `sux`, and ε-serde.
+  The optional dependency `zip` (feature `fuzz`) accepts versions 7–9 with
+  deflate support only, so that all features compile with our MSRV.
 
 - `ParGraph::with_dcf` now requires the DCF to implement `IndexedSeq`, and
   panics if the DCF does not match the graph (i.e., if it does not have one

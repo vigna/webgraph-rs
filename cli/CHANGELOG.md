@@ -80,6 +80,9 @@
 - New `--no-perm` option to the LLP command that uses the identity instead
   of a random permutation for updates.
 
+- The `ChunksIter` iterator of `analyze::codes` has been removed, as
+  `analyze codes` now uses `par_node_apply`.
+
 ### Fixed
 
 - Using `--dcf` on a graph without arcs caused a panic.

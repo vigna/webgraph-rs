@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Tommaso Fontana
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
+ */
+
 use std::fs::OpenOptions;
 use std::io::Write;
 

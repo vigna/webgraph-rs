@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Davide Cologni
+ * SPDX-FileCopyrightText: 2025 Tommaso Fontana
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
+ */
+
 use std::ops::{Index, IndexMut};
 
 /// A generic dense matrix stored as a flat Vec in row-major order.

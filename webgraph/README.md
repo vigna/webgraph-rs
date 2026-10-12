@@ -32,8 +32,7 @@ techniques. More precisely, it is currently made of:
 
 - This crate, providing a complete, documented implementation of the algorithms
   above in Rust. It is free software distributed under either the
-  [GNU Lesser General Public License 2.1+] or the
-  [Apache Software License 2.0].
+  [Apache Software License 2.0] or the [MIT License], at your option.
 
 - [Data sets] for large graphs (e.g., billions of links).
 
@@ -364,8 +363,8 @@ Union nor the Italian MUR can be held responsible for them.
 [HyperBall]: https://dl.acm.org/doi/10.5555/2606262.2606545
 [four degrees of separation]: http://vigna.di.unimi.it/papers.php#BBRFDS
 [Java implementation]: http://webgraph.di.unimi.it/
-[GNU Lesser General Public License 2.1+]: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
 [Apache Software License 2.0]: https://www.apache.org/licenses/LICENSE-2.0
+[MIT License]: https://opensource.org/license/mit
 [Data sets]: http://law.di.unimi.it/datasets.php
 [WebGraph: The Next Generation (Is in Rust)]: http://vigna.di.unimi.it/papers.php#FVZWNG
 [DOI 10.1145/3589335.3651581]: https://dl.acm.org/doi/10.1145/3589335.3651581

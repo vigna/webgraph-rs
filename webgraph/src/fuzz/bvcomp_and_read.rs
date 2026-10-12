@@ -72,9 +72,8 @@ pub fn harness(data: FuzzCase) {
     let (codes_data_be, offsets_be) = compress!(BE, graph, comp_flags);
     let (codes_data_le, offsets_le) = compress!(LE, graph, comp_flags);
     assert_eq!(codes_data_be.len(), codes_data_le.len());
-    // SAFETY: the data lives until the end of the function.
-    let data_be = unsafe { as_u32(&codes_data_be) };
-    let data_le = unsafe { as_u32(&codes_data_le) };
+    // SAFETY: both buffers live until the end of the function.
+    let (data_be, data_le) = unsafe { (as_u32(&codes_data_be), as_u32(&codes_data_le)) };
     // create code reader builders
     let codes_reader_be = <DynCodesDecoderFactory<BE, _, _>>::new(
         MemoryFactory::from_data(data_be),

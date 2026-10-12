@@ -96,6 +96,25 @@ fn labeled_arcs() -> [((usize, usize), u32); 11] {
 #[test]
 fn test_vec_graph() -> Result<()> {
     let expected = test_graph();
+    // The test graph is the oracle of most tests, so we pin it down
+    assert_eq!(expected.num_nodes(), 8);
+    assert_eq!(expected.num_arcs(), 11);
+    let succs: Vec<Vec<usize>> = (0..expected.num_nodes())
+        .map(|node| expected.successors(node).collect())
+        .collect();
+    assert_eq!(
+        succs,
+        [
+            vec![1, 2],
+            vec![3, 4, 5],
+            vec![4],
+            vec![6],
+            vec![6],
+            vec![6, 7],
+            vec![2],
+            vec![],
+        ]
+    );
     check_graph(&VecGraph::from_arcs(TEST_GRAPH_ARCS), &expected)?;
     graph::eq(&VecGraph::from_lender(&expected), &expected)?;
 
@@ -108,6 +127,7 @@ fn test_vec_graph() -> Result<()> {
 
     let empty = VecGraph::empty(5);
     assert_eq!(empty.num_nodes(), 5);
+    assert_eq!(empty.num_arcs(), 0);
     check_graph(&empty, &vec_graph(5, []))?;
     Ok(())
 }
@@ -115,6 +135,23 @@ fn test_vec_graph() -> Result<()> {
 #[test]
 fn test_labeled_vec_graph() -> Result<()> {
     let g = LabeledVecGraph::<u32>::from_arcs(labeled_arcs());
+    // Pins down the labels, as the first check compares g with itself
+    let labels: Vec<Vec<(usize, u32)>> = (0..g.num_nodes())
+        .map(|node| RandomAccessLabeling::labels(&g, node).collect())
+        .collect();
+    assert_eq!(
+        labels,
+        [
+            vec![(1, 1), (2, 2)],
+            vec![(3, 13), (4, 14), (5, 15)],
+            vec![(4, 24)],
+            vec![(6, 36)],
+            vec![(6, 46)],
+            vec![(6, 56), (7, 57)],
+            vec![(2, 62)],
+            vec![],
+        ]
+    );
     check_labeled!(&g, &g);
     assert!(LabeledRandomAccessGraph::has_arc(&g, 0, 1));
     assert!(!LabeledRandomAccessGraph::has_arc(&g, 1, 0));
@@ -152,6 +189,12 @@ fn test_btree_graph() -> Result<()> {
     check_graph(&g, &expected)?;
 
     check_graph(&BTreeGraph::empty(5), &vec_graph(5, []))?;
+
+    // The successors of a BTreeGraph have an exact size
+    let g = BTreeGraph::from_arcs(TEST_GRAPH_ARCS);
+    for node in 0..g.num_nodes() {
+        assert_eq!(g.successors(node).len(), expected.outdegree(node));
+    }
     Ok(())
 }
 
