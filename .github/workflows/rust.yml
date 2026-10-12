@@ -9,10 +9,16 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_MIN_STACK: 67108864 # 64MiB
+  # Some dependencies have compatible versions that require a Rust version
+  # newer than our MSRV; we test them, too.
+  CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: allow
 
 jobs:
   msrv:
     runs-on: ubuntu-latest
+    env:
+      # Resolve to the latest versions compatible with our MSRV
+      CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: fallback
     steps:
       - uses: actions/checkout@v6
       - name: Install Rust 1.85
@@ -80,8 +86,10 @@ jobs:
       - uses: actions/checkout@v6
       - name: Install 32-bit support
         run: sudo apt-get update && sudo apt-get install -y gcc-multilib
-      - name: Add i686 target
-        run: rustup target add i686-unknown-linux-gnu
+      - name: Install Rust stable with i686 target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: i686-unknown-linux-gnu
       - name: Build (32-bit)
         run: cargo build --target i686-unknown-linux-gnu
       - name: Test (32-bit)

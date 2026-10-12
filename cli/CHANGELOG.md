@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.5.0] - unreleased
+## [0.5.0] - 2026-10-12
 
 ### New
 
@@ -32,14 +32,12 @@
 
 - License is now MIT or Apache.
 
-- Upgraded to ε-serde 0.13.1, whose file format is incompatible with that
+- Upgraded to ε-serde 0.13.2, whose file format is incompatible with that
   of previous versions: all `.ef` and `.dcf` files must be rebuilt with
   `webgraph build ef` and `webgraph build dcf`.
 
-- All dependencies have been upgraded to their latest version.
-
-- `sysinfo` is specified by a version range, so that the MSRV-aware resolver
-  picks the latest version compatible with your compiler.
+- All dependencies have been upgraded to their latest version, except for
+  `sysinfo`, which is kept at the version used by `dsi-progress-logger`.
 
 - The number of threads is now specified `-t`/`--num-threads` instead of `-j`.
   Consequently, in LLP `gain_threshold` has short name `-G` instead of `-t`.

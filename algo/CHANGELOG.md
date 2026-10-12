@@ -1,12 +1,12 @@
 # Change Log
 
-## [0.7.0] - unreleased
+## [0.7.0] - 2026-10-12
 
 ### Changed
 
 - License is now MIT or Apache.
 
-- Upgraded to `sux` 0.15.0, ε-serde 0.13.1, `lender` 0.8.0, and
+- Upgraded to `sux` 0.15.0, ε-serde 0.13.2, `lender` 0.8.0, and
   `value-traits` 0.3.1; all other dependencies have been upgraded to their
   latest version.
 

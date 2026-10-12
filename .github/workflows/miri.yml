@@ -8,6 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: allow
   MIRIFLAGS: "-Zmiri-disable-isolation -Zmiri-tree-borrows -Zmiri-ignore-leaks -Zmiri-permissive-provenance"
 
 jobs:

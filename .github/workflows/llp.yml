@@ -9,11 +9,14 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_MIN_STACK: 67108864 # 64MiB
+  CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: allow
 
 jobs:
   llp:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
       - name: Run LLP test on CNR2000
         run: cargo test --test test_llp_pipeline --all-features

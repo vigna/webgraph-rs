@@ -31,6 +31,6 @@ jobs:
         with:
           RUSTTARGET: ${{ matrix.target }}
           ARCHIVE_TYPES: ${{ matrix.archive }}
-          EXTRA_FILES: "README.md LICENSE"
+          EXTRA_FILES: "README.md LICENSE-MIT LICENSE-Apache-2.0"
           EXTRA_COMMAND_FLAGS: "--release"
           MINIFY: false # UPX makes the binaries smaller, but it slows down the executable startup time
