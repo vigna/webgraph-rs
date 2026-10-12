@@ -57,7 +57,7 @@ use rayon::prelude::*;
 
 use super::MemoryUsage;
 use super::kmerge_iters::KMergeIters;
-use super::par_sort_common::{
+use super::par_sort_iters::{
     PartitionBuffers, Sorter, impl_sorter_conf, merge_partitions, strip_labels,
 };
 use super::{BatchCodec, CodecIter};
