@@ -349,18 +349,28 @@ mod labeled {
     use webgraph::labels::bitstream::BitStreamStoreLabelsConf;
     use webgraph::traits::FixedWidth;
 
-    /// Compresses a labeled graph (sequentially or in parallel, possibly
-    /// compressing the temporary label files with Zstandard) and checks that
-    /// it can be read back both with sequential and random-access labelings.
-    fn labeled_roundtrip(graph: &LabeledVecGraph<u32>, par: bool, zstd: bool) -> Result<()> {
+    /// A way of compressing a labeled graph.
+    #[derive(Debug, Clone, Copy)]
+    enum Mode {
+        /// Sequential compression.
+        Seq,
+        /// Parallel compression.
+        Par,
+        /// Parallel compression with Zstandard-compressed temporary label
+        /// files (sequential compression has no temporary files).
+        ParZstd,
+    }
+
+    /// Compresses a labeled graph using the given mode and checks that it can
+    /// be read back both with sequential and random-access labelings.
+    fn labeled_roundtrip(graph: &LabeledVecGraph<u32>, mode: Mode) -> Result<()> {
         let (_dir, basename) = tmp_basename()?;
         let conf = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
         let mut comp = BvComp::with_basename(&basename);
-        match (par, zstd) {
-            (false, false) => comp.comp_labeled_graph::<BE, _, _>(graph, conf)?,
-            (false, true) => comp.comp_labeled_graph::<BE, _, _>(graph, conf.zstd())?,
-            (true, false) => comp.par_comp_labeled::<BE, _, _>(graph, conf)?,
-            (true, true) => comp.par_comp_labeled::<BE, _, _>(graph, conf.zstd())?,
+        match mode {
+            Mode::Seq => comp.comp_labeled_graph::<BE, _, _>(graph, conf)?,
+            Mode::Par => comp.par_comp_labeled::<BE, _, _>(graph, conf)?,
+            Mode::ParZstd => comp.par_comp_labeled::<BE, _, _>(graph, conf.zstd())?,
         };
 
         let labels_basename = BvCompConf::default_labels_basename(&basename);
@@ -397,11 +407,8 @@ mod labeled {
         let graph = LabeledVecGraph::from_arcs(
             common::TEST_GRAPH_ARCS.map(|(src, dst)| ((src, dst), (10 * src + dst) as u32)),
         );
-        // Zstandard compression applies to the temporary files of parallel
-        // compression only
-        for (par, zstd) in [(false, false), (true, false), (true, true)] {
-            labeled_roundtrip(&graph, par, zstd)
-                .with_context(|| format!("par: {par}, zstd: {zstd}"))?;
+        for mode in [Mode::Seq, Mode::Par, Mode::ParZstd] {
+            labeled_roundtrip(&graph, mode).with_context(|| format!("mode: {mode:?}"))?;
         }
         Ok(())
     }
@@ -423,8 +430,8 @@ mod labeled {
             }
         });
         let graph = LabeledVecGraph::from_arcs(arcs);
-        labeled_roundtrip(&graph, false, false)?;
-        labeled_roundtrip(&graph, true, false)?;
+        labeled_roundtrip(&graph, Mode::Seq)?;
+        labeled_roundtrip(&graph, Mode::Par)?;
         Ok(())
     }
 }

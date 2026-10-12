@@ -551,10 +551,12 @@ impl<PL: ProgressLog> BvCompConf<PL> {
     ///
     /// The `store_labels_config` parameter provides the factory for creating
     /// label storage instances alongside graph compression (e.g.,
-    /// [`BitStreamStoreLabelsConf`]).
+    /// [`BitStreamStoreLabelsConf`]). Since labels are written directly to
+    /// the final output files, the factory must implement
+    /// [`SeqStoreLabelsConf`].
     ///
     /// [`BitStreamStoreLabelsConf`]: crate::labels::BitStreamStoreLabelsConf
-    pub fn comp_labeled_graph<E: Endianness, L, SLC: StoreLabelsConf>(
+    pub fn comp_labeled_graph<E: Endianness, L, SLC: SeqStoreLabelsConf>(
         &mut self,
         graph: impl LabeledSequentialGraph<L>,
         store_labels_config: SLC,
@@ -572,7 +574,8 @@ impl<PL: ProgressLog> BvCompConf<PL> {
     ///
     /// The `store_labels_config` parameter provides the factory for creating
     /// label storage instances alongside graph compression. Use `()` for
-    /// unlabeled graphs.
+    /// unlabeled graphs. Since labels are written directly to the final
+    /// output files, the factory must implement [`SeqStoreLabelsConf`].
     ///
     /// The optional `expected_num_nodes` parameter will be used to provide
     /// forecasts on the progress logger.
@@ -585,7 +588,7 @@ impl<PL: ProgressLog> BvCompConf<PL> {
     where
         E: Endianness,
         L: IntoLender,
-        SLC: StoreLabelsConf,
+        SLC: SeqStoreLabelsConf,
         SLC::StoreLabels: StoreLabels,
         L::Lender: for<'next> NodeLabelsLender<
                 'next,

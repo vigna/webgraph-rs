@@ -15,6 +15,10 @@
 //! [`Zstd`]-compressed per-thread part files. The format can be loaded using
 //! [`BitStreamLabelingSeq`]/[`BitStreamLabeling`].
 //!
+//! Sequential compression writes labels directly to the final output files,
+//! so it can only use configurations with uncompressed part files (see
+//! [`SeqStoreLabelsConf`]).
+//!
 //! [`par_comp_labeled`]: crate::graphs::bvgraph::BvCompConf::par_comp_labeled
 //! [`Zstd`]: zstd
 
@@ -38,6 +42,10 @@ pub struct Uncompressed;
 impl PartComp for Uncompressed {}
 
 /// Label part files are zstd-compressed.
+///
+/// Since the final output files are always uncompressed, configurations
+/// using this compression mode do not implement [`SeqStoreLabelsConf`], and
+/// can be used only for parallel compression.
 pub struct Zstd;
 #[sealed]
 impl PartComp for Zstd {}
@@ -80,6 +88,11 @@ impl<E: Endianness, S: Clone> BitStreamStoreLabelsConf<E, S, Uncompressed> {
     }
 
     /// Enables [`Zstd`] compression for per-thread label part files.
+    ///
+    /// The resulting configuration can be used only for parallel
+    /// compression, as sequential compression writes labels directly to the
+    /// final output files, which are always uncompressed (see
+    /// [`SeqStoreLabelsConf`]).
     ///
     /// [`Zstd`]: zstd
     pub fn zstd(self) -> BitStreamStoreLabelsConf<E, S, Zstd> {
@@ -178,6 +191,12 @@ where
     fn label_serializer_name(&self) -> String {
         self.serializer.name()
     }
+}
+
+// With uncompressed part files, new_storage writes the final format.
+impl<E: Endianness, S> SeqStoreLabelsConf for BitStreamStoreLabelsConf<E, S, Uncompressed> where
+    Self: StoreLabelsConf
+{
 }
 
 // --- Zstd StoreLabelsConf impl ---

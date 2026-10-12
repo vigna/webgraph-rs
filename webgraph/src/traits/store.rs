@@ -95,9 +95,10 @@ impl StoreLabels for () {
 /// to create label writers (via [`new_storage`]) and how to concatenate
 /// their output (via [`init_concat`], [`concat_part`], [`flush_concat`]).
 ///
-/// Sequential compression only uses [`new_storage`]; parallel
-/// compression additionally uses the concatenation methods to merge
-/// per-thread part files into the final output.
+/// Sequential compression only uses [`new_storage`], and requires the
+/// factory to implement [`SeqStoreLabelsConf`]; parallel compression
+/// additionally uses the concatenation methods to merge per-thread part
+/// files into the final output.
 ///
 /// The unit type implements this trait as a no-op factory that spawns
 /// `()` stores.
@@ -181,3 +182,110 @@ impl StoreLabelsConf for () {
         "()".to_string()
     }
 }
+
+/// A marker trait for [`StoreLabelsConf`] implementations whose
+/// [`new_storage`] writes labels in their final format, and that can thus be
+/// used for sequential compression.
+///
+/// # Rationale
+///
+/// Parallel compression ([`BvCompConf::par_comp_labeled`]) has each thread
+/// compress a chunk of nodes concurrently. A thread cannot write its labels
+/// directly to the final output files, because the position at which they
+/// start depends on the number of bits written by the previous chunks, so
+/// each thread writes them to temporary part files using a [`StoreLabels`]
+/// returned by [`new_storage`]. At the end, the parts are concatenated into
+/// the final output files using [`init_concat`], [`concat_part`], and
+/// [`flush_concat`].
+///
+/// The format of the part files is thus an implementation detail of the
+/// factory, as long as [`concat_part`] turns it into the final format. For
+/// example, a [`BitStreamStoreLabelsConf`] with [`Zstd`] part files writes
+/// zstd-compressed parts, reducing the space used on disk by temporary
+/// files, and [`concat_part`] decompresses them while copying them into the
+/// final files, which are always uncompressed bitstreams (they are
+/// memory-mapped and accessed at arbitrary bit offsets).
+///
+/// Sequential compression ([`BvCompConf::comp_labeled_graph`] and
+/// [`BvCompConf::comp_labeled_lender`]), instead, has no need for temporary
+/// files: it obtains a [`StoreLabels`] from [`new_storage`] and writes the
+/// labels directly to the final output files. This is correct only if
+/// [`new_storage`] writes the labels in the same format produced by
+/// concatenation; otherwise, compression would complete successfully, but
+/// the resulting labels could not be loaded.
+///
+/// Sequential compression accepts only factories implementing this trait,
+/// so using an incompatible factory is a compile-time error rather than a
+/// silent corruption of the output. Note that there would be no point in
+/// supporting such factories by writing temporary files anyway: the
+/// purpose of transforming part files (e.g., compressing them) is to reduce
+/// the cost of the temporary files of parallel compression, and sequential
+/// compression has none.
+///
+/// # Implementing this trait
+///
+/// Implement this trait for your [`StoreLabelsConf`] if and only if the
+/// files written by the [`StoreLabels`] instances returned by
+/// [`new_storage`] have the same format as the final output files built by
+/// concatenation. In particular, do not implement this trait if
+/// [`new_storage`] compresses or otherwise transforms the data, and
+/// [`concat_part`] undoes the transformation.
+///
+/// This trait is implemented by the unit type (which stores no labels) and
+/// by [`BitStreamStoreLabelsConf`] with [`Uncompressed`] part files, but not
+/// by [`BitStreamStoreLabelsConf`] with [`Zstd`] part files.
+///
+/// # Examples
+///
+/// A [`BitStreamStoreLabelsConf`] with uncompressed part files (the default)
+/// can be used for both sequential and parallel compression:
+///
+/// ```
+/// # if cfg!(miri) { return Ok::<(), Box<dyn std::error::Error>>(()); }
+/// # use dsi_bitstream::prelude::BE;
+/// # use webgraph::prelude::*;
+/// # use webgraph::graphs::vec_graph::LabeledVecGraph;
+/// # use webgraph::labels::bitstream::BitStreamStoreLabelsConf;
+/// # use webgraph::traits::FixedWidth;
+/// let graph = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((1, 0), 20)]);
+/// let dir = tempfile::tempdir()?;
+/// let basename = dir.path().join("graph");
+/// let conf = || BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
+/// BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, conf())?;
+/// BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, conf())?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// A [`BitStreamStoreLabelsConf`] with [`Zstd`] part files can be used only
+/// for parallel compression:
+///
+/// ```compile_fail
+/// # use dsi_bitstream::prelude::BE;
+/// # use webgraph::prelude::*;
+/// # use webgraph::graphs::vec_graph::LabeledVecGraph;
+/// # use webgraph::labels::bitstream::BitStreamStoreLabelsConf;
+/// # use webgraph::traits::FixedWidth;
+/// let graph = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((1, 0), 20)]);
+/// let dir = tempfile::tempdir()?;
+/// let basename = dir.path().join("graph");
+/// let conf = || BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new()).zstd();
+/// BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, conf())?;
+/// // Does not compile: the factory does not implement SeqStoreLabelsConf
+/// BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, conf())?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// [`new_storage`]: StoreLabelsConf::new_storage
+/// [`init_concat`]: StoreLabelsConf::init_concat
+/// [`concat_part`]: StoreLabelsConf::concat_part
+/// [`flush_concat`]: StoreLabelsConf::flush_concat
+/// [`BitStreamStoreLabelsConf`]: crate::labels::BitStreamStoreLabelsConf
+/// [`Uncompressed`]: crate::labels::bitstream::Uncompressed
+/// [`Zstd`]: crate::labels::bitstream::Zstd
+/// [`BvCompConf::par_comp_labeled`]: crate::graphs::bvgraph::BvCompConf::par_comp_labeled
+/// [`BvCompConf::comp_labeled_graph`]: crate::graphs::bvgraph::BvCompConf::comp_labeled_graph
+/// [`BvCompConf::comp_labeled_lender`]: crate::graphs::bvgraph::BvCompConf::comp_labeled_lender
+pub trait SeqStoreLabelsConf: StoreLabelsConf {}
+
+/// The unit type stores no labels, so there is no format to get wrong.
+impl SeqStoreLabelsConf for () {}

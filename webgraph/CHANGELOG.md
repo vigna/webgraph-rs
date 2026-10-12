@@ -41,7 +41,10 @@
   Parallel compression methods take an `IntoParLenders` implementation.
 
 - New labeled compression API based on the `StoreLabelsConf` trait. A number of
-  basic (de)serializers (fixed width, ɣ, etc.) are provided.
+  basic (de)serializers (fixed width, ɣ, etc.) are provided. Since sequential
+  compression writes labels directly to the final output files, it requires
+  the marker trait `SeqStoreLabelsConf`, which is not implemented by
+  configurations with zstd-compressed temporary part files.
 
 - New free functions to build the Elias–Fano representation of offsets.
 
