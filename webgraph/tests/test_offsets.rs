@@ -12,7 +12,6 @@ mod common;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
-use lender::*;
 use std::io::prelude::*;
 use value_traits::slices::SliceByValue;
 use webgraph::prelude::*;
@@ -50,13 +49,6 @@ fn test_offsets() -> Result<()> {
         assert_eq!(*offset, ef_offsets.index_value(i));
     }
 
-    // Check that they read the same
-    let mut iter_nodes = graph.iter();
-    while let Some((node_id, seq_succ)) = iter_nodes.next() {
-        let rand_succ = graph.successors(node_id).collect::<Vec<_>>();
-        assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
-    }
-
     for (i, (offset, outdegree)) in graph.offset_deg_iter().enumerate() {
         assert_eq!(offset, ef_offsets.index_value(i));
         assert_eq!(outdegree, graph.outdegree(i));
@@ -84,12 +76,7 @@ fn test_offsets_as_slice() -> Result<()> {
         .load()?
         .offsets_to_slice();
 
-    graph0
-        .iter()
-        .zip(graph1.iter())
-        .for_each(|((s, a), (t, b))| {
-            assert_eq!(s, t);
-            itertools::assert_equal(a, b);
-        });
+    graph::eq(&graph0, &graph1)?;
+    labels::check_impl(&graph1)?;
     Ok(())
 }

@@ -185,15 +185,15 @@
 //! [`par_from_pair_iters`]: ParSortedGraph::par_from_pair_iters
 //! [configuration]: ParSortedGraph::config
 //! [deduplicate]: ParSortedGraphConf::dedup
-use crate::graphs::arc_list_graph;
+use crate::graphs::{arc_list_graph, impl_into_lender};
 use crate::labels::proj::LeftIterator;
 use crate::prelude::*;
-use crate::traits::{BitDeserializer, BitSerializer};
+use crate::traits::BitSerializer;
 use crate::utils::grouped_gaps;
 use crate::utils::kmerge_iters::KMergeIters;
 use crate::utils::par_sort_iters::ParSortIters;
 use crate::utils::par_sort_pairs::ParSortPairs;
-use crate::utils::{BitReader, BitWriter, CodecIter, DefaultBatchCodec, MemoryUsage};
+use crate::utils::{BitWriter, CodecIter, DefaultBatchCodec, MemoryUsage};
 use anyhow::Result;
 use dsi_bitstream::prelude::NE;
 use dsi_progress_logger::{ProgressLog, ProgressLogger};
@@ -338,12 +338,7 @@ impl ParSortedLabeledGraph<()> {
         sd: SD,
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
-        SD: BitSerializer<NE, BitWriter<NE>>
-            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-            + Send
-            + Sync
-            + Clone,
-        SD::SerType: Copy + Send + Sync + 'static,
+        SD: LabelSerDeser,
         G: LabeledSequentialGraph<SD::SerType>,
     {
         ParSortedLabeledGraphConf::default().sort_graph(graph, sd)
@@ -361,12 +356,7 @@ impl ParSortedLabeledGraph<()> {
         sd: SD,
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
-        SD: BitSerializer<NE, BitWriter<NE>>
-            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-            + Send
-            + Sync
-            + Clone,
-        SD::SerType: Copy + Send + Sync + 'static,
+        SD: LabelSerDeser,
         G: LabeledSequentialGraph<SD::SerType>
             + IntoParLenders<
                 ParLender: for<'a> NodeLabelsLender<
@@ -391,12 +381,7 @@ impl ParSortedLabeledGraph<()> {
         pairs: impl IntoIterator<Item = ((usize, usize), SD::SerType)>,
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
-        SD: BitSerializer<NE, BitWriter<NE>>
-            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-            + Send
-            + Sync
-            + Clone,
-        SD::SerType: Copy + Send + Sync + 'static,
+        SD: LabelSerDeser,
     {
         ParSortedLabeledGraphConf::default().sort_pairs(num_nodes, sd, pairs)
     }
@@ -414,12 +399,7 @@ impl ParSortedLabeledGraph<()> {
         pairs: impl rayon::iter::ParallelIterator<Item = ((usize, usize), SD::SerType)>,
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
-        SD: BitSerializer<NE, BitWriter<NE>>
-            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-            + Send
-            + Sync
-            + Clone,
-        SD::SerType: Copy + Send + Sync + 'static,
+        SD: LabelSerDeser,
     {
         ParSortedLabeledGraphConf::default().par_sort_pairs(num_nodes, sd, pairs)
     }
@@ -437,12 +417,7 @@ impl ParSortedLabeledGraph<()> {
         iters: impl IntoIterator<Item = I>,
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
-        SD: BitSerializer<NE, BitWriter<NE>>
-            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-            + Send
-            + Sync
-            + Clone,
-        SD::SerType: Copy + Send + Sync + 'static,
+        SD: LabelSerDeser,
         I: Iterator<Item = ((usize, usize), SD::SerType)> + Send,
     {
         ParSortedLabeledGraphConf::default().par_sort_pair_iters(num_nodes, sd, iters)
@@ -465,12 +440,7 @@ impl ParSortedLabeledGraph<()> {
         pairs: impl IntoIterator<Item = Result<((usize, usize), SD::SerType), E>>,
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
-        SD: BitSerializer<NE, BitWriter<NE>>
-            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-            + Send
-            + Sync
-            + Clone,
-        SD::SerType: Copy + Send + Sync + 'static,
+        SD: LabelSerDeser,
     {
         ParSortedLabeledGraphConf::default().sort_try_pairs(num_nodes, sd, pairs)
     }
@@ -492,12 +462,7 @@ impl ParSortedLabeledGraph<()> {
         pairs: impl rayon::iter::ParallelIterator<Item = Result<((usize, usize), SD::SerType), E>>,
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
-        SD: BitSerializer<NE, BitWriter<NE>>
-            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-            + Send
-            + Sync
-            + Clone,
-        SD::SerType: Copy + Send + Sync + 'static,
+        SD: LabelSerDeser,
     {
         ParSortedLabeledGraphConf::default().par_sort_try_pairs(num_nodes, sd, pairs)
     }
@@ -581,16 +546,10 @@ impl<
 
 // === IntoLender / Lending for SortedLabeledGraph ===
 
-impl<'a, L: Clone + Copy + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync>
-    IntoLender for &'a ParSortedLabeledGraph<I>
-{
-    type Lender = <ParSortedLabeledGraph<I> as SequentialLabeling>::Lender<'a>;
-
-    #[inline(always)]
-    fn into_lender(self) -> Self::Lender {
-        self.iter()
-    }
-}
+impl_into_lender!(
+    [L: Clone + Copy + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync]
+    ParSortedLabeledGraph<I>
+);
 
 impl<
     'lend,
@@ -856,16 +815,7 @@ impl<I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> IntoParLend
 
 // === IntoLender / Lending for SortedGraph ===
 
-impl<'a, I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> IntoLender
-    for &'a ParSortedGraph<I>
-{
-    type Lender = <ParSortedGraph<I> as SequentialLabeling>::Lender<'a>;
-
-    #[inline(always)]
-    fn into_lender(self) -> Self::Lender {
-        self.iter()
-    }
-}
+impl_into_lender!([I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync] ParSortedGraph<I>);
 
 impl<'lend, I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> Lending<'lend>
     for &ParSortedGraph<I>
@@ -1102,10 +1052,9 @@ impl<PL, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
     /// Defaults to [`rayon::current_num_threads`].
     pub fn num_lenders(self, n: usize) -> Self {
         assert!(n > 0, "the number of lenders must be positive");
-        ParSortedLabeledGraphConf {
+        Self {
             num_partitions: n,
-            memory_usage: self.memory_usage,
-            pl: self.pl,
+            ..self
         }
     }
 
@@ -1113,10 +1062,9 @@ impl<PL, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
     ///
     /// Defaults to [`MemoryUsage::default`].
     pub fn memory_usage(self, m: MemoryUsage) -> Self {
-        ParSortedLabeledGraphConf {
-            num_partitions: self.num_partitions,
+        Self {
             memory_usage: Some(m),
-            pl: self.pl,
+            ..self
         }
     }
 
@@ -1168,12 +1116,7 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
         sd: SD,
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
     where
-        SD: BitSerializer<NE, BitWriter<NE>>
-            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-            + Send
-            + Sync
-            + Clone,
-        SD::SerType: Copy + Send + Sync + 'static,
+        SD: LabelSerDeser,
         G: LabeledSequentialGraph<SD::SerType>,
     {
         let num_nodes = graph.num_nodes();
@@ -1192,12 +1135,7 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
         sd: SD,
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
     where
-        SD: BitSerializer<NE, BitWriter<NE>>
-            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-            + Send
-            + Sync
-            + Clone,
-        SD::SerType: Copy + Send + Sync + 'static,
+        SD: LabelSerDeser,
         G: LabeledSequentialGraph<SD::SerType>
             + IntoParLenders<
                 ParLender: for<'a> NodeLabelsLender<
@@ -1225,12 +1163,7 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
         pairs: impl IntoIterator<Item = ((usize, usize), SD::SerType)>,
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
     where
-        SD: BitSerializer<NE, BitWriter<NE>>
-            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-            + Send
-            + Sync
-            + Clone,
-        SD::SerType: Copy + Send + Sync + 'static,
+        SD: LabelSerDeser,
     {
         let (par_sort, mut pl) = self.into_par_sort_iters(num_nodes)?;
         let codec = LabeledCodec::new(sd);
@@ -1246,12 +1179,7 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
         iters: impl IntoIterator<Item = I>,
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
     where
-        SD: BitSerializer<NE, BitWriter<NE>>
-            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-            + Send
-            + Sync
-            + Clone,
-        SD::SerType: Copy + Send + Sync + 'static,
+        SD: LabelSerDeser,
         I: Iterator<Item = ((usize, usize), SD::SerType)> + Send,
     {
         let (par_sort, mut pl) = self.into_par_sort_iters(num_nodes)?;
@@ -1269,12 +1197,7 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
         pairs: impl rayon::iter::ParallelIterator<Item = ((usize, usize), SD::SerType)>,
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
     where
-        SD: BitSerializer<NE, BitWriter<NE>>
-            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-            + Send
-            + Sync
-            + Clone,
-        SD::SerType: Copy + Send + Sync + 'static,
+        SD: LabelSerDeser,
     {
         let codec = LabeledCodec::new(sd);
         let (par_sort, mut pl) = self.into_par_sort_pairs(num_nodes)?;
@@ -1294,12 +1217,7 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
         pairs: impl IntoIterator<Item = Result<((usize, usize), SD::SerType), E>>,
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
     where
-        SD: BitSerializer<NE, BitWriter<NE>>
-            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-            + Send
-            + Sync
-            + Clone,
-        SD::SerType: Copy + Send + Sync + 'static,
+        SD: LabelSerDeser,
     {
         let (par_sort, mut pl) = self.into_par_sort_iters(num_nodes)?;
         let codec = LabeledCodec::new(sd);
@@ -1319,12 +1237,7 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
         pairs: impl rayon::iter::ParallelIterator<Item = Result<((usize, usize), SD::SerType), E>>,
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
     where
-        SD: BitSerializer<NE, BitWriter<NE>>
-            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-            + Send
-            + Sync
-            + Clone,
-        SD::SerType: Copy + Send + Sync + 'static,
+        SD: LabelSerDeser,
     {
         let codec = LabeledCodec::new(sd);
         let (par_sort, mut pl) = self.into_par_sort_pairs(num_nodes)?;

@@ -19,12 +19,11 @@
 //!
 //! [splittable graph]: SplitLabeling
 
+use crate::graphs::{bvgraph::DCF, impl_into_lender};
 use crate::prelude::*;
+use crate::traits::split::{dcf_cutpoints, uniform_cutpoints};
 use lender::*;
-use sux::{
-    traits::{IndexedSeq, SuccUnchecked},
-    utils::FairChunks,
-};
+use sux::traits::{IndexedSeq, SuccUnchecked};
 
 /// How to partition the graph for parallel lenders.
 #[derive(Debug, Clone)]
@@ -149,7 +148,7 @@ impl<G> ParGraph<G> {
     /// sequential graphs for which the number is known.
     ///
     /// The cutpoints are computed immediately from the DCF using
-    /// [`FairChunks`]; the DCF is not stored.
+    /// [`dcf_cutpoints`]; the DCF is not stored.
     ///
     /// # Panics
     ///
@@ -174,20 +173,9 @@ impl<G> ParGraph<G> {
             num_arcs,
             "the last element of the DCF must be the number of arcs"
         );
-        let target = num_arcs.div_ceil(num_lenders as u64);
-        let mut cutpoints: Vec<usize> = std::iter::once(0)
-            .chain(FairChunks::new(target, dcf).map(|r| r.end))
-            .collect();
-        // FairChunks yields no range for a zero-arc graph, and its last range
-        // may end before trailing zero-outdegree nodes; the cutpoints must
-        // nonetheless cover all nodes and contain at least two elements.
-        if cutpoints.len() < 2 || *cutpoints.last().unwrap() != num_nodes {
-            cutpoints.push(num_nodes);
-        }
-        let cutpoints: Box<[usize]> = cutpoints.into();
         Self {
             graph,
-            splitting: Splitting::Cutpoints(cutpoints),
+            splitting: Splitting::Cutpoints(dcf_cutpoints(dcf, num_lenders)),
         }
     }
 }
@@ -212,6 +200,10 @@ impl<G: SequentialLabeling> SequentialLabeling for ParGraph<G> {
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         self.graph.iter_from(from)
+    }
+
+    fn build_dcf(&self) -> DCF {
+        self.graph.build_dcf()
     }
 }
 
@@ -274,29 +266,16 @@ where
                 (lenders, cp.clone())
             }
             Splitting::Uniform(n) => {
-                let n = *n;
-                let num_nodes = self.graph.num_nodes();
-                let step = num_nodes.div_ceil(n);
-                let boundaries: Box<[usize]> = (0..=n)
-                    .map(|i| i.saturating_mul(step).min(num_nodes))
+                let cutpoints = uniform_cutpoints(self.graph.num_nodes(), *n);
+                let lenders: Box<[_]> = self
+                    .graph
+                    .split_iter_at(cutpoints.clone())
+                    .into_iter()
                     .collect();
-                let lenders: Box<[_]> = self.graph.split_iter(n).into_iter().collect();
-                (lenders, boundaries)
+                (lenders, cutpoints.collect())
             }
         }
     }
 }
 
-/// Convenience implementation that makes it possible to iterate
-/// over the graph using the [`for_`] macro
-/// (see the [crate documentation]).
-///
-/// [crate documentation]: crate
-impl<'b, G: SequentialLabeling> IntoLender for &'b ParGraph<G> {
-    type Lender = <G as SequentialLabeling>::Lender<'b>;
-
-    #[inline(always)]
-    fn into_lender(self) -> Self::Lender {
-        self.iter()
-    }
-}
+impl_into_lender!([G: SequentialLabeling] ParGraph<G>);

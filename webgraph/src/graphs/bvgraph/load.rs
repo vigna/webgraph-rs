@@ -14,8 +14,10 @@ use epserde::deser::Owned;
 use epserde::prelude::*;
 use sealed::sealed;
 use std::{
+    collections::HashMap,
     io::BufReader,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 /// Sequential or random access.
@@ -248,6 +250,19 @@ impl LoadMode for LoadMmap {
     }
 }
 
+/// A [`LoadMode`] using `mmap()`, and thus accepting [memory flags]: [`Mmap`]
+/// or [`LoadMmap`].
+///
+/// [memory flags]: MemoryFlags
+#[sealed]
+pub trait MmapMode: LoadMode {}
+
+#[sealed]
+impl MmapMode for Mmap {}
+
+#[sealed]
+impl MmapMode for LoadMmap {}
+
 /// A load configuration for a [`BvGraph`]/[`BvGraphSeq`].
 ///
 /// A basic configuration is returned by
@@ -384,19 +399,13 @@ pub struct LoadConf<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: L
     pub(crate) _marker: std::marker::PhantomData<(E, A, D, GLM, OLM)>,
 }
 
-impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
-    LoadConf<E, A, D, GLM, OLM>
-{
-    /// Sets the endianness of the graph and offsets file.
-    pub fn endianness<E2: Endianness>(self) -> LoadConf<E2, A, D, GLM, OLM>
-    where
-        GLM: LoadMode,
-        OLM: LoadMode,
-    {
+impl<A: Access> LoadConf<BE, A, Dynamic, Mmap, Mmap> {
+    /// Returns the default configuration for the given basename.
+    pub(crate) fn new(basename: impl AsRef<Path>) -> Self {
         LoadConf {
-            basename: self.basename,
-            graph_load_flags: self.graph_load_flags,
-            offsets_load_flags: self.offsets_load_flags,
+            basename: basename.as_ref().to_owned(),
+            graph_load_flags: MemoryFlags::empty(),
+            offsets_load_flags: MemoryFlags::empty(),
             _marker: std::marker::PhantomData,
         }
     }
@@ -405,139 +414,40 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
 impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
     LoadConf<E, A, D, GLM, OLM>
 {
+    /// Changes the type parameters, keeping the basename and the flags.
+    fn retype<E2: Endianness, A2: Access, D2: Dispatch, GLM2: LoadMode, OLM2: LoadMode>(
+        self,
+    ) -> LoadConf<E2, A2, D2, GLM2, OLM2> {
+        LoadConf {
+            basename: self.basename,
+            graph_load_flags: self.graph_load_flags,
+            offsets_load_flags: self.offsets_load_flags,
+            _marker: std::marker::PhantomData,
+        }
+    }
+
+    /// Sets the endianness of the graph and offsets file.
+    pub fn endianness<E2: Endianness>(self) -> LoadConf<E2, A, D, GLM, OLM> {
+        self.retype()
+    }
+
     /// Choose between [`Static`] and [`Dynamic`] dispatch.
     pub fn dispatch<D2: Dispatch>(self) -> LoadConf<E, A, D2, GLM, OLM> {
-        LoadConf {
-            basename: self.basename,
-            graph_load_flags: self.graph_load_flags,
-            offsets_load_flags: self.offsets_load_flags,
-            _marker: std::marker::PhantomData,
-        }
+        self.retype()
     }
-}
 
-impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
-    LoadConf<E, A, D, GLM, OLM>
-{
     /// Choose the [`LoadMode`] for the graph and offsets.
     pub fn mode<LM: LoadMode>(self) -> LoadConf<E, A, D, LM, LM> {
-        LoadConf {
-            basename: self.basename,
-            graph_load_flags: self.graph_load_flags,
-            offsets_load_flags: self.offsets_load_flags,
-            _marker: std::marker::PhantomData,
-        }
+        self.retype()
     }
-}
 
-impl<E: Endianness, A: Access, D: Dispatch> LoadConf<E, A, D, Mmap, Mmap> {
-    /// Sets flags for memory-mapping (both graph and offsets).
-    pub fn flags(self, flags: MemoryFlags) -> LoadConf<E, A, D, Mmap, Mmap> {
-        LoadConf {
-            basename: self.basename,
-            graph_load_flags: flags,
-            offsets_load_flags: flags,
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<E: Endianness, A: Access, D: Dispatch> LoadConf<E, A, D, LoadMmap, LoadMmap> {
-    /// Sets flags for memory obtained from `mmap()` (both graph and offsets).
-    pub fn flags(self, flags: MemoryFlags) -> LoadConf<E, A, D, LoadMmap, LoadMmap> {
-        LoadConf {
-            basename: self.basename,
-            graph_load_flags: flags,
-            offsets_load_flags: flags,
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
-    LoadConf<E, A, D, GLM, OLM>
-{
     /// Choose the [`LoadMode`] for the graph only.
     pub fn graph_mode<NGLM: LoadMode>(self) -> LoadConf<E, A, D, NGLM, OLM> {
-        LoadConf {
-            basename: self.basename,
-            graph_load_flags: self.graph_load_flags,
-            offsets_load_flags: self.offsets_load_flags,
-            _marker: std::marker::PhantomData,
-        }
+        self.retype()
     }
-}
 
-impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConf<E, A, D, Mmap, OLM> {
-    /// Sets flags for memory-mapping the graph.
-    pub fn graph_flags(self, flags: MemoryFlags) -> LoadConf<E, A, D, Mmap, OLM> {
-        LoadConf {
-            basename: self.basename,
-            graph_load_flags: flags,
-            offsets_load_flags: self.offsets_load_flags,
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConf<E, A, D, LoadMmap, OLM> {
-    /// Sets flags for memory obtained from `mmap()` for the graph.
-    pub fn graph_flags(self, flags: MemoryFlags) -> LoadConf<E, A, D, LoadMmap, OLM> {
-        LoadConf {
-            basename: self.basename,
-            graph_load_flags: flags,
-            offsets_load_flags: self.offsets_load_flags,
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> LoadConf<E, Random, D, GLM, OLM> {
-    /// Choose the [`LoadMode`] for the offsets only.
-    pub fn offsets_mode<NOLM: LoadMode>(self) -> LoadConf<E, Random, D, GLM, NOLM> {
-        LoadConf {
-            basename: self.basename,
-            graph_load_flags: self.graph_load_flags,
-            offsets_load_flags: self.offsets_load_flags,
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConf<E, Random, D, GLM, Mmap> {
-    /// Sets flags for memory-mapping the offsets.
-    pub fn offsets_flags(self, flags: MemoryFlags) -> LoadConf<E, Random, D, GLM, Mmap> {
-        LoadConf {
-            basename: self.basename,
-            graph_load_flags: self.graph_load_flags,
-            offsets_load_flags: flags,
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConf<E, Random, D, GLM, LoadMmap> {
-    /// Sets flags for memory obtained from `mmap()` for the offsets.
-    pub fn offsets_flags(self, flags: MemoryFlags) -> LoadConf<E, Random, D, GLM, LoadMmap> {
-        LoadConf {
-            basename: self.basename,
-            graph_load_flags: self.graph_load_flags,
-            offsets_load_flags: flags,
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConf<E, Random, Dynamic, GLM, OLM> {
-    /// Loads a random-access graph with dynamic dispatch.
-    pub fn load(
-        mut self,
-    ) -> anyhow::Result<BvGraph<DynCodesDecoderFactory<E, GLM::Factory<E>, OLM::Offsets>>>
-    where
-        <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
-        for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E> + BitSeek,
-    {
-        warn_if_ef_stale(&self.basename);
+    /// Reads the properties file and creates the factory for the graph file.
+    fn load_graph(&mut self) -> Result<(usize, u64, CompFlags, GLM::Factory<E>)> {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)
             .with_context(|| {
@@ -546,6 +456,12 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConf<E, Random, Dynamic, G
         self.basename.set_extension(GRAPH_EXTENSION);
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)
             .with_context(|| format!("Could not load graph file {}", self.basename.display()))?;
+        Ok((num_nodes, num_arcs, comp_flags, factory))
+    }
+
+    /// Loads the offsets file, checking that it contains `num_nodes` + 1
+    /// offsets.
+    fn load_offsets(&mut self, num_nodes: usize) -> Result<MemCase<OLM::Offsets>> {
         self.basename.set_extension(EF_EXTENSION);
         let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)
             .with_context(|| format!("Could not load offsets file {}", self.basename.display()))?;
@@ -559,7 +475,59 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConf<E, Random, Dynamic, G
             num_offsets,
             num_nodes
         );
+        Ok(offsets)
+    }
+}
 
+impl<E: Endianness, A: Access, D: Dispatch, LM: MmapMode> LoadConf<E, A, D, LM, LM> {
+    /// Sets flags for memory-mapping, or for memory obtained from `mmap()`
+    /// (both graph and offsets).
+    pub fn flags(mut self, flags: MemoryFlags) -> Self {
+        self.graph_load_flags = flags;
+        self.offsets_load_flags = flags;
+        self
+    }
+}
+
+impl<E: Endianness, A: Access, D: Dispatch, GLM: MmapMode, OLM: LoadMode>
+    LoadConf<E, A, D, GLM, OLM>
+{
+    /// Sets flags for memory-mapping, or for memory obtained from `mmap()`,
+    /// for the graph.
+    pub fn graph_flags(mut self, flags: MemoryFlags) -> Self {
+        self.graph_load_flags = flags;
+        self
+    }
+}
+
+impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> LoadConf<E, Random, D, GLM, OLM> {
+    /// Choose the [`LoadMode`] for the offsets only.
+    pub fn offsets_mode<NOLM: LoadMode>(self) -> LoadConf<E, Random, D, GLM, NOLM> {
+        self.retype()
+    }
+}
+
+impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: MmapMode> LoadConf<E, Random, D, GLM, OLM> {
+    /// Sets flags for memory-mapping, or for memory obtained from `mmap()`,
+    /// for the offsets.
+    pub fn offsets_flags(mut self, flags: MemoryFlags) -> Self {
+        self.offsets_load_flags = flags;
+        self
+    }
+}
+
+impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConf<E, Random, Dynamic, GLM, OLM> {
+    /// Loads a random-access graph with dynamic dispatch.
+    pub fn load(
+        mut self,
+    ) -> anyhow::Result<BvGraph<DynCodesDecoderFactory<E, GLM::Factory<E>, OLM::Offsets>>>
+    where
+        <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
+        for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E> + BitSeek,
+    {
+        warn_if_ef_stale(&self.basename);
+        let (num_nodes, num_arcs, comp_flags, factory) = self.load_graph()?;
+        let offsets = self.load_offsets(num_nodes)?;
         Ok(BvGraph::new(
             DynCodesDecoderFactory::new(factory, offsets, comp_flags)?,
             num_nodes,
@@ -581,15 +549,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConf<E, Sequential, Dynami
         <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
         for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E>,
     {
-        self.basename.set_extension(PROPERTIES_EXTENSION);
-        let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)
-            .with_context(|| {
-                format!("Could not load properties file {}", self.basename.display())
-            })?;
-        self.basename.set_extension(GRAPH_EXTENSION);
-        let factory = GLM::new_factory(&self.basename, self.graph_load_flags)
-            .with_context(|| format!("Could not load graph file {}", self.basename.display()))?;
-
+        let (num_nodes, num_arcs, comp_flags, factory) = self.load_graph()?;
         Ok(BvGraphSeq::new(
             DynCodesDecoderFactory::new(factory, EmptyDict::default().into(), comp_flags)?,
             num_nodes,
@@ -633,28 +593,8 @@ impl<
         for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E> + BitSeek,
     {
         warn_if_ef_stale(&self.basename);
-        self.basename.set_extension(PROPERTIES_EXTENSION);
-        let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)
-            .with_context(|| {
-                format!("Could not load properties file {}", self.basename.display())
-            })?;
-        self.basename.set_extension(GRAPH_EXTENSION);
-        let factory = GLM::new_factory(&self.basename, self.graph_load_flags)
-            .with_context(|| format!("Could not load graph file {}", self.basename.display()))?;
-        self.basename.set_extension(EF_EXTENSION);
-        let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)
-            .with_context(|| format!("Could not load offsets file {}", self.basename.display()))?;
-        // The decoders index the offsets without bounds checks, so a stale
-        // or truncated file must be rejected here.
-        let num_offsets = value_traits::slices::SliceByValue::len(offsets.uncase());
-        anyhow::ensure!(
-            num_offsets == num_nodes + 1,
-            "The offsets file {} contains {} offsets, but the graph has {} nodes",
-            self.basename.display(),
-            num_offsets,
-            num_nodes
-        );
-
+        let (num_nodes, num_arcs, comp_flags, factory) = self.load_graph()?;
+        let offsets = self.load_offsets(num_nodes)?;
         Ok(BvGraph::new(
             ConstCodesDecoderFactory::new(factory, offsets, comp_flags)?,
             num_nodes,
@@ -697,15 +637,7 @@ impl<
         <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
         for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E>,
     {
-        self.basename.set_extension(PROPERTIES_EXTENSION);
-        let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)
-            .with_context(|| {
-                format!("Could not load properties file {}", self.basename.display())
-            })?;
-        self.basename.set_extension(GRAPH_EXTENSION);
-        let factory = GLM::new_factory(&self.basename, self.graph_load_flags)
-            .with_context(|| format!("Could not load graph file {}", self.basename.display()))?;
-
+        let (num_nodes, num_arcs, comp_flags, factory) = self.load_graph()?;
         Ok(BvGraphSeq::new(
             ConstCodesDecoderFactory::new(factory, EmptyDict::default().into(), comp_flags)?,
             num_nodes,
@@ -751,20 +683,42 @@ fn warn_if_ef_stale(basename: &Path) {
     }
 }
 
+/// Reads a `.properties` file.
+fn read_properties(path: &Path) -> Result<HashMap<String, String>> {
+    let f = std::fs::File::open(path)
+        .with_context(|| format!("Cannot open property file {}", path.display()))?;
+    java_properties::read(BufReader::new(f))
+        .with_context(|| format!("Cannot parse {} as a Java properties file", path.display()))
+}
+
+/// Parses the mandatory property `key` of the `.properties` file at `path`.
+fn parse_property<T: FromStr>(map: &HashMap<String, String>, key: &str, path: &Path) -> Result<T>
+where
+    T::Err: std::error::Error + Send + Sync + 'static,
+{
+    let name = path.display();
+    map.get(key)
+        .with_context(|| format!("Missing '{key}' property in {name}"))?
+        .parse::<T>()
+        .with_context(|| {
+            format!(
+                "Cannot parse '{key}' as {} in {name}",
+                std::any::type_name::<T>()
+            )
+        })
+}
+
+/// Returns the value of the `endianness` property, which defaults to big
+/// endian as in the Java version.
+pub(crate) fn endianness_property(map: &HashMap<String, String>) -> &str {
+    map.get("endianness")
+        .map_or(BigEndian::NAME, String::as_str)
+}
+
 /// Reads the `.properties` file and returns the endianness.
 pub fn get_endianness<P: AsRef<Path>>(basename: P) -> Result<String> {
-    let path = basename.as_ref().with_extension(PROPERTIES_EXTENSION);
-    let f = std::fs::File::open(&path)
-        .with_context(|| format!("Cannot open property file {}", path.display()))?;
-    let map = java_properties::read(BufReader::new(f))
-        .with_context(|| format!("cannot parse {} as a java properties file", path.display()))?;
-
-    let endianness = map
-        .get("endianness")
-        .map(|x| x.to_string())
-        .unwrap_or_else(|| BigEndian::NAME.to_string());
-
-    Ok(endianness)
+    let map = read_properties(&basename.as_ref().with_extension(PROPERTIES_EXTENSION))?;
+    Ok(endianness_property(&map).to_string())
 }
 
 /// Metadata read from a label `.properties` file.
@@ -784,65 +738,33 @@ pub fn parse_label_properties<E: Endianness>(
     label_basename: impl AsRef<Path>,
 ) -> Result<LabelProperties> {
     let path = label_basename.as_ref().with_extension(PROPERTIES_EXTENSION);
-    let name = path.display();
-    let f = std::fs::File::open(&path)
-        .with_context(|| format!("Cannot open label properties {name}"))?;
-    let map = java_properties::read(BufReader::new(f))
-        .with_context(|| format!("Cannot parse {name} as a properties file"))?;
+    let map = read_properties(&path)?;
 
-    let endianness = map
-        .get("endianness")
-        .map(|x| x.to_string())
-        .unwrap_or_else(|| BigEndian::NAME.to_string());
+    let endianness = endianness_property(&map);
     anyhow::ensure!(
         endianness == E::NAME,
-        "Label endianness mismatch in {name}: found {endianness}, expected {}",
+        "Label endianness mismatch in {}: found {endianness}, expected {}",
+        path.display(),
         E::NAME
     );
 
-    let num_nodes = map
-        .get("nodes")
-        .with_context(|| format!("Missing 'nodes' property in {name}"))?
-        .parse::<usize>()
-        .with_context(|| format!("Cannot parse 'nodes' as usize in {name}"))?;
-    let num_arcs = map
-        .get("arcs")
-        .with_context(|| format!("Missing 'arcs' property in {name}"))?
-        .parse::<u64>()
-        .with_context(|| format!("Cannot parse 'arcs' as u64 in {name}"))?;
-    let serializer = map
-        .get("serializer")
-        .with_context(|| format!("Missing 'serializer' property in {name}"))?
-        .to_string();
-
     Ok(LabelProperties {
-        num_nodes,
-        num_arcs,
-        serializer,
+        num_nodes: parse_property(&map, "nodes", &path)?,
+        num_arcs: parse_property(&map, "arcs", &path)?,
+        serializer: parse_property(&map, "serializer", &path)?,
     })
 }
 
 /// Reads the `.properties` file and returns the number of nodes, number of arcs, and compression
 /// flags for the graph. The endianness is checked against the expected one.
 pub fn parse_properties<E: Endianness>(path: impl AsRef<Path>) -> Result<(usize, u64, CompFlags)> {
-    let name = path.as_ref().display();
-    let f =
-        std::fs::File::open(&path).with_context(|| format!("Cannot open property file {name}"))?;
-    let map = java_properties::read(BufReader::new(f))
-        .with_context(|| format!("cannot parse {name} as a java properties file"))?;
-
-    let num_nodes = map
-        .get("nodes")
-        .with_context(|| format!("Missing 'nodes' property in {name}"))?
-        .parse::<usize>()
-        .with_context(|| format!("Cannot parse 'nodes' as usize in {name}"))?;
-    let num_arcs = map
-        .get("arcs")
-        .with_context(|| format!("Missing 'arcs' property in {name}"))?
-        .parse::<u64>()
-        .with_context(|| format!("Cannot parse arcs as u64 in {name}"))?;
-
+    let path = path.as_ref();
+    let map = read_properties(path)?;
     let comp_flags = CompFlags::from_properties::<E>(&map)
-        .with_context(|| format!("Cannot parse compression flags from {name}"))?;
-    Ok((num_nodes, num_arcs, comp_flags))
+        .with_context(|| format!("Cannot parse compression flags from {}", path.display()))?;
+    Ok((
+        parse_property(&map, "nodes", path)?,
+        parse_property(&map, "arcs", path)?,
+        comp_flags,
+    ))
 }

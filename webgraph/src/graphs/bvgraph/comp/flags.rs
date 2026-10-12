@@ -54,6 +54,15 @@ impl core::default::Default for CompFlags {
     }
 }
 
+/// The names of the five codes in the `compressionflags` property.
+pub(crate) const CODE_NAMES: [&str; 5] = [
+    "OUTDEGREES",
+    "REFERENCES",
+    "BLOCKS",
+    "INTERVALS",
+    "RESIDUALS",
+];
+
 const OLD_CODES: [Codes; 10] = [
     Codes::Unary,
     Codes::Gamma,
@@ -133,12 +142,31 @@ impl CompFlags {
         }
     }
 
+    /// Returns the five codes, in the order of [`CODE_NAMES`].
+    pub(crate) const fn codes(&self) -> [Codes; 5] {
+        [
+            self.outdegrees,
+            self.references,
+            self.blocks,
+            self.intervals,
+            self.residuals,
+        ]
+    }
+
+    /// Returns mutable references to the five codes, in the order of
+    /// [`CODE_NAMES`].
+    const fn codes_mut(&mut self) -> [&mut Codes; 5] {
+        [
+            &mut self.outdegrees,
+            &mut self.references,
+            &mut self.blocks,
+            &mut self.intervals,
+            &mut self.residuals,
+        ]
+    }
+
     fn contains_new_codes(&self) -> bool {
-        !OLD_CODES.contains(&self.outdegrees)
-            || !OLD_CODES.contains(&self.references)
-            || !OLD_CODES.contains(&self.blocks)
-            || !OLD_CODES.contains(&self.intervals)
-            || !OLD_CODES.contains(&self.residuals)
+        self.codes().iter().any(|code| !OLD_CODES.contains(code))
     }
 
     pub fn to_properties<E: Endianness>(&self, stats: &super::CompStats) -> Result<String> {
@@ -195,90 +223,40 @@ impl CompFlags {
             ));
         }
 
-        s.push_str("compressionflags=");
-        let mut comp_flags = false;
-        if self.outdegrees != Codes::Gamma {
-            s.push_str(&format!(
-                "OUTDEGREES_{}|",
-                Self::code_to_str(self.outdegrees, version).with_context(|| format!(
-                    "Code {:?} is not supported for outdegrees in version {version}",
-                    self.outdegrees
-                ))?
-            ));
-            comp_flags = true;
-        }
-        if self.references != Codes::Unary {
-            s.push_str(&format!(
-                "REFERENCES_{}|",
-                Self::code_to_str(self.references, version).with_context(|| format!(
-                    "Code {:?} is not supported for references in version {version}",
-                    self.references
-                ))?
-            ));
-            comp_flags = true;
-        }
-        if self.blocks != Codes::Gamma {
-            s.push_str(&format!(
-                "BLOCKS_{}|",
-                Self::code_to_str(self.blocks, version).with_context(|| format!(
-                    "Code {:?} is not supported for blocks in version {version}",
-                    self.blocks
-                ))?
-            ));
-            comp_flags = true;
-        }
-        if self.intervals != Codes::Gamma {
-            s.push_str(&format!(
-                "INTERVALS_{}|",
-                Self::code_to_str(self.intervals, version).with_context(|| format!(
-                    "Code {:?} is not supported for intervals in version {version}",
-                    self.intervals
-                ))?
-            ));
-            comp_flags = true;
-        }
-        if (version == 0 && !matches!(self.residuals, Codes::Zeta(_)))
-            || self.residuals != (Codes::Zeta(3))
+        // Only codes different from the default ones are listed
+        let mut comp_flags = vec![];
+        for ((name, code), default) in CODE_NAMES
+            .into_iter()
+            .zip(self.codes())
+            .zip(Self::default().codes())
         {
-            s.push_str(&format!(
-                "RESIDUALS_{}|",
-                Self::code_to_str(self.residuals, version).with_context(|| format!(
-                    "Code {:?} is not supported for residuals in version {version}",
-                    self.residuals
-                ))?
-            ));
-            comp_flags = true;
+            if code != default {
+                let code_str = Self::code_to_str(code, version).with_context(|| {
+                    format!(
+                        "Code {code:?} is not supported for {} in version {version}",
+                        name.to_lowercase()
+                    )
+                })?;
+                comp_flags.push(format!("{name}_{code_str}"));
+            }
         }
-        if comp_flags {
-            s.pop();
-        }
-        s.push('\n');
+        s.push_str(&format!("compressionflags={}\n", comp_flags.join("|")));
         if version == 0 {
             // check that if a k is specified, it is the same for all codes
             let mut k = None;
-            macro_rules! check_and_set_k {
-                ($code:expr) => {
-                    match $code {
-                        Codes::Zeta(new_k) => {
-                            if let Some(old_k) = k {
-                                ensure!(
-                                    old_k == new_k,
-                                    "Only one value of k is supported in version 0 \
-                                     (the Java-compatible 'zetak' property is global); \
-                                     got both zeta_{old_k} and zeta_{new_k}"
-                                )
-                            }
-                            k = Some(new_k)
-                        }
-                        _ => {}
+            for code in self.codes() {
+                if let Codes::Zeta(new_k) = code {
+                    if let Some(old_k) = k {
+                        ensure!(
+                            old_k == new_k,
+                            "Only one value of k is supported in version 0 \
+                             (the Java-compatible 'zetak' property is global); \
+                             got both zeta_{old_k} and zeta_{new_k}"
+                        )
                     }
-                };
+                    k = Some(new_k)
+                }
             }
-            check_and_set_k!(self.outdegrees);
-            check_and_set_k!(self.references);
-            check_and_set_k!(self.blocks);
-            check_and_set_k!(self.intervals);
-            check_and_set_k!(self.residuals);
             // if no k was specified, use the default one (3)
             s.push_str(&format!("zetak={}\n", k.unwrap_or(3)));
         }
@@ -288,12 +266,7 @@ impl CompFlags {
     /// Convert the decoded `.properties` file into a `CompFlags` struct.
     /// Also check that the endianness is correct.
     pub fn from_properties<E: Endianness>(map: &HashMap<String, String>) -> Result<Self> {
-        // Default values, same as the Java class
-        let endianness = map
-            .get("endianness")
-            .map(|x| x.to_string())
-            .unwrap_or_else(|| BigEndian::NAME.to_string());
-
+        let endianness = super::super::endianness_property(map);
         anyhow::ensure!(
             endianness == E::NAME,
             "Wrong endianness, got {} while expected {}",
@@ -331,16 +304,14 @@ impl CompFlags {
                         .with_context(|| format!("Invalid compression flag {flag}"))?;
                     let code = CompFlags::code_from_str(code, k)
                         .with_context(|| format!("Unknown code in compression flag {flag}"))?;
-                    match name {
-                        "OUTDEGREES" => cf.outdegrees = code,
-                        "REFERENCES" => cf.references = code,
-                        "BLOCKS" => cf.blocks = code,
-                        "INTERVALS" => cf.intervals = code,
-                        "RESIDUALS" => cf.residuals = code,
-                        "OFFSETS" => {
-                            ensure!(code == Codes::Gamma, "Only γ code is supported for offsets")
-                        }
-                        _ => bail!("Unknown compression flag {}", flag),
+                    if name == "OFFSETS" {
+                        ensure!(code == Codes::Gamma, "Only γ code is supported for offsets");
+                    } else {
+                        let i = CODE_NAMES
+                            .iter()
+                            .position(|&n| n == name)
+                            .with_context(|| format!("Unknown compression flag {flag}"))?;
+                        *cf.codes_mut()[i] = code;
                     }
                 }
             }

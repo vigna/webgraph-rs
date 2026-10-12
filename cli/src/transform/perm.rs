@@ -6,10 +6,7 @@
 
 use crate::*;
 use anyhow::Result;
-use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use std::path::PathBuf;
-use tempfile::Builder;
-use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "perm", about = "Permutes a graph in the BV format according to a given permutation.", long_about = None, next_line_help = true)]
@@ -48,67 +45,19 @@ pub struct CliArgs {
     pub log_interval: LogIntervalArg,
 }
 
+/// Delegates to [`to bvgraph`](crate::to::bvgraph), which can apply a
+/// permutation while compressing a graph.
 pub fn main(args: CliArgs) -> Result<()> {
-    create_parent_dir(&args.dst)?;
-
-    match get_endianness(&args.src)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => perm::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => perm::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
-}
-
-pub fn perm<E: Endianness>(args: CliArgs) -> Result<()>
-where
-    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
-    for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,
-{
-    let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
-    let sequential = args.sequential;
-    let use_dcf = args.dcf;
-    let src = args.src.clone();
-    let target_endianness = args.ca.endianness.clone();
-    let memory_usage = args.memory_usage.memory_usage;
-    let log_interval = args.log_interval.log_interval;
-
-    let dir = Builder::new().prefix("transform_perm_").tempdir()?;
-    let chunk_size = args.ca.chunk_size;
-    let bvgraphz = args.ca.bvgraphz;
-    let mut builder = BvCompConf::new(&args.dst)
-        .comp_flags(args.ca.into())
-        .tmp_dir(&dir);
-
-    if bvgraphz {
-        builder = builder.chunk_size(chunk_size);
-    }
-
-    let loaded = args.fmt.load(&args.permutation)?;
-    if sequential {
-        dispatch_int_slice!(loaded, |perm| {
-            crate::to::bvgraph::compress_seq_with_perm::<E, _>(
-                thread_pool,
-                builder,
-                &src,
-                target_endianness,
-                memory_usage,
-                log_interval,
-                perm,
-            )
-        })
-    } else {
-        dispatch_int_slice!(loaded, |perm| {
-            crate::to::bvgraph::compress_par_with_perm::<E, _>(
-                thread_pool,
-                builder,
-                &src,
-                target_endianness,
-                memory_usage,
-                use_dcf,
-                log_interval,
-                perm,
-            )
-        })
-    }
+    crate::to::bvgraph::main(crate::to::bvgraph::CliArgs {
+        src: args.src,
+        dst: args.dst,
+        num_threads: args.num_threads,
+        permutation: Some(args.permutation),
+        fmt: args.fmt,
+        sequential: args.sequential,
+        dcf: args.dcf,
+        memory_usage: args.memory_usage,
+        ca: args.ca,
+        log_interval: args.log_interval,
+    })
 }

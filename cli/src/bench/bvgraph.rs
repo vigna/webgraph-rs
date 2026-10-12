@@ -56,33 +56,10 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    let properties_path = args.basename.with_extension("properties");
-    let (num_nodes, num_arcs, _) = match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => webgraph::graphs::bvgraph::parse_properties::<BE>(&properties_path)?,
-        #[cfg(feature = "le_bins")]
-        LE::NAME => webgraph::graphs::bvgraph::parse_properties::<LE>(&properties_path)?,
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    };
-    // Random sampling panics on an empty node range and the per-arc timings
-    // divide by the number of arcs.
-    anyhow::ensure!(
-        num_nodes > 0 && num_arcs > 0,
-        "Cannot benchmark a graph with no nodes or no arcs"
-    );
-    match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => match args._static {
-            true => bench_webgraph::<BE, Static>(args),
-            false => bench_webgraph::<BE, Dynamic>(args),
-        },
-        #[cfg(feature = "le_bins")]
-        LE::NAME => match args._static {
-            true => bench_webgraph::<LE, Static>(args),
-            false => bench_webgraph::<LE, Dynamic>(args),
-        },
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.basename, |E| match args._static {
+        true => bench_webgraph::<E, Static>(args),
+        false => bench_webgraph::<E, Dynamic>(args),
+    })
 }
 
 fn bench_random(graph: impl RandomAccessGraph, samples: usize, repeats: usize, first: bool) {
@@ -145,6 +122,47 @@ where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
+    let (num_nodes, num_arcs, _) =
+        parse_properties::<E>(args.basename.with_extension(PROPERTIES_EXTENSION))?;
+    // Random sampling panics on an empty node range and the per-arc timings
+    // divide by the number of arcs.
+    anyhow::ensure!(
+        num_nodes > 0 && num_arcs > 0,
+        "Cannot benchmark a graph with no nodes or no arcs"
+    );
+
+    // Benchmarks random access with the given dispatch.
+    macro_rules! bench_random {
+        ($dispatch:ty, $samples:expr) => {{
+            let graph = BvGraph::with_basename(&args.basename)
+                .endianness::<E>()
+                .dispatch::<$dispatch>()
+                .mode::<Mmap>()
+                .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
+                .load()?;
+            if args.slice {
+                bench_random(graph.offsets_to_slice(), $samples, args.repeats, args.first);
+            } else {
+                bench_random(graph, $samples, args.repeats, args.first);
+            }
+        }};
+    }
+
+    // Benchmarks sequential access with the given dispatch.
+    macro_rules! bench_seq {
+        ($dispatch:ty) => {
+            bench_seq(
+                BvGraphSeq::with_basename(&args.basename)
+                    .endianness::<E>()
+                    .dispatch::<$dispatch>()
+                    .mode::<Mmap>()
+                    .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::SEQUENTIAL)
+                    .load()?,
+                args.repeats,
+            )
+        };
+    }
+
     if args.check {
         let graph = BvGraph::with_basename(&args.basename)
             .endianness::<E>()
@@ -188,84 +206,10 @@ where
             args.random,
             std::any::TypeId::of::<D>() == std::any::TypeId::of::<Dynamic>(),
         ) {
-            (Some(samples), true) => {
-                if args.slice {
-                    bench_random(
-                        BvGraph::with_basename(&args.basename)
-                            .endianness::<E>()
-                            .dispatch::<Dynamic>()
-                            .mode::<Mmap>()
-                            .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
-                            .load()?
-                            .offsets_to_slice(),
-                        samples,
-                        args.repeats,
-                        args.first,
-                    );
-                } else {
-                    bench_random(
-                        BvGraph::with_basename(&args.basename)
-                            .endianness::<E>()
-                            .dispatch::<Dynamic>()
-                            .mode::<Mmap>()
-                            .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
-                            .load()?,
-                        samples,
-                        args.repeats,
-                        args.first,
-                    );
-                }
-            }
-            (Some(samples), false) => {
-                if args.slice {
-                    bench_random(
-                        BvGraph::with_basename(&args.basename)
-                            .endianness::<E>()
-                            .dispatch::<Static>()
-                            .mode::<Mmap>()
-                            .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
-                            .load()?
-                            .offsets_to_slice(),
-                        samples,
-                        args.repeats,
-                        args.first,
-                    );
-                } else {
-                    bench_random(
-                        BvGraph::with_basename(&args.basename)
-                            .endianness::<E>()
-                            .dispatch::<Static>()
-                            .mode::<Mmap>()
-                            .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
-                            .load()?,
-                        samples,
-                        args.repeats,
-                        args.first,
-                    );
-                }
-            }
-            (None, true) => {
-                bench_seq(
-                    BvGraphSeq::with_basename(&args.basename)
-                        .endianness::<E>()
-                        .dispatch::<Dynamic>()
-                        .mode::<Mmap>()
-                        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::SEQUENTIAL)
-                        .load()?,
-                    args.repeats,
-                );
-            }
-            (None, false) => {
-                bench_seq(
-                    BvGraphSeq::with_basename(&args.basename)
-                        .endianness::<E>()
-                        .dispatch::<Static>()
-                        .mode::<Mmap>()
-                        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::SEQUENTIAL)
-                        .load()?,
-                    args.repeats,
-                );
-            }
+            (Some(samples), true) => bench_random!(Dynamic, samples),
+            (Some(samples), false) => bench_random!(Static, samples),
+            (None, true) => bench_seq!(Dynamic),
+            (None, false) => bench_seq!(Static),
         }
     }
     Ok(())

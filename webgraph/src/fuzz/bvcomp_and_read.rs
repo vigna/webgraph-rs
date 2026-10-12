@@ -8,7 +8,7 @@
 //! Fuzz in-memory compression and reading of bvcomp graphs. This is fast but
 //! uses low-level constructs.
 
-use crate::fuzz::utils::CompFlagsFuzz;
+use crate::fuzz::utils::{CompFlagsFuzz, graph_from_edges};
 use crate::prelude::*;
 use arbitrary::Arbitrary;
 use dsi_bitstream::prelude::*;
@@ -16,6 +16,49 @@ use lender::prelude::*;
 use sux::prelude::*;
 use sux::traits::TryIntoUnaligned;
 use value_traits::slices::SliceByValue;
+
+/// Compresses a graph in memory with the given endianness, returning the
+/// bitstream and the offsets.
+macro_rules! compress {
+    ($E:ty, $graph:expr, $comp_flags:expr) => {{
+        let comp_flags = $comp_flags;
+        let mut codes_data: Vec<u64> = Vec::new();
+        let mut offsets: Vec<u8> = vec![];
+        {
+            let bit_writer = <BufBitWriter<$E, _>>::new(MemWordWriterVec::new(&mut codes_data));
+            let codes_writer = <DynCodesEncoder<$E, _>>::new(bit_writer, &comp_flags).unwrap();
+            let offsets_writer = OffsetsWriter::from_write(&mut offsets, true).unwrap();
+            let mut bvcomp = BvComp::new(
+                codes_writer,
+                offsets_writer,
+                comp_flags.compression_window,
+                comp_flags.max_ref_count,
+                comp_flags.min_interval_length,
+                0,
+                (),
+            );
+            bvcomp.extend(UnitLabelLender($graph.iter())).unwrap();
+            bvcomp.flush().unwrap();
+        }
+        (codes_data, offsets)
+    }};
+}
+
+/// Converts a slice of `u64` into a slice of `u32`, for a faster reader.
+///
+/// # Safety
+///
+/// The caller must guarantee that `data` outlives the returned slice.
+unsafe fn as_u32<'a>(data: &[u64]) -> &'a [u32] {
+    // SAFETY: u32 has smaller alignment than u64, and the length is scaled
+    // accordingly.
+    unsafe {
+        core::slice::from_raw_parts(
+            data.as_ptr() as *const u32,
+            data.len() * (core::mem::size_of::<u64>() / core::mem::size_of::<u32>()),
+        )
+    }
+}
 
 #[derive(Arbitrary, Debug)]
 pub struct FuzzCase {
@@ -25,67 +68,13 @@ pub struct FuzzCase {
 
 pub fn harness(data: FuzzCase) {
     let comp_flags = data.compression_flags.into();
-    // convert the edges to a graph
-    let mut edges = data
-        .edges
-        .into_iter()
-        .map(|(src, dst)| (src as usize, dst as usize))
-        .collect::<Vec<_>>();
-    edges.sort();
-    let graph = BTreeGraph::from_arcs(edges);
-    // Compress in big endian
-    let mut codes_data_be: Vec<u64> = Vec::new();
-    let mut offsets_be: Vec<u8> = vec![];
-    {
-        let bit_writer = <BufBitWriter<BE, _>>::new(MemWordWriterVec::new(&mut codes_data_be));
-        let codes_writer = <DynCodesEncoder<BE, _>>::new(bit_writer, &comp_flags).unwrap();
-        let offsets_writer = OffsetsWriter::from_write(&mut offsets_be, true).unwrap();
-        let mut bvcomp = BvComp::new(
-            codes_writer,
-            offsets_writer,
-            comp_flags.compression_window,
-            comp_flags.max_ref_count,
-            comp_flags.min_interval_length,
-            0,
-            (),
-        );
-        bvcomp.extend(UnitLabelLender(graph.iter())).unwrap();
-        bvcomp.flush().unwrap();
-    }
-    // Compress in little endian
-    let mut codes_data_le: Vec<u64> = Vec::new();
-    let mut offsets_le: Vec<u8> = vec![];
-    {
-        let bit_writer = <BufBitWriter<LE, _>>::new(MemWordWriterVec::new(&mut codes_data_le));
-        let codes_writer = <DynCodesEncoder<LE, _>>::new(bit_writer, &comp_flags).unwrap();
-        let offsets_writer = OffsetsWriter::from_write(&mut offsets_le, true).unwrap();
-        let mut bvcomp = BvComp::new(
-            codes_writer,
-            offsets_writer,
-            comp_flags.compression_window,
-            comp_flags.max_ref_count,
-            comp_flags.min_interval_length,
-            0,
-            (),
-        );
-        bvcomp.extend(UnitLabelLender(graph.iter())).unwrap();
-        bvcomp.flush().unwrap();
-    }
+    let graph = graph_from_edges(data.edges);
+    let (codes_data_be, offsets_be) = compress!(BE, graph, comp_flags);
+    let (codes_data_le, offsets_le) = compress!(LE, graph, comp_flags);
     assert_eq!(codes_data_be.len(), codes_data_le.len());
-
-    // convert to u32 for faster reader
-    let data_be: &[u32] = unsafe {
-        core::slice::from_raw_parts(
-            codes_data_be.as_ptr() as *const u32,
-            codes_data_be.len() * (core::mem::size_of::<u64>() / core::mem::size_of::<u32>()),
-        )
-    };
-    let data_le: &[u32] = unsafe {
-        core::slice::from_raw_parts(
-            codes_data_le.as_ptr() as *const u32,
-            codes_data_le.len() * (core::mem::size_of::<u64>() / core::mem::size_of::<u32>()),
-        )
-    };
+    // SAFETY: the data lives until the end of the function.
+    let data_be = unsafe { as_u32(&codes_data_be) };
+    let data_le = unsafe { as_u32(&codes_data_le) };
     // create code reader builders
     let codes_reader_be = <DynCodesDecoderFactory<BE, _, _>>::new(
         MemoryFactory::from_data(data_be),

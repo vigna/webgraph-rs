@@ -95,7 +95,7 @@ mod mix64;
 /// Stopping predicates for LLP.
 pub mod preds;
 
-const RAYON_MIN_LEN: usize = 100000;
+use sux::RAYON_MIN_LEN;
 // This is a bit ugly but prevents from mistakenly interpreting the gap cost
 // files as labels files.
 const GAP_COST_EXTENSION: &str = "gap";

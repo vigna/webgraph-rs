@@ -5,7 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
-use crate::{impl_parallel_from_split, prelude::*};
+use crate::graphs::{impl_into_lender, impl_split};
+use crate::prelude::*;
 use lender::*;
 use value_traits::slices::SliceByValue;
 
@@ -78,28 +79,11 @@ impl<G: SequentialGraph, P: SliceByValue<Value = usize>> SequentialLabeling
     }
 }
 
-impl<'b, G: SequentialGraph + SplitLabeling, P: SliceByValue<Value = usize> + Send + Sync + Clone>
-    SplitLabeling for PermutedGraph<'b, G, P>
-where
-    for<'a> <G as SequentialLabeling>::Lender<'a>: Clone + ExactSizeLender + Send + Sync,
-{
-    type SplitLender<'a>
-        = split::seq::Lender<'a, PermutedGraph<'b, G, P>>
-    where
-        Self: 'a;
-    type IntoIterator<'a>
-        = split::seq::IntoIterator<'a, PermutedGraph<'b, G, P>>
-    where
-        Self: 'a;
-
-    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
-        split::seq::Iter::new(self.iter(), cutpoints)
-    }
-}
-
-impl_parallel_from_split!(
+impl_split!(
+    seq
     ['b, G: SequentialGraph + SplitLabeling, P: SliceByValue<Value = usize> + Send + Sync + Clone]
     PermutedGraph<'b, G, P>
+    [for<'a> <G as SequentialLabeling>::Lender<'a>: Clone + ExactSizeLender + Send + Sync]
     [for<'a> <G as SequentialLabeling>::Lender<'a>: Clone + ExactSizeLender + lender::FusedLender + Send + Sync]
 );
 
@@ -108,16 +92,7 @@ impl<G: SequentialGraph, P: SliceByValue<Value = usize>> SequentialGraph
 {
 }
 
-impl<'a, 'b, G: SequentialGraph, P: SliceByValue<Value = usize>> IntoLender
-    for &'b PermutedGraph<'a, G, P>
-{
-    type Lender = <PermutedGraph<'a, G, P> as SequentialLabeling>::Lender<'b>;
-
-    #[inline(always)]
-    fn into_lender(self) -> Self::Lender {
-        self.iter()
-    }
-}
+impl_into_lender!(['a, G: SequentialGraph, P: SliceByValue<Value = usize>] PermutedGraph<'a, G, P>);
 
 /// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes.
 #[derive(Debug, Clone)]
@@ -232,17 +207,10 @@ fn test_permuted_graph() -> anyhow::Result<()> {
         graph: &g,
         perm: &[2, 0, 1],
     };
-    assert_eq!(p.num_nodes(), 3);
     assert_eq!(p.get_num_arcs(), Some(4));
-    let v = VecGraph::from_lender(p.iter());
-
-    assert_eq!(v.num_nodes(), 3);
-    assert_eq!(v.outdegree(0), 1);
-    assert_eq!(v.outdegree(1), 2);
-    assert_eq!(v.outdegree(2), 1);
-    assert_eq!(v.successors(0).collect::<Vec<_>>(), vec![1]);
-    assert_eq!(v.successors(1).collect::<Vec<_>>(), vec![0, 2]);
-    assert_eq!(v.successors(2).collect::<Vec<_>>(), vec![0]);
-
+    crate::traits::graph::eq(
+        &VecGraph::from_lender(p.iter()),
+        &VecGraph::from_arcs([(0, 1), (1, 0), (1, 2), (2, 0)]),
+    )?;
     Ok(())
 }

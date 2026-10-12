@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
+use crate::graphs::impl_into_lender;
 use crate::{impl_parallel_from_split, prelude::*};
 use lender::*;
 
@@ -138,25 +139,16 @@ where
 {
 }
 
-/// Convenience implementation that makes it possible to iterate
-/// over the graph using the [`for_`] macro
-/// (see the [crate documentation]).
-///
-/// [crate documentation]: crate
-impl<'c, G: SequentialGraph, H: SequentialGraph> IntoLender for &'c UnionGraph<G, H>
-where
-    for<'a> G::Lender<'a>: SortedLender + Clone,
-    for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
-    for<'a> H::Lender<'a>: SortedLender + Clone,
-    for<'a, 'b> LenderIntoIter<'b, H::Lender<'a>>: SortedIterator,
-{
-    type Lender = <UnionGraph<G, H> as SequentialLabeling>::Lender<'c>;
-
-    #[inline(always)]
-    fn into_lender(self) -> Self::Lender {
-        self.iter()
-    }
-}
+impl_into_lender!(
+    [G: SequentialGraph, H: SequentialGraph]
+    UnionGraph<G, H>
+    [
+        for<'a> G::Lender<'a>: SortedLender + Clone,
+        for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
+        for<'a> H::Lender<'a>: SortedLender + Clone,
+        for<'a, 'b> LenderIntoIter<'b, H::Lender<'a>>: SortedIterator,
+    ]
+);
 
 #[doc(hidden)]
 #[derive(Debug, Clone)]
@@ -325,33 +317,29 @@ mod tests {
                 (6, 6),
             ]),
         ];
+        let expected = VecGraph::from_arcs([
+            (0, 1),
+            (0, 3),
+            (1, 2),
+            (1, 3),
+            (2, 0),
+            (2, 1),
+            (2, 2),
+            (2, 3),
+            (2, 4),
+            (3, 4),
+            (3, 5),
+            (4, 0),
+            (4, 1),
+            (5, 1),
+            (5, 2),
+            (6, 6),
+        ]);
         for i in 0..2 {
-            let union = UnionGraph(g[i].clone(), g[1 - i].clone());
-            assert_eq!(union.num_nodes(), 7);
-
-            let mut iter = union.iter();
-            let Some((x, s)) = iter.next() else { panic!() };
-            assert_eq!(x, 0);
-            assert_eq!(s.collect::<Vec<_>>(), vec![1, 3]);
-            let Some((x, s)) = iter.next() else { panic!() };
-            assert_eq!(x, 1);
-            assert_eq!(s.collect::<Vec<_>>(), vec![2, 3]);
-            let Some((x, s)) = iter.next() else { panic!() };
-            assert_eq!(x, 2);
-            assert_eq!(s.collect::<Vec<_>>(), vec![0, 1, 2, 3, 4]);
-            let Some((x, s)) = iter.next() else { panic!() };
-            assert_eq!(x, 3);
-            assert_eq!(s.collect::<Vec<_>>(), vec![4, 5]);
-            let Some((x, s)) = iter.next() else { panic!() };
-            assert_eq!(x, 4);
-            assert_eq!(s.collect::<Vec<_>>(), vec![0, 1]);
-            let Some((x, s)) = iter.next() else { panic!() };
-            assert_eq!(x, 5);
-            assert_eq!(s.collect::<Vec<_>>(), vec![1, 2]);
-            let Some((x, s)) = iter.next() else { panic!() };
-            assert_eq!(x, 6);
-            assert_eq!(s.collect::<Vec<_>>(), vec![6]);
-            assert!(iter.next().is_none());
+            crate::traits::labels::eq_sorted(
+                &UnionGraph(g[i].clone(), g[1 - i].clone()),
+                &expected,
+            )?;
         }
         Ok(())
     }

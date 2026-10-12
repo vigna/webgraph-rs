@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
-use crate::{IntSlice, IntSliceFormat, create_parent_dir};
+use crate::{IntSlice, IntSliceFormat};
 use anyhow::Result;
 use clap::Parser;
 use std::path::PathBuf;
@@ -46,8 +46,6 @@ fn collect_and_store(
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    create_parent_dir(&args.dst)?;
-
     let loaded = args.src_fmt.load(&args.src)?;
     log::info!(
         "Loaded {} elements from {}",

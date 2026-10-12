@@ -11,7 +11,6 @@ use anyhow::Result;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use dsi_progress_logger::prelude::*;
 use std::path::PathBuf;
-use tempfile::Builder;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -61,28 +60,39 @@ pub struct CliArgs {
     pub log_interval: LogIntervalArg,
 }
 
+/// Compresses the union of a graph and its transpose, possibly removing
+/// self-loops.
+macro_rules! compress_union {
+    ($graph:expr, $graph_t:expr, $no_loops:expr, $builder:expr, $thread_pool:expr, $target_endianness:expr, $log_interval:expr) => {{
+        let (graph, graph_t) = ($graph, $graph_t);
+        anyhow::ensure!(
+            graph_t.num_nodes() == graph.num_nodes(),
+            "The number of nodes in the graph and its transpose do not match! {} != {}",
+            graph.num_nodes(),
+            graph_t.num_nodes()
+        );
+        let mut pl = progress_logger![display_memory = true, log_interval = $log_interval];
+        let mut builder = $builder.progress_logger(&mut pl);
+        if $no_loops {
+            let union = NoSelfLoopsGraph(UnionGraph(graph, graph_t));
+            $thread_pool.install(|| par_comp!(builder, &union, $target_endianness))?;
+        } else {
+            let union = UnionGraph(graph, graph_t);
+            $thread_pool.install(|| par_comp!(builder, &union, $target_endianness))?;
+        }
+    }};
+}
+
 pub fn main(args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
-    match get_endianness(&args.src)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => {
-            if args.sequential {
-                symmetrize_seq::<BE>(args)
-            } else {
-                symmetrize_par::<BE>(args)
-            }
+    dispatch_endianness!(&args.src, |E| {
+        if args.sequential {
+            symmetrize_seq::<E>(args)
+        } else {
+            symmetrize_par::<E>(args)
         }
-        #[cfg(feature = "le_bins")]
-        LE::NAME => {
-            if args.sequential {
-                symmetrize_seq::<LE>(args)
-            } else {
-                symmetrize_par::<LE>(args)
-            }
-        }
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    })
 }
 
 /// Parallel version of [`symmetrize_seq`].
@@ -92,55 +102,25 @@ where
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,
 {
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
-    let use_dcf = args.dcf;
     let no_loops = args.no_loops;
-    let src = args.src.clone();
     let log_interval = args.log_interval.log_interval;
-
-    let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
-
-    let dir = Builder::new().prefix("transform_symmetrize_").tempdir()?;
-    let chunk_size = args.ca.chunk_size;
-    let bvgraphz = args.ca.bvgraphz;
-    let mut builder = BvCompConf::new(&args.dst)
-        .comp_flags(args.ca.into())
-        .tmp_dir(&dir);
-
-    if bvgraphz {
-        builder = builder.chunk_size(chunk_size);
-    }
+    let target_endianness = args.ca.target_endianness::<E>();
+    let builder = args.ca.bv_comp_conf(&args.dst);
 
     match (args.permutation, args.transpose) {
         // Load the transposed graph and use it to directly compress the graph
         // without doing any sorting
         (None, Some(t_path)) => {
             log::info!("Transposed graph provided, using it to symmetrize the graph");
-
-            let graph = webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(&args.src)
-                .endianness::<E>()
-                .load()?;
-            let num_nodes = graph.num_nodes();
-            let graph_t = webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(&t_path)
-                .endianness::<E>()
-                .load()?;
-
-            if graph_t.num_nodes() != num_nodes {
-                anyhow::bail!(
-                    "The number of nodes in the graph and its transpose do not match! {} != {}",
-                    num_nodes,
-                    graph_t.num_nodes()
-                );
-            }
-
-            let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
-            let mut builder = builder.progress_logger(&mut pl);
-            if no_loops {
-                let union = NoSelfLoopsGraph(UnionGraph(graph, graph_t));
-                thread_pool.install(|| par_comp!(builder, &union, target_endianness))?;
-            } else {
-                let union = UnionGraph(graph, graph_t);
-                thread_pool.install(|| par_comp!(builder, &union, target_endianness))?;
-            }
+            compress_union!(
+                BvGraph::with_basename(&args.src).endianness::<E>().load()?,
+                BvGraph::with_basename(&t_path).endianness::<E>().load()?,
+                no_loops,
+                builder,
+                thread_pool,
+                target_endianness,
+                log_interval
+            );
         }
         // apply the permutation, don't care if the transposed graph is already computed
         // as we cannot really exploit it
@@ -164,7 +144,13 @@ where
                         .load()?;
                 let num_nodes = graph.num_nodes();
 
-                let cp = crate::cutpoints(&src, num_nodes, graph.get_num_arcs(), use_dcf)?;
+                let cp = crate::cutpoints(
+                    &args.src,
+                    num_nodes,
+                    graph.get_num_arcs(),
+                    args.dcf,
+                    thread_pool.current_num_threads(),
+                )?;
 
                 thread_pool.install(|| {
                     let mut pl =
@@ -242,82 +228,55 @@ where
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
     let no_loops = args.no_loops;
     let log_interval = args.log_interval.log_interval;
+    let memory_usage = args.memory_usage.memory_usage;
+    let target_endianness = args.ca.target_endianness::<E>();
+    let builder = args.ca.bv_comp_conf(&args.dst);
 
-    let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
-
-    let dir = Builder::new().prefix("transform_symmetrize_").tempdir()?;
-    let chunk_size = args.ca.chunk_size;
-    let bvgraphz = args.ca.bvgraphz;
-    let mut builder = BvCompConf::new(&args.dst)
-        .comp_flags(args.ca.into())
-        .tmp_dir(&dir);
-
-    if bvgraphz {
-        builder = builder.chunk_size(chunk_size);
+    // Symmetrizes sequentially a graph and compresses the result.
+    macro_rules! symmetrize_and_compress {
+        ($graph:expr) => {{
+            let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
+            if no_loops {
+                let sorted =
+                    webgraph::transform::symmetrize_seq::<true>($graph, memory_usage, &mut pl)?;
+                let mut builder = builder.progress_logger(&mut pl);
+                thread_pool.install(|| par_comp!(builder, sorted, target_endianness))
+            } else {
+                let sorted =
+                    webgraph::transform::symmetrize_seq::<false>($graph, memory_usage, &mut pl)?;
+                let mut builder = builder.progress_logger(&mut pl);
+                thread_pool.install(|| par_comp!(builder, sorted, target_endianness))
+            }
+        }};
     }
 
     match (args.permutation, args.transpose) {
         (None, Some(t_path)) => {
             log::info!("Transposed graph provided, using it to symmetrize the graph");
-
-            let seq_graph =
-                webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
+            compress_union!(
+                BvGraphSeq::with_basename(&args.src)
                     .endianness::<E>()
-                    .load()?;
-            let num_nodes = seq_graph.num_nodes();
-            let seq_graph_t =
-                webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&t_path)
+                    .load()?,
+                BvGraphSeq::with_basename(&t_path)
                     .endianness::<E>()
-                    .load()?;
-
-            if seq_graph_t.num_nodes() != num_nodes {
-                anyhow::bail!(
-                    "The number of nodes in the graph and its transpose do not match! {} != {}",
-                    num_nodes,
-                    seq_graph_t.num_nodes()
-                );
-            }
-
-            let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
-            let mut builder = builder.progress_logger(&mut pl);
-            if no_loops {
-                let union = NoSelfLoopsGraph(UnionGraph(seq_graph, seq_graph_t));
-                thread_pool.install(|| par_comp!(builder, &union, target_endianness))?;
-            } else {
-                let union = UnionGraph(seq_graph, seq_graph_t);
-                thread_pool.install(|| par_comp!(builder, &union, target_endianness))?;
-            }
+                    .load()?,
+                no_loops,
+                builder,
+                thread_pool,
+                target_endianness,
+                log_interval
+            );
         }
         (Some(perm_path), None | Some(_)) => {
             log::info!("Permutation provided, applying it to the graph");
 
             let loaded = args.fmt.load(perm_path)?;
-            let memory_usage = args.memory_usage.memory_usage;
 
             dispatch_int_slice!(loaded, |perm| {
-                let seq_graph =
-                    webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
-                        .endianness::<E>()
-                        .load()?;
-                let perm_graph = PermutedGraph::new(&seq_graph, perm);
-                macro_rules! symmetrize_and_compress {
-                    ($no_loops:expr) => {{
-                        let mut pl =
-                            progress_logger![display_memory = true, log_interval = log_interval];
-                        let sorted = webgraph::transform::symmetrize_seq::<$no_loops>(
-                            &perm_graph,
-                            memory_usage,
-                            &mut pl,
-                        )?;
-                        let mut builder = builder.progress_logger(&mut pl);
-                        thread_pool.install(|| par_comp!(builder, sorted, target_endianness))
-                    }};
-                }
-                if no_loops {
-                    symmetrize_and_compress!(true)
-                } else {
-                    symmetrize_and_compress!(false)
-                }
+                let seq_graph = BvGraphSeq::with_basename(&args.src)
+                    .endianness::<E>()
+                    .load()?;
+                symmetrize_and_compress!(&PermutedGraph::new(&seq_graph, perm))
             })?;
         }
         (None, None) => {
@@ -325,29 +284,10 @@ where
                 "No permutation or transposed graph provided, computing the transpose on the fly"
             );
 
-            let seq_graph =
-                webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
-                    .endianness::<E>()
-                    .load()?;
-
-            macro_rules! symmetrize_and_compress {
-                ($no_loops:expr) => {{
-                    let mut pl =
-                        progress_logger![display_memory = true, log_interval = log_interval];
-                    let symmetrized = webgraph::transform::symmetrize_seq::<$no_loops>(
-                        &seq_graph,
-                        args.memory_usage.memory_usage,
-                        &mut pl,
-                    )?;
-                    let mut builder = builder.progress_logger(&mut pl);
-                    thread_pool.install(|| par_comp!(builder, symmetrized, target_endianness))?
-                }};
-            }
-            if no_loops {
-                symmetrize_and_compress!(true);
-            } else {
-                symmetrize_and_compress!(false);
-            }
+            let seq_graph = BvGraphSeq::with_basename(&args.src)
+                .endianness::<E>()
+                .load()?;
+            symmetrize_and_compress!(&seq_graph)?;
         }
     }
 

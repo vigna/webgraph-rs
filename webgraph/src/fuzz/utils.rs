@@ -52,3 +52,13 @@ impl From<CompFlagsFuzz> for CompFlags {
         }
     }
 }
+
+/// Converts a list of fuzzed arcs into a graph.
+pub(crate) fn graph_from_edges(edges: Vec<(u8, u8)>) -> crate::graphs::btree_graph::BTreeGraph {
+    let mut edges = edges
+        .into_iter()
+        .map(|(src, dst)| (src as usize, dst as usize))
+        .collect::<Vec<_>>();
+    edges.sort();
+    crate::graphs::btree_graph::BTreeGraph::from_arcs(edges)
+}

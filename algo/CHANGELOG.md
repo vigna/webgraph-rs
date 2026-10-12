@@ -4,6 +4,16 @@
 
 ### Changed
 
+- The ExactSumSweep outputs `output_symm::RadiusDiameter`,
+  `output_symm::Diameter`, and `output_symm::Radius`, returned by
+  `run_symm`, are now re-exports of `output::RadiusDiameter`,
+  `output::Diameter`, and `output::Radius`, respectively, returned by `run`,
+  as each pair had exactly the same fields. `output_symm::All` is still a
+  separate type, as it contains a single array of eccentricities.
+
+- `BiRank::new` now panics also if the transpose has a different number of
+  arcs than the graph.
+
 - License is now MIT or Apache.
 
 - Upgraded to `sux` 0.15.0, ε-serde 0.13.2, `lender` 0.8.0, and
@@ -38,6 +48,9 @@
   tie-breaker in `ExactSumSweep`.
 
 ### Fixed
+
+- Kosaraju's algorithm logged its second phase on a progress logger that
+  had already been stopped by the topological sort.
 
 - With node weights, `HyperBall` now seeds the radius-0 neighborhood
   function with the total weight (the exact number of elements loaded in

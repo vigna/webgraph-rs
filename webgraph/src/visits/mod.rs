@@ -43,10 +43,6 @@
 //! All visits have also methods accepting an `init` item similarly to the
 //! [Rayon] [`map_with`] method. For parallel visits, the item will be cloned.
 //!
-//! There is a blanket implementation of the [`Parallel`] trait for all types
-//! implementing the [`Sequential`] trait. This approach makes it possible to
-//! have structures that can use both sequential and parallel visits.
-//!
 //! Visit must provide a `reset` method that makes it possible to reuse the
 //! visit.
 //!

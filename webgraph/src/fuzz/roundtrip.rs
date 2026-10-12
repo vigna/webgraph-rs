@@ -8,7 +8,7 @@
 //! correctness. This is slower than `bvcomp_and_read` but tests both compressors,
 //! and uses the higher-level constructs that the user is supposed to use.
 
-use crate::fuzz::utils::CompFlagsFuzz;
+use crate::fuzz::utils::{CompFlagsFuzz, graph_from_edges};
 use crate::graphs::bvgraph;
 use crate::prelude::*;
 
@@ -26,14 +26,7 @@ pub fn harness(data: FuzzCase) {
     let comp_flags = data.compression_flags.into();
     let chunk_size = data.chunk_size.min(10 + data.edges.len());
 
-    // convert the edges to a graph
-    let mut edges = data
-        .edges
-        .into_iter()
-        .map(|(src, dst)| (src as usize, dst as usize))
-        .collect::<Vec<_>>();
-    edges.sort();
-    let graph = BTreeGraph::from_arcs(edges);
+    let graph = graph_from_edges(data.edges);
 
     let tmp_dir = tempfile::Builder::new()
         .prefix("bvcompz_roundtrip_fuzz")

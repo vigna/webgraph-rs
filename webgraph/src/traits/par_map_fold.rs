@@ -193,13 +193,7 @@ where
         inner_fold: IF,
         outer_fold: OF,
     ) -> A {
-        let (_min_len, max_len) = self.size_hint();
-
-        let mut num_scoped_threads = rayon::current_num_threads();
-        if let Some(max_len) = max_len {
-            num_scoped_threads = num_scoped_threads.min(max_len);
-        }
-        num_scoped_threads = num_scoped_threads.max(1);
+        let num_scoped_threads = num_scoped_threads(self.size_hint().1);
 
         if num_scoped_threads == 1 {
             // With a single worker there might be no free pool thread to run
@@ -340,13 +334,7 @@ where
     where
         Self: Send,
     {
-        let (_, max_len) = self.size_hint();
-
-        let mut num_scoped_threads = rayon::current_num_threads();
-        if let Some(max_len) = max_len {
-            num_scoped_threads = num_scoped_threads.min(max_len);
-        }
-        num_scoped_threads = num_scoped_threads.max(1);
+        let num_scoped_threads = num_scoped_threads(self.size_hint().1);
 
         let (in_tx, in_rx) = crossbeam_channel::bounded(2 * num_scoped_threads);
         let (out_tx, out_rx) = crossbeam_channel::bounded::<(usize, R)>(2 * num_scoped_threads);
@@ -458,4 +446,13 @@ impl<T> RayonChannelIterExt<T> for crossbeam_channel::Receiver<T> {
     fn into_rayon_iter(self) -> RayonChannelIter<T> {
         RayonChannelIter { channel: self }
     }
+}
+
+/// Returns the number of threads to use for an iterator with at most `max_len`
+/// elements: the number of threads of the current Rayon pool, but no more than
+/// `max_len`, and at least one.
+fn num_scoped_threads(max_len: Option<usize>) -> usize {
+    rayon::current_num_threads()
+        .min(max_len.unwrap_or(usize::MAX))
+        .max(1)
 }

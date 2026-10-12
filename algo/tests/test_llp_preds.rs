@@ -8,59 +8,44 @@ use predicates::Predicate;
 use webgraph_algo::llp;
 use webgraph_algo::llp::preds::*;
 
+/// Returns predicate parameters for a graph with 100 nodes and 500 arcs.
+fn params(gain: f64, avg_gain_impr: f64, modified: usize, update: usize) -> PredParams {
+    PredParams {
+        num_nodes: 100,
+        num_arcs: 500,
+        gain,
+        avg_gain_impr,
+        modified,
+        update,
+    }
+}
+
 #[test]
 fn test_max_updates_eval_below() {
     let pred = MaxUpdates::from(10_usize);
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0,
-        avg_gain_impr: 0.0,
-        modified: 0,
-        update: 5,
-    };
+    let params = params(0.0, 0.0, 0, 5);
     assert!(!pred.eval(&params));
 }
 
 #[test]
 fn test_max_updates_eval_at_limit() {
     let pred = MaxUpdates::from(10_usize);
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0,
-        avg_gain_impr: 0.0,
-        modified: 0,
-        update: 9, // 9 + 1 >= 10
-    };
+    // 9 + 1 >= 10
+    let params = params(0.0, 0.0, 0, 9);
     assert!(pred.eval(&params));
 }
 
 #[test]
 fn test_max_updates_eval_above() {
     let pred = MaxUpdates::from(10_usize);
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0,
-        avg_gain_impr: 0.0,
-        modified: 0,
-        update: 15,
-    };
+    let params = params(0.0, 0.0, 0, 15);
     assert!(pred.eval(&params));
 }
 
 #[test]
 fn test_max_updates_from_none() {
     let pred = MaxUpdates::from(None);
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0,
-        avg_gain_impr: 0.0,
-        modified: 0,
-        update: 1_000_000,
-    };
+    let params = params(0.0, 0.0, 0, 1_000_000);
     // With None (default = usize::MAX), should not trigger easily
     assert!(!pred.eval(&params));
 }
@@ -68,56 +53,28 @@ fn test_max_updates_from_none() {
 #[test]
 fn test_max_updates_default() {
     let pred = MaxUpdates::default();
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0,
-        avg_gain_impr: 0.0,
-        modified: 0,
-        update: 0,
-    };
+    let params = params(0.0, 0.0, 0, 0);
     assert!(!pred.eval(&params));
 }
 
 #[test]
 fn test_min_gain_eval_below_threshold() {
     let pred = MinGain::try_from(0.01).unwrap();
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.005,
-        avg_gain_impr: 0.0,
-        modified: 0,
-        update: 0,
-    };
+    let params = params(0.005, 0.0, 0, 0);
     assert!(pred.eval(&params)); // gain <= threshold → stop
 }
 
 #[test]
 fn test_min_gain_eval_above_threshold() {
     let pred = MinGain::try_from(0.01).unwrap();
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.05,
-        avg_gain_impr: 0.0,
-        modified: 0,
-        update: 0,
-    };
+    let params = params(0.05, 0.0, 0, 0);
     assert!(!pred.eval(&params)); // gain > threshold → continue
 }
 
 #[test]
 fn test_min_gain_default() {
     let pred = MinGain::default();
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0001,
-        avg_gain_impr: 0.0,
-        modified: 0,
-        update: 0,
-    };
+    let params = params(0.0001, 0.0, 0, 0);
     assert!(pred.eval(&params)); // 0.0001 <= 0.001 (default threshold)
 }
 
@@ -125,14 +82,7 @@ fn test_min_gain_default() {
 fn test_min_gain_from_none() {
     let pred = MinGain::try_from(None).unwrap();
     // None → default threshold (0.001)
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0005,
-        avg_gain_impr: 0.0,
-        modified: 0,
-        update: 0,
-    };
+    let params = params(0.0005, 0.0, 0, 0);
     assert!(pred.eval(&params));
 }
 
@@ -149,56 +99,30 @@ fn test_min_gain_nan_threshold() {
 #[test]
 fn test_min_avg_improv_eval() {
     let pred = MinAvgImprov::try_from(0.1).unwrap();
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0,
-        avg_gain_impr: 0.05, // below threshold
-        modified: 0,
-        update: 0,
-    };
+    // below threshold
+    let params = params(0.0, 0.05, 0, 0);
     assert!(pred.eval(&params)); // 0.05 <= 0.1 → stop
 }
 
 #[test]
 fn test_min_avg_improv_above_threshold() {
     let pred = MinAvgImprov::try_from(0.1).unwrap();
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0,
-        avg_gain_impr: 0.5, // above threshold
-        modified: 0,
-        update: 0,
-    };
+    // above threshold
+    let params = params(0.0, 0.5, 0, 0);
     assert!(!pred.eval(&params)); // 0.5 > 0.1 → continue
 }
 
 #[test]
 fn test_min_avg_improv_default() {
     let pred = MinAvgImprov::default();
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0,
-        avg_gain_impr: 0.05,
-        modified: 0,
-        update: 0,
-    };
+    let params = params(0.0, 0.05, 0, 0);
     assert!(pred.eval(&params)); // 0.05 <= 0.1 (default)
 }
 
 #[test]
 fn test_min_avg_improv_from_none() {
     let pred = MinAvgImprov::try_from(None).unwrap();
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0,
-        avg_gain_impr: 0.05,
-        modified: 0,
-        update: 0,
-    };
+    let params = params(0.0, 0.05, 0, 0);
     assert!(pred.eval(&params));
 }
 
@@ -210,56 +134,32 @@ fn test_min_avg_improv_nan() {
 #[test]
 fn test_min_modified_eval_below_sqrt() {
     let pred = MinModified::default();
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0,
-        avg_gain_impr: 0.0,
-        modified: 5, // 5 <= sqrt(100) = 10
-        update: 0,
-    };
+    // 5 <= sqrt(100) = 10
+    let params = params(0.0, 0.0, 5, 0);
     assert!(pred.eval(&params));
 }
 
 #[test]
 fn test_min_modified_eval_above_sqrt() {
     let pred = MinModified::default();
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0,
-        avg_gain_impr: 0.0,
-        modified: 50, // 50 > sqrt(100) = 10
-        update: 0,
-    };
+    // 50 > sqrt(100) = 10
+    let params = params(0.0, 0.0, 50, 0);
     assert!(!pred.eval(&params));
 }
 
 #[test]
 fn test_perc_modified_eval() {
     let pred = PercModified::try_from(10.0).unwrap(); // 10%
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0,
-        avg_gain_impr: 0.0,
-        modified: 5, // 5 <= 100 * 0.1 = 10
-        update: 0,
-    };
+    // 5 <= 100 * 0.1 = 10
+    let params = params(0.0, 0.0, 5, 0);
     assert!(pred.eval(&params));
 }
 
 #[test]
 fn test_perc_modified_above() {
     let pred = PercModified::try_from(10.0).unwrap(); // 10%
-    let params = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0,
-        avg_gain_impr: 0.0,
-        modified: 20, // 20 > 100 * 0.1 = 10
-        update: 0,
-    };
+    // 20 > 100 * 0.1 = 10
+    let params = params(0.0, 0.0, 20, 0);
     assert!(!pred.eval(&params));
 }
 
@@ -281,36 +181,15 @@ fn test_predicate_or_combination() {
         .or(MaxUpdates::from(5_usize));
 
     // First condition: gain <= threshold → should stop
-    let params1 = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 0.0001,
-        avg_gain_impr: 0.0,
-        modified: 0,
-        update: 0,
-    };
+    let params1 = params(0.0001, 0.0, 0, 0);
     assert!(pred.eval(&params1));
 
     // Second condition: update + 1 >= 5 → should stop
-    let params2 = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 1.0,
-        avg_gain_impr: 0.0,
-        modified: 0,
-        update: 4,
-    };
+    let params2 = params(1.0, 0.0, 0, 4);
     assert!(pred.eval(&params2));
 
     // Neither condition: should continue
-    let params3 = PredParams {
-        num_nodes: 100,
-        num_arcs: 500,
-        gain: 1.0,
-        avg_gain_impr: 0.0,
-        modified: 0,
-        update: 1,
-    };
+    let params3 = params(1.0, 0.0, 0, 1);
     assert!(!pred.eval(&params3));
 }
 

@@ -8,8 +8,8 @@
 use std::marker::PhantomData;
 
 use super::super::*;
-use anyhow::Result;
-use anyhow::bail;
+use super::offsets_to_boxed_slice;
+use anyhow::{Result, ensure};
 use dsi_bitstream::dispatch::code_consts;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
@@ -17,6 +17,23 @@ use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use epserde::deser::Owned;
 use value_traits::slices::SliceByValue;
+
+/// Checks that the codes in `comp_flags` match the given constant codes, in
+/// the order of [`CompFlags::codes`].
+fn check_const_codes(comp_flags: &CompFlags, const_codes: [usize; 5]) -> Result<()> {
+    for ((name, code), const_code) in CODE_NAMES
+        .into_iter()
+        .zip(comp_flags.codes())
+        .zip(const_codes)
+    {
+        ensure!(
+            code.to_code_const()? == const_code,
+            "Code for {} does not match",
+            name.to_lowercase()
+        );
+    }
+    Ok(())
+}
 
 /// An implementation of [`Decode`] with compile-time defined codes.
 #[derive(Debug, Clone)]
@@ -73,21 +90,10 @@ impl<
     /// # Errors
     /// If the codes in the [`CompFlags`] do not match the compile-time defined codes
     pub fn new(code_reader: CR, comp_flags: &CompFlags) -> Result<Self> {
-        if comp_flags.outdegrees.to_code_const()? != OUTDEGREES {
-            bail!("Code for outdegrees does not match");
-        }
-        if comp_flags.references.to_code_const()? != REFERENCES {
-            bail!("Code for references does not match");
-        }
-        if comp_flags.blocks.to_code_const()? != BLOCKS {
-            bail!("Code for blocks does not match");
-        }
-        if comp_flags.intervals.to_code_const()? != INTERVALS {
-            bail!("Code for intervals does not match");
-        }
-        if comp_flags.residuals.to_code_const()? != RESIDUALS {
-            bail!("Code for residuals does not match");
-        }
+        check_const_codes(
+            comp_flags,
+            [OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS],
+        )?;
         Ok(Self {
             code_reader,
             _marker: core::marker::PhantomData,
@@ -197,47 +203,19 @@ impl<
         INTERVALS,
         RESIDUALS,
     > {
-        let offsets = self.offsets.uncase();
         ConstCodesDecoderFactory {
             factory: self.factory,
-            offsets: (0..offsets.len())
-                .map(|i| unsafe { offsets.get_value_unchecked(i) })
-                .collect::<Vec<_>>()
-                .into_boxed_slice()
-                .into(),
+            offsets: offsets_to_boxed_slice(self.offsets),
             _marker: PhantomData,
         }
     }
-}
 
-impl<
-    E: Endianness,
-    F: CodesReaderFactoryHelper<E>,
-    OFF: Offsets,
-    const OUTDEGREES: usize,
-    const REFERENCES: usize,
-    const BLOCKS: usize,
-    const INTERVALS: usize,
-    const RESIDUALS: usize,
-> ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
-{
     /// Creates a new builder from the given data and compression flags.
     pub fn new(factory: F, offsets: MemCase<OFF>, comp_flags: CompFlags) -> anyhow::Result<Self> {
-        if comp_flags.outdegrees.to_code_const()? != OUTDEGREES {
-            bail!("Code for outdegrees does not match");
-        }
-        if comp_flags.references.to_code_const()? != REFERENCES {
-            bail!("Code for references does not match");
-        }
-        if comp_flags.blocks.to_code_const()? != BLOCKS {
-            bail!("Code for blocks does not match");
-        }
-        if comp_flags.intervals.to_code_const()? != INTERVALS {
-            bail!("Code for intervals does not match");
-        }
-        if comp_flags.residuals.to_code_const()? != RESIDUALS {
-            bail!("Code for residuals does not match");
-        }
+        check_const_codes(
+            &comp_flags,
+            [OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS],
+        )?;
         Ok(Self {
             factory,
             offsets,

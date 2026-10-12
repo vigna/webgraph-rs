@@ -4,119 +4,94 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
+//! Tests for the graph transformations, checked against graphs built directly
+//! from the transformed arcs.
+
 #![cfg(not(miri))]
 
 mod common;
 
 use anyhow::Result;
+use common::{TEST_GRAPH_ARCS, test_graph, vec_graph as graph};
 use dsi_bitstream::prelude::BE;
 use dsi_progress_logger::no_logging;
-use itertools::Itertools;
-use lender::*;
-use webgraph::{graphs::vec_graph::VecGraph, prelude::*, transform};
+use webgraph::graphs::vec_graph::{LabeledVecGraph, VecGraph};
+use webgraph::prelude::*;
+
+const BATCH: MemoryUsage = MemoryUsage::BatchSize(2);
+
+/// Compresses the test graph into a temporary directory, so that parallel
+/// transformations can be applied also to a sequential compressed graph, whose
+/// split lenders are different from those of a [`VecGraph`].
+macro_rules! compressed_test_graph {
+    ($dir:ident, $seq:ident) => {
+        let g = test_graph();
+        let ($dir, basename) = common::roundtrip::<BE>(&g, |basename| {
+            BvComp::with_basename(basename).comp_graph::<BE>(&g)
+        })?;
+        let $seq = BvGraphSeq::with_basename(&basename)
+            .endianness::<BE>()
+            .load()?;
+    };
+}
+
+/// Collects the arcs returned by a set of parallel lenders, sorted.
+fn par_arcs(
+    graph: impl IntoParLenders<ParLender: for<'a> NodeLabelsLender<'a, Label = usize>>,
+) -> Vec<(usize, usize)> {
+    let mut arcs: Vec<_> = graph
+        .into_par_lenders()
+        .0
+        .into_iter()
+        .flat_map(|lender| lender.into_pairs())
+        .collect();
+    arcs.sort();
+    arcs
+}
+
+/// Returns the arcs of a graph.
+fn arcs(graph: &VecGraph) -> Vec<(usize, usize)> {
+    graph.iter().into_pairs().collect()
+}
 
 // ── transpose ──
 
 #[test]
 fn test_transpose() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
-    let t = transform::transpose_seq(&g, MemoryUsage::BatchSize(2), no_logging![])?;
+    let g = test_graph();
+    let expected = graph(g.num_nodes(), TEST_GRAPH_ARCS.map(|(s, d)| (d, s)));
+
+    let t = transpose_seq(&g, BATCH, no_logging![])?;
     let t = VecGraph::from_lender(&t);
-    assert_eq!(t.num_nodes(), 3);
+    graph::eq(&t, &expected)?;
 
-    let s0: Vec<_> = t.successors(0).collect();
-    assert!(s0.is_empty());
+    let tt = transpose_seq(&t, BATCH, no_logging![])?;
+    graph::eq(&VecGraph::from_lender(&tt), &g)?;
 
-    let s1: Vec<_> = t.successors(1).collect();
-    assert_eq!(s1, vec![0]);
-
-    let s2: Vec<_> = t.successors(2).collect();
-    assert_eq!(s2, vec![0, 1]);
-    Ok(())
-}
-
-#[test]
-fn test_transpose_round_trip() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 3), (3, 0)]);
-    let t = transform::transpose_seq(&g, MemoryUsage::BatchSize(2), no_logging![])?;
-    let t = VecGraph::from_lender(&t);
-    let tt = transform::transpose_seq(&t, MemoryUsage::BatchSize(2), no_logging![])?;
-    let tt = VecGraph::from_lender(&tt);
-    webgraph::traits::graph::eq(&g, &tt)?;
-    Ok(())
-}
-
-#[test]
-fn test_transpose_par() -> Result<()> {
-    use webgraph::transform::transpose_par;
-
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    let sorted = transpose_par(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
-    assert_eq!(sorted.num_nodes(), 3);
-    // Verify transposed content: (0,1),(1,2),(2,0) transposed is (2,0),(0,1),(1,2)
-    let mut arcs = vec![];
-    for_!((node, succs) in sorted.iter() {
-        for succ in succs {
-            arcs.push((node, succ));
-        }
-    });
-    arcs.sort();
-    assert_eq!(arcs, vec![(0, 2), (1, 0), (2, 1)]);
-    Ok(())
-}
-
-#[test]
-#[cfg(not(miri))]
-fn test_transpose_par_bvgraph() -> Result<()> {
-    use webgraph::traits::SequentialLabeling;
-    let basename = common::cnr_2000_basename();
-    let graph = BvGraph::with_basename(basename).load()?;
-    let num_nodes = graph.num_nodes();
-
-    let sorted = transform::transpose_par(&graph, MemoryUsage::from_perc(1.0), no_logging![])?;
-
-    assert_eq!(sorted.num_nodes(), num_nodes);
-
-    let mut total_arcs = 0u64;
-    for_!((_node, succs) in sorted.iter() {
-        for _succ in succs {
-            total_arcs += 1;
-        }
-    });
-    // Transpose should have same number of arcs
-    assert_eq!(total_arcs, graph.num_arcs());
+    let t = transpose_par(&g, BATCH, no_logging![])?;
+    graph::eq(&VecGraph::from_lender(&t), &expected)?;
+    compressed_test_graph!(_dir, seq);
+    let t = transpose_par(&seq, BATCH, no_logging![])?;
+    graph::eq(&VecGraph::from_lender(&t), &expected)?;
     Ok(())
 }
 
 #[test]
 fn test_transpose_labeled() -> Result<()> {
-    use webgraph::transform::transpose_labeled_seq;
+    let label = |s: usize, d: usize| (10 * s + d) as u32;
+    let g = LabeledVecGraph::from_arcs(TEST_GRAPH_ARCS.map(|(s, d)| ((s, d), label(s, d))));
+    let expected = LabeledVecGraph::from_arcs(TEST_GRAPH_ARCS.map(|(s, d)| ((d, s), label(s, d))));
+    let t = transpose_labeled_seq(&g, BATCH, FixedWidth::<u32>::new(), no_logging![])?;
+    graph::eq_labeled(&LabeledVecGraph::from_lender(&t), &expected)?;
+    Ok(())
+}
 
-    let g = webgraph::graphs::vec_graph::LabeledVecGraph::<()>::from_arcs([
-        ((0, 1), ()),
-        ((0, 2), ()),
-        ((1, 2), ()),
-    ]);
-    let t = transpose_labeled_seq(&g, MemoryUsage::BatchSize(2), (), no_logging![])?;
-    assert_eq!(t.num_nodes(), 3);
-    let mut iter = t.iter();
-    while let Some((node, succ)) = iter.next() {
-        let mut succs: Vec<_> = succ.into_iter().map(|(n, _)| n).collect();
-        succs.sort();
-        match node {
-            0 => assert!(succs.is_empty()),
-            1 => assert_eq!(succs, vec![0]),    // transposed 0->1
-            2 => assert_eq!(succs, vec![0, 1]), // transposed 0->2, 1->2
-            _ => unreachable!("unexpected node {}", node),
-        }
-    }
+#[test]
+fn test_transpose_par_cnr_2000() -> Result<()> {
+    let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
+    let transpose = BvGraphSeq::with_basename(common::cnr_2000_t_basename()).load()?;
+    let sorted = transpose_par(&graph, MemoryUsage::from_perc(1.0), no_logging![])?;
+    graph::eq(&sorted, &transpose)?;
     Ok(())
 }
 
@@ -124,234 +99,79 @@ fn test_transpose_labeled() -> Result<()> {
 
 #[test]
 fn test_permute() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
-    let perm = [2, 0, 1]; // 0->2, 1->0, 2->1
-    let p = transform::permute_seq(&g, &perm, MemoryUsage::BatchSize(2), no_logging![])?;
-    let p = VecGraph::from_lender(&p);
-    assert_eq!(p.num_nodes(), 3);
+    let g = test_graph();
+    let perm = [3, 7, 0, 5, 1, 6, 2, 4];
+    let expected = graph(
+        g.num_nodes(),
+        TEST_GRAPH_ARCS.map(|(s, d)| (perm[s], perm[d])),
+    );
 
-    // node 0 maps to 2, arcs (0,1) -> (2,0), (0,2) -> (2,1)
-    assert_eq!(p.successors(2).collect::<Vec<_>>(), vec![0, 1]);
-    // node 1 maps to 0, arc (1,2) -> (0,1)
-    assert_eq!(p.successors(0).collect::<Vec<_>>(), vec![1]);
-    // node 2 maps to 1, no outgoing arcs
-    assert_eq!(p.successors(1).collect::<Vec<_>>(), Vec::<usize>::new());
+    let p = permute_seq(&g, &perm, BATCH, no_logging![])?;
+    graph::eq(&VecGraph::from_lender(&p), &expected)?;
+
+    let p = permute_par(&g, &perm, BATCH, no_logging![])?;
+    assert_eq!(par_arcs(&p), arcs(&expected));
+    compressed_test_graph!(_dir, seq);
+    let p = permute_par(&seq, &perm, BATCH, no_logging![])?;
+    assert_eq!(par_arcs(&p), arcs(&expected));
+
+    let id: Vec<_> = (0..g.num_nodes()).collect();
+    let p = permute_seq(&g, &id, BATCH, no_logging![])?;
+    graph::eq(&VecGraph::from_lender(&p), &g)?;
     Ok(())
 }
 
 #[test]
-fn test_permute_identity() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
-    let id = [0, 1, 2];
-    let p = transform::permute_seq(&g, &id, MemoryUsage::BatchSize(2), no_logging![])?;
-    let p = VecGraph::from_lender(&p);
-    webgraph::traits::graph::eq(&g, &p)?;
-    Ok(())
-}
-
-#[test]
-fn test_permute_reverse() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3)]);
-    let perm = [3, 2, 1, 0]; // reverse
-    let p = transform::permute_seq(&g, &perm, MemoryUsage::BatchSize(2), no_logging![])?;
-    let p = VecGraph::from_lender(&p);
-    assert_eq!(p.num_nodes(), 4);
-    // Arc (0,1) -> (3,2), (1,2) -> (2,1), (2,3) -> (1,0)
-    assert_eq!(p.successors(0).collect::<Vec<_>>(), Vec::<usize>::new());
-    assert_eq!(p.successors(1).collect::<Vec<_>>(), vec![0]);
-    assert_eq!(p.successors(2).collect::<Vec<_>>(), vec![1]);
-    assert_eq!(p.successors(3).collect::<Vec<_>>(), vec![2]);
-    Ok(())
-}
-
-#[test]
-fn test_permute_size_mismatch() {
+fn test_permute_rejects_wrong_permutations() {
     let g = VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let perm = vec![0, 1]; // 2 elements but graph has 3 nodes
-    let result = transform::permute_seq(&g, &perm, MemoryUsage::BatchSize(2), no_logging![]);
-    assert!(result.is_err());
-}
-
-#[test]
-fn test_permute_par() -> Result<()> {
-    use webgraph::transform::permute_par;
-
-    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    let perm = vec![2, 0, 1];
-    let sorted = permute_par(&seq, &perm, MemoryUsage::BatchSize(2), no_logging![])?;
-    let mut arcs = vec![];
-    for_!((node, succs) in sorted.iter() {
-        for succ in succs {
-            arcs.push((node, succ));
-        }
-    });
-    arcs.sort();
-    // Original (0,1) -> (2,0), (0,2) -> (2,1), (1,2) -> (0,1)
-    assert_eq!(arcs, vec![(0, 1), (2, 0), (2, 1)]);
-    Ok(())
+    // 2 elements but graph has 3 nodes
+    assert!(permute_seq(&g, &[0, 1], BATCH, no_logging![]).is_err());
+    let g = VecGraph::from_arcs([(0, 1)]);
+    assert!(permute_seq(&g, &[0, 999], BATCH, no_logging![]).is_err());
 }
 
 // ── symmetrize ──
 
-#[test]
-fn test_symmetrize_no_loops() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (1, 2), (0, 0)]); // includes self-loop
-    let s = transform::symmetrize_seq::<true>(&g, MemoryUsage::BatchSize(2), no_logging![])?;
-    let s = VecGraph::from_lender(&s);
-    assert_eq!(s.num_nodes(), 3);
+/// Checks all symmetrization functions against the symmetrized arcs.
+///
+/// The functions for sorted graphs need a graph with cloneable split lenders,
+/// so they are applied to a compressed copy of `g`.
+fn check_symmetrize<const NO_LOOPS: bool>(g: &VecGraph) -> Result<()> {
+    let expected = graph(
+        g.num_nodes(),
+        arcs(g)
+            .into_iter()
+            .flat_map(|(s, d)| [(s, d), (d, s)])
+            .filter(|(s, d)| !NO_LOOPS || s != d),
+    );
 
-    // Self-loop should be removed, all edges bidirectional
-    let mut s0: Vec<_> = s.successors(0).collect();
-    s0.sort();
-    assert_eq!(s0, vec![1]);
-    let mut s1: Vec<_> = s.successors(1).collect();
-    s1.sort();
-    assert_eq!(s1, vec![0, 2]);
-    let mut s2: Vec<_> = s.successors(2).collect();
-    s2.sort();
-    assert_eq!(s2, vec![1]);
-    Ok(())
-}
+    let s = symmetrize_seq::<NO_LOOPS>(g, BATCH, no_logging![])?;
+    graph::eq(&VecGraph::from_lender(&s), &expected)?;
 
-#[test]
-fn test_symmetrize_keep_loops() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (1, 2), (0, 0)]); // includes self-loop
-    let s = transform::symmetrize_seq::<false>(&g, MemoryUsage::BatchSize(2), no_logging![])?;
-    let s = VecGraph::from_lender(&s);
-    assert_eq!(s.num_nodes(), 3);
+    let s = symmetrize_par::<NO_LOOPS, _>(g, BATCH, no_logging![])?;
+    graph::eq(&VecGraph::from_lender(&s), &expected)?;
 
-    // Self-loop should be kept, all edges bidirectional
-    let mut s0: Vec<_> = s.successors(0).collect();
-    s0.sort();
-    assert_eq!(s0, vec![0, 1]);
-    let mut s1: Vec<_> = s.successors(1).collect();
-    s1.sort();
-    assert_eq!(s1, vec![0, 2]);
-    let mut s2: Vec<_> = s.successors(2).collect();
-    s2.sort();
-    assert_eq!(s2, vec![1]);
-    Ok(())
-}
-
-#[test]
-fn test_symmetrize_with_batch_size() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0)]);
-    let s = transform::symmetrize_seq::<true>(&g, MemoryUsage::BatchSize(2), no_logging![])?;
-    let s = VecGraph::from_lender(&s);
-    assert_eq!(s.num_nodes(), 4);
-    // Each node in a 4-cycle has exactly 2 neighbors after symmetrization
-    assert_eq!(s.successors(0).collect::<Vec<_>>(), vec![1, 3]);
-    assert_eq!(s.successors(1).collect::<Vec<_>>(), vec![0, 2]);
-    assert_eq!(s.successors(2).collect::<Vec<_>>(), vec![1, 3]);
-    assert_eq!(s.successors(3).collect::<Vec<_>>(), vec![0, 2]);
-    Ok(())
-}
-
-#[test]
-fn test_symmetrize_sorted() -> Result<()> {
-    use webgraph::transform::symmetrize_sorted_seq;
-
-    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
+    let (_dir, basename) = common::roundtrip::<BE>(g, |basename| {
+        BvComp::with_basename(basename).comp_graph::<BE>(g)
+    })?;
+    let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
-        .mode::<LoadMem>()
         .load()?;
-    let s = symmetrize_sorted_seq::<true, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
-    let arcs: Vec<_> = s
-        .into_par_lenders()
-        .0
-        .into_iter()
-        .flat_map(|lender| lender.into_pairs())
-        .collect();
-    // Every edge becomes bidirectional, no self-loops
-    assert_eq!(arcs, vec![(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)]);
+
+    let s = symmetrize_sorted_seq::<NO_LOOPS, _>(&seq, BATCH, no_logging![])?;
+    assert_eq!(par_arcs(s), arcs(&expected));
+
+    let s = symmetrize_sorted_par::<NO_LOOPS, _>(&seq, BATCH, no_logging![])?;
+    assert_eq!(par_arcs(s), arcs(&expected));
     Ok(())
 }
 
 #[test]
-fn test_symmetrize_sorted_par() -> Result<()> {
-    use webgraph::transform::symmetrize_sorted_par;
-
-    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    let sorted = symmetrize_sorted_par::<true, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
-    let arcs: Vec<_> = sorted
-        .into_par_lenders()
-        .0
-        .into_iter()
-        .flat_map(|lender| lender.into_pairs())
-        .sorted()
-        .collect::<Vec<_>>(); // force full consumption
-
-    assert_eq!(arcs, vec![(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)]);
-    Ok(())
-}
-
-#[test]
-fn test_symmetrize_sorted_par_with_loops() -> Result<()> {
-    use webgraph::transform::symmetrize_sorted_par;
-
-    // Graph with self-loop
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 2)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    let sorted = symmetrize_sorted_par::<false, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
-    let arcs: Vec<_> = sorted
-        .into_par_lenders()
-        .0
-        .into_iter()
-        .flat_map(|lender| lender.into_pairs())
-        .sorted()
-        .collect::<Vec<_>>(); // force full consumption
-
-    // Self-loop preserved, all edges bidirectional
-    assert_eq!(arcs, vec![(0, 1), (1, 0), (1, 2), (2, 1), (2, 2)]);
-    Ok(())
-}
-
-#[test]
-fn test_symmetrize_par_no_loops() -> Result<()> {
-    use webgraph::transform::symmetrize_par;
-
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    let sorted = symmetrize_par::<true, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
-    let mut arcs = vec![];
-    for_!((node, succs) in sorted.iter() {
-        for succ in succs {
-            arcs.push((node, succ));
-        }
-    });
-    arcs.sort();
-    // 3-cycle symmetrized: each node has exactly 2 neighbors, 6 arcs total
-    assert_eq!(arcs, vec![(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)]);
+fn test_symmetrize() -> Result<()> {
+    // The test graph with two self-loops and a node of outdegree 0
+    let g = VecGraph::from_arcs(TEST_GRAPH_ARCS.into_iter().chain([(3, 3), (6, 6), (9, 0)]));
+    check_symmetrize::<true>(&g)?;
+    check_symmetrize::<false>(&g)?;
     Ok(())
 }
 
@@ -359,178 +179,50 @@ fn test_symmetrize_par_no_loops() -> Result<()> {
 
 #[test]
 fn test_map() -> Result<()> {
-    // Graph: 0->1, 0->2, 1->2, 2->3
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 3)]);
-    // Map: 0->0, 1->0, 2->1, 3->1 (merges 0,1 into 0 and 2,3 into 1)
-    let m = [0, 0, 1, 1];
-    let mapped = transform::map_seq(&g, &m, 2, MemoryUsage::BatchSize(2), no_logging![])?;
-    let mapped = VecGraph::from_lender(&mapped);
-    assert_eq!(mapped.num_nodes(), 2);
-    // Arcs: (0,0),(0,1),(0,1),(1,1) → deduped: (0,0),(0,1),(1,1)
-    assert_eq!(mapped.successors(0).collect::<Vec<_>>(), vec![0, 1]);
-    assert_eq!(mapped.successors(1).collect::<Vec<_>>(), vec![1]);
+    let g = test_graph();
+    compressed_test_graph!(_dir, seq);
+    for (map, num_nodes) in [
+        // Identity
+        (vec![0, 1, 2, 3, 4, 5, 6, 7], 8),
+        // A permutation
+        (vec![3, 7, 0, 5, 1, 6, 2, 4], 8),
+        // Merges nodes (creating loops and duplicate arcs)
+        (vec![0, 0, 1, 1, 2, 2, 3, 3], 4),
+        // Enlarges the node space
+        (vec![5, 10, 0, 3, 7, 1, 12, 2], 13),
+    ] {
+        let expected = graph(num_nodes, TEST_GRAPH_ARCS.map(|(s, d)| (map[s], map[d])));
+        let m = map_seq(&g, &map, num_nodes, BATCH, no_logging![])?;
+        graph::eq(&VecGraph::from_lender(&m), &expected)?;
+        let m = map_par(&g, &map, num_nodes, BATCH, no_logging![])?;
+        assert_eq!(par_arcs(&m), arcs(&expected));
+        let m = map_par(&seq, &map, num_nodes, BATCH, no_logging![])?;
+        assert_eq!(par_arcs(&m), arcs(&expected));
+    }
     Ok(())
 }
 
 #[test]
-fn test_map_identity() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
-    let id = [0, 1, 2];
-    let mapped = transform::map_seq(&g, &id, 3, MemoryUsage::BatchSize(2), no_logging![])?;
-    let mapped = VecGraph::from_lender(&mapped);
-    webgraph::traits::graph::eq(&g, &mapped)?;
-    Ok(())
-}
-
-#[test]
-fn test_map_enlarges() -> Result<()> {
-    // Map to a larger node space
-    let g = VecGraph::from_arcs([(0, 1), (1, 0)]);
-    let m = [5, 10];
-    let mapped = transform::map_seq(&g, &m, 11, MemoryUsage::BatchSize(2), no_logging![])?;
-    let mapped = VecGraph::from_lender(&mapped);
-    assert_eq!(mapped.num_nodes(), 11);
-    assert_eq!(mapped.successors(5).collect::<Vec<_>>(), vec![10]);
-    assert_eq!(mapped.successors(10).collect::<Vec<_>>(), vec![5]);
-    Ok(())
-}
-
-#[test]
-fn test_map_size_mismatch() {
+fn test_map_rejects_wrong_maps() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let m = vec![0, 1]; // 2 elements but graph has 3 nodes
-    let result = transform::map_seq(&g, &m, 3, MemoryUsage::BatchSize(2), no_logging![]);
-    assert!(result.is_err());
-}
+    // 2 elements but graph has 3 nodes
+    assert!(map_seq(&g, &[0, 1], 3, BATCH, no_logging![]).is_err());
 
-#[test]
-fn test_map_par() -> Result<()> {
-    use webgraph::transform::map_par;
-
-    // Graph: 0->1, 0->2, 1->2 with map 0->2, 1->0, 2->1 (a permutation)
-    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    let m = vec![2, 0, 1];
-    let sorted = map_par(&seq, &m, 3, MemoryUsage::BatchSize(2), no_logging![])?;
-    let mut arcs = vec![];
-    for_!((node, succs) in sorted.iter() {
-        for succ in succs {
-            arcs.push((node, succ));
-        }
-    });
-    arcs.sort();
-    // Original (0,1) -> (2,0), (0,2) -> (2,1), (1,2) -> (0,1)
-    assert_eq!(arcs, vec![(0, 1), (2, 0), (2, 1)]);
-    Ok(())
-}
-
-#[test]
-fn test_map_par_shrinks() -> Result<()> {
-    use webgraph::transform::map_par;
-
-    // Graph: 0->1, 1->2, 2->0; map merges 1 and 2 into node 1
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    let m = vec![0, 1, 1]; // 0->0, 1->1, 2->1
-    let sorted = map_par(&seq, &m, 2, MemoryUsage::BatchSize(2), no_logging![])?;
-    let mut arcs = vec![];
-    for_!((node, succs) in sorted.iter() {
-        for succ in succs {
-            arcs.push((node, succ));
-        }
-    });
-    arcs.sort();
-    // (0,1)->(0,1), (1,2)->(1,1), (2,0)->(1,0) → deduped: (0,1),(1,0),(1,1)
-    assert_eq!(arcs, vec![(0, 1), (1, 0), (1, 1)]);
-    Ok(())
-}
-
-#[test]
-fn test_symmetrize_sorted_seq_eq_symmetrize_seq() -> Result<()> {
-    use webgraph::transform::{symmetrize_seq, symmetrize_sorted_seq};
-
-    // Includes a self-loop and a node of outdegree 0
-    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 1), (1, 2), (3, 0)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-
-    let s = symmetrize_seq::<true>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
-    let expected: Vec<_> = s.iter().into_pairs().collect();
-    let s = symmetrize_sorted_seq::<true, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
-    let arcs: Vec<_> = s
-        .into_par_lenders()
-        .0
-        .into_iter()
-        .flat_map(|lender| lender.into_pairs())
-        .collect();
-    assert_eq!(arcs, expected);
-
-    let s = symmetrize_seq::<false>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
-    let expected: Vec<_> = s.iter().into_pairs().collect();
-    let s = symmetrize_sorted_seq::<false, _>(&seq, MemoryUsage::BatchSize(2), no_logging![])?;
-    let arcs: Vec<_> = s
-        .into_par_lenders()
-        .0
-        .into_iter()
-        .flat_map(|lender| lender.into_pairs())
-        .collect();
-    assert_eq!(arcs, expected);
-
-    Ok(())
-}
-
-#[test]
-fn test_map_rejects_out_of_range_destination() -> Result<()> {
     // Regression: the documented contract that num_nodes exceeds every map
     // value was unenforced, and only mapped sources were bounds-checked, so
     // an out-of-range mapped destination silently produced a graph whose
     // successors exceeded num_nodes.
-    let graph = VecGraph::from_arcs([(0, 1)]);
-    let map = vec![0usize, 999];
-    let res = map_seq(&graph, &map, 2, MemoryUsage::BatchSize(2), no_logging![]);
-    assert!(res.is_err());
-    Ok(())
-}
+    let g = VecGraph::from_arcs([(0, 1)]);
+    assert!(map_seq(&g, &[0, 999], 2, BATCH, no_logging![]).is_err());
+    assert!(map_par(&g, &[0, 999], 2, BATCH, no_logging![]).is_err());
 
-#[test]
-fn test_permute_rejects_out_of_range_destination() -> Result<()> {
-    let graph = VecGraph::from_arcs([(0, 1)]);
-    let perm = vec![0usize, 999];
-    let res = permute_seq(&graph, &perm, MemoryUsage::BatchSize(2), no_logging![]);
-    assert!(res.is_err());
-    Ok(())
-}
-
-#[test]
-fn test_map_par_rejects_out_of_range_destination() -> Result<()> {
-    use webgraph::transform::map_par;
-    let graph = VecGraph::from_arcs([(0, 1)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
+    // The same through a compressed graph
+    let (_dir, basename) = common::roundtrip::<BE>(&g, |basename| {
+        BvComp::with_basename(basename).comp_graph::<BE>(&g)
+    })?;
+    let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
-        .mode::<LoadMem>()
         .load()?;
-    let m = vec![0usize, 999];
-    let res = map_par(&seq, &m, 2, MemoryUsage::BatchSize(2), no_logging![]);
-    assert!(res.is_err());
+    assert!(map_par(&seq, &[0, 999], 2, BATCH, no_logging![]).is_err());
     Ok(())
 }

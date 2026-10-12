@@ -29,6 +29,24 @@ pub use enc_dyn::*;
 
 use std::error::Error;
 
+use epserde::deser::{MemCase, Owned};
+use value_traits::slices::SliceByValue;
+
+/// Copies the offsets in a boxed slice of `u64`.
+///
+/// This function is used by the `offsets_to_slice` methods of the decoder
+/// factories.
+fn offsets_to_boxed_slice<OFF: super::Offsets>(
+    offsets: MemCase<OFF>,
+) -> MemCase<Owned<Box<[u64]>>> {
+    let offsets = offsets.uncase();
+    (0..offsets.len())
+        // SAFETY: i is within bounds
+        .map(|i| unsafe { offsets.get_value_unchecked(i) })
+        .collect::<Box<[_]>>()
+        .into()
+}
+
 /// Methods to decode the component of a [`super::BvGraph`] or [`super::BvGraphSeq`].
 pub trait Decode {
     fn read_outdegree(&mut self) -> u64;

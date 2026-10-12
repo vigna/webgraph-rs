@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
-use crate::graphs::par_sorted_graph::SortedPairIter;
+use crate::graphs::par_sorted_graph::{ParSortedGraphConf, SortedPairIter};
 use crate::prelude::*;
 use crate::traits::{IntoParLenders, NodeLabelsLender};
 use anyhow::{Result, ensure};
@@ -24,8 +24,6 @@ use value_traits::slices::SliceByValue;
 /// much faster.
 ///
 /// For the meaning of the additional parameter, see [`ParSortedGraphConf`].
-///
-/// [`ParSortedGraphConf`]: crate::graphs::par_sorted_graph::ParSortedGraphConf
 pub fn map_seq(
     graph: &impl SequentialGraph,
     map: &impl SliceByValue<Value = usize>,
@@ -33,24 +31,12 @@ pub fn map_seq(
     memory_usage: MemoryUsage,
     pl: &mut impl ProgressLog,
 ) -> Result<ParSortedGraph<SortedPairIter<true>>> {
-    ensure!(
-        map.len() == graph.num_nodes(),
-        "The given map has {} values and thus it's incompatible with a graph with {} nodes.",
-        map.len(),
-        graph.num_nodes(),
-    );
-
-    ParSortedGraph::config()
+    check_map_len("map", map.len(), graph.num_nodes())?;
+    let conf = ParSortedGraph::config()
         .dedup()
         .memory_usage(memory_usage)
-        .progress_logger(pl)
-        .sort_pairs(
-            num_nodes,
-            graph
-                .iter()
-                .into_pairs()
-                .map(|(src, dst)| (map.index_value(src), map.index_value(dst))),
-        )
+        .progress_logger(pl);
+    sort_mapped_seq(conf, graph, map, num_nodes)
 }
 
 /// Returns a [`ParSortedGraph`] representing the mapped graph, computed in
@@ -73,7 +59,6 @@ pub fn map_seq(
 /// [`ParGraph`]: crate::graphs::par_graphs::ParGraph
 /// [splittable]: SplitLabeling
 /// [install]: rayon::ThreadPool::install
-/// [`ParSortedGraphConf`]: crate::graphs::par_sorted_graph::ParSortedGraphConf
 pub fn map_par<G, M>(
     graph: G,
     map: &M,
@@ -92,17 +77,59 @@ where
         >,
     M: SliceByValue<Value = usize> + Send + Sync,
 {
-    ensure!(
-        map.len() == graph.num_nodes(),
-        "The given map has {} values and thus it's incompatible with a graph with {} nodes.",
-        map.len(),
-        graph.num_nodes(),
-    );
-
+    check_map_len("map", map.len(), graph.num_nodes())?;
     let conf = ParSortedGraph::config()
         .dedup()
         .memory_usage(memory_usage)
         .progress_logger(pl);
+    sort_mapped_par(conf, graph, map, num_nodes)
+}
+
+/// Checks that a map (`what` describes its kind) contains a value for each
+/// node of a graph.
+pub(crate) fn check_map_len(what: &str, map_len: usize, num_nodes: usize) -> Result<()> {
+    ensure!(
+        map_len == num_nodes,
+        "The given {what} has {map_len} values and thus it's incompatible with a graph with {num_nodes} nodes.",
+    );
+    Ok(())
+}
+
+/// Sorts the arcs of a graph after mapping their endpoints through a map,
+/// using the given configuration.
+pub(crate) fn sort_mapped_seq<PL: ProgressLog, const DEDUP: bool>(
+    conf: ParSortedGraphConf<PL, DEDUP>,
+    graph: &impl SequentialGraph,
+    map: &impl SliceByValue<Value = usize>,
+    num_nodes: usize,
+) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>> {
+    conf.sort_pairs(
+        num_nodes,
+        graph
+            .iter()
+            .into_pairs()
+            .map(|(src, dst)| (map.index_value(src), map.index_value(dst))),
+    )
+}
+
+/// Sorts in parallel the arcs of a graph after mapping their endpoints
+/// through a map, using the given configuration.
+pub(crate) fn sort_mapped_par<G, M, PL: ProgressLog, const DEDUP: bool>(
+    conf: ParSortedGraphConf<PL, DEDUP>,
+    graph: G,
+    map: &M,
+    num_nodes: usize,
+) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>>
+where
+    G: IntoParLenders<
+        ParLender: for<'a> NodeLabelsLender<
+            'a,
+            Label = usize,
+            IntoIterator: IntoIterator<IntoIter: Send>,
+        >,
+    >,
+    M: SliceByValue<Value = usize> + Send + Sync,
+{
     let (lenders, _boundaries) = graph.into_par_lenders();
     let iters = lenders.into_vec().into_iter().map(|lender| {
         lender

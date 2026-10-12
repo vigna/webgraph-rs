@@ -5,7 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
-use crate::{impl_parallel_from_split, prelude::*};
+use crate::graphs::{assert_nodes_exist, impl_into_lender, impl_seq_from_ra, impl_split};
+use crate::prelude::*;
 
 use lender::prelude::*;
 use std::{collections::BTreeMap, iter::FusedIterator};
@@ -71,14 +72,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
     /// Panics if either endpoint is not a node of the graph; use
     /// [`add_node`](Self::add_node) or the bulk methods to grow the graph.
     pub fn add_arc(&mut self, u: usize, v: usize, l: L) -> bool {
-        let max = u.max(v);
-        if max >= self.succ.len() {
-            panic!(
-                "Node {} does not exist (the graph has {} nodes)",
-                max,
-                self.succ.len(),
-            );
-        }
+        assert_nodes_exist(self.succ.len(), u, v);
         let is_new_arc = self.succ[u].insert(v, l).is_none();
         self.num_arcs += is_new_arc as u64;
         is_new_arc
@@ -90,14 +84,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
     ///
     /// Panics if either endpoint is not a node of the graph.
     pub fn remove_arc(&mut self, u: usize, v: usize) -> bool {
-        let max = u.max(v);
-        if max >= self.succ.len() {
-            panic!(
-                "Node {} does not exist (the graph has {} nodes)",
-                max,
-                self.succ.len(),
-            );
-        }
+        assert_nodes_exist(self.succ.len(), u, v);
         let arc_existed = self.succ[u].remove(&v).is_some();
         self.num_arcs -= arc_existed as u64;
         arc_existed
@@ -163,45 +150,8 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
     }
 }
 
-impl<L: Clone + 'static> SequentialLabeling for LabeledBTreeGraph<L> {
-    type Label = (usize, L);
-    type Lender<'a>
-        = LenderImpl<'a, Self>
-    where
-        Self: 'a;
-
-    #[inline(always)]
-    fn num_nodes(&self) -> usize {
-        self.succ.len()
-    }
-
-    #[inline(always)]
-    fn get_num_arcs(&self) -> Option<u64> {
-        Some(self.num_arcs())
-    }
-
-    #[inline(always)]
-    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        LenderImpl {
-            labeling: self,
-            nodes: (from..self.num_nodes()),
-        }
-    }
-}
-
-/// Convenience implementation that makes it possible to iterate
-/// over the graph using the [`for_`] macro
-/// (see the [crate documentation]).
-///
-/// [crate documentation]: crate
-impl<'a, L: Clone + 'static> IntoLender for &'a LabeledBTreeGraph<L> {
-    type Lender = <LabeledBTreeGraph<L> as SequentialLabeling>::Lender<'a>;
-
-    #[inline(always)]
-    fn into_lender(self) -> Self::Lender {
-        self.iter()
-    }
-}
+impl_seq_from_ra!([L: Clone + 'static] LabeledBTreeGraph<L>, (usize, L), |g| g.succ.len());
+impl_into_lender!([L: Clone + 'static] LabeledBTreeGraph<L>);
 
 impl<L: Clone + 'static> LabeledSequentialGraph<L> for LabeledBTreeGraph<L> {}
 
@@ -228,27 +178,7 @@ impl<L: Clone + 'static> RandomAccessLabeling for LabeledBTreeGraph<L> {
 
 impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledBTreeGraph<L> {}
 
-impl<L: Clone + Sync> SplitLabeling for LabeledBTreeGraph<L> {
-    type SplitLender<'a>
-        = split::ra::Lender<'a, LabeledBTreeGraph<L>>
-    where
-        Self: 'a;
-
-    type IntoIterator<'a>
-        = split::ra::IntoIterator<'a, LabeledBTreeGraph<L>>
-    where
-        Self: 'a;
-
-    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
-        split::ra::Iter::new(self, cutpoints)
-    }
-}
-
-impl_parallel_from_split!(
-    [L: Clone + Sync]
-    LabeledBTreeGraph<L>
-    []
-);
+impl_split!(ra [L: Clone + Sync] LabeledBTreeGraph<L> [] []);
 
 /// A mutable [`RandomAccessGraph`] implementation based on a vector of
 /// [`BTreeMap`].
@@ -294,6 +224,15 @@ impl BTreeGraph {
     /// [`add_node`](Self::add_node) or the bulk methods to grow the graph.
     pub fn add_arc(&mut self, u: usize, v: usize) -> bool {
         self.0.add_arc(u, v, ())
+    }
+
+    /// Removes an arc from the graph and returns whether it was present or not.
+    ///
+    /// # Panics
+    ///
+    /// Panics if either endpoint is not a node of the graph.
+    pub fn remove_arc(&mut self, u: usize, v: usize) -> bool {
+        self.0.remove_arc(u, v)
     }
 
     /// Adds nodes and successors from an [`IntoLender`] yielding a
@@ -345,45 +284,8 @@ impl BTreeGraph {
     }
 }
 
-/// Convenience implementation that makes it possible to iterate
-/// over the graph using the [`for_`] macro
-/// (see the [crate documentation]).
-///
-/// [crate documentation]: crate
-impl<'a> IntoLender for &'a BTreeGraph {
-    type Lender = <BTreeGraph as SequentialLabeling>::Lender<'a>;
-
-    #[inline(always)]
-    fn into_lender(self) -> Self::Lender {
-        self.iter()
-    }
-}
-
-impl SequentialLabeling for BTreeGraph {
-    type Label = usize;
-    type Lender<'a>
-        = LenderImpl<'a, Self>
-    where
-        Self: 'a;
-
-    #[inline(always)]
-    fn num_nodes(&self) -> usize {
-        self.0.succ.len()
-    }
-
-    #[inline(always)]
-    fn get_num_arcs(&self) -> Option<u64> {
-        Some(self.num_arcs())
-    }
-
-    #[inline(always)]
-    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        LenderImpl {
-            labeling: self,
-            nodes: (from..self.num_nodes()),
-        }
-    }
-}
+impl_into_lender!([] BTreeGraph);
+impl_seq_from_ra!([] BTreeGraph, usize, |g| g.0.succ.len());
 
 impl SequentialGraph for BTreeGraph {}
 
@@ -472,49 +374,13 @@ impl ExactSizeIterator for Succ<'_> {
 
 impl FusedIterator for Succ<'_> {}
 
-impl SplitLabeling for BTreeGraph {
-    type SplitLender<'a>
-        = split::ra::Lender<'a, BTreeGraph>
-    where
-        Self: 'a;
-
-    type IntoIterator<'a>
-        = split::ra::IntoIterator<'a, BTreeGraph>
-    where
-        Self: 'a;
-
-    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
-        split::ra::Iter::new(self, cutpoints)
-    }
-}
-
-impl_parallel_from_split!(
-    []
-    BTreeGraph
-    []
-);
+impl_split!(ra [] BTreeGraph [] []);
 
 #[cfg(test)]
 mod test {
     use super::*;
     #[test]
     fn test_btree_graph() {
-        let mut arcs = vec![
-            ((0, 1), Some(1.0)),
-            ((0, 2), None),
-            ((1, 2), Some(2.0)),
-            ((2, 4), Some(f64::INFINITY)),
-            ((3, 4), Some(f64::NEG_INFINITY)),
-            ((1, 3), Some(f64::NAN)),
-        ];
-        let g = LabeledBTreeGraph::<_>::from_arcs(arcs.iter().copied());
-        assert_ne!(
-            g, g,
-            "The label contains a NaN which is not equal to itself so the graph must be not equal to itself"
-        );
-
-        arcs.pop();
-        let g = LabeledBTreeGraph::<_>::from_arcs(arcs);
-        assert_eq!(g, g, "Without NaN the graph should be equal to itself");
+        crate::graphs::check_nan_labels(LabeledBTreeGraph::from_arcs);
     }
 }

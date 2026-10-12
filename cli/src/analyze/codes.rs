@@ -36,42 +36,7 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => optimize_codes::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => optimize_codes::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
-}
-
-/// Returns ranges of nodes to process in parallel of size `chunk_size` each,
-/// with the last chunk possibly being smaller.
-/// The equivalent of `std::iter::Chunks` but with a `Range` instead of a `Slice`.​
-pub struct ChunksIter {
-    total: core::ops::Range<usize>,
-    chunk_size: usize,
-}
-
-impl ChunksIter {
-    pub const fn new(total: core::ops::Range<usize>, chunk_size: usize) -> Self {
-        Self { total, chunk_size }
-    }
-}
-
-impl Iterator for ChunksIter {
-    type Item = core::ops::Range<usize>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.total.start < self.total.end {
-            let end = (self.total.start + self.chunk_size).min(self.total.end);
-            let range = self.total.start..end;
-            self.total.start = end;
-            Some(range)
-        } else {
-            None
-        }
-    }
+    dispatch_endianness!(&args.basename, |E| optimize_codes::<E>(args))
 }
 
 pub fn optimize_codes<E: Endianness>(args: CliArgs) -> Result<()>
@@ -105,24 +70,15 @@ where
 
         let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
 
-        let node_granularity = args
-            .granularity
-            .into_granularity()
-            .node_granularity(graph.num_nodes(), Some(graph.num_arcs()));
-
         // TODO!: use FairChunks with the offsets EF to distribute the
         // work based on number of bits used, not nodes
         stats = thread_pool.install(|| {
-            ChunksIter::new(0..graph.num_nodes(), node_granularity).par_map_fold_with(
-                pl.clone(),
-                |pl, range| {
+            graph.par_node_apply(
+                |range| {
                     let mut iter = graph
                         .offset_deg_iter_from(range.start)
                         .map_decoder(|d| StatsDecoder::new(d, Default::default()));
-
-                    for _ in (&mut iter).take(range.len()) {
-                        pl.light_update();
-                    }
+                    (&mut iter).take(range.len()).for_each(drop);
 
                     let mut stats = Default::default();
                     iter.map_decoder(|d| {
@@ -135,6 +91,8 @@ where
                     acc1 += &acc2;
                     acc1
                 },
+                args.granularity.into_granularity(),
+                &mut pl,
             )
         });
 

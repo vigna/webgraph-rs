@@ -6,8 +6,9 @@
 
 //! Zipping (cartesian product) of labelings.
 
-use lender::{IntoLender, Lend, Lender, Lending, unsafe_assume_covariance};
+use lender::{Lend, Lender, Lending, unsafe_assume_covariance};
 
+use crate::graphs::impl_into_lender;
 use crate::prelude::{
     LabeledRandomAccessGraph, LabeledSequentialGraph, LenderIntoIter, LenderIntoIterator,
     LenderLabel, NodeLabelsLender, Pair, RandomAccessGraph, RandomAccessLabeling, SequentialGraph,
@@ -121,14 +122,7 @@ where
     }
 }
 
-impl<'a, L: SequentialLabeling, R: SequentialLabeling> IntoLender for &'a Zip<L, R> {
-    type Lender = <Zip<L, R> as SequentialLabeling>::Lender<'a>;
-
-    #[inline(always)]
-    fn into_lender(self) -> Self::Lender {
-        self.iter()
-    }
-}
+impl_into_lender!([L: SequentialLabeling, R: SequentialLabeling] Zip<L, R>);
 
 impl<L: SequentialLabeling, R: SequentialLabeling> SequentialLabeling for Zip<L, R> {
     type Label = (L::Label, R::Label);

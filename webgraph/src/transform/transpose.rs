@@ -10,10 +10,9 @@ use crate::graphs::par_sorted_graph::{
     SortedPairIter,
 };
 use crate::prelude::{LabeledSequentialGraph, SequentialGraph};
-use crate::traits::{BitDeserializer, BitSerializer, IntoParLenders, NodeLabelsLender, Pair};
-use crate::utils::{BitReader, BitWriter, MemoryUsage};
+use crate::traits::{IntoParLenders, LabelSerDeser, NodeLabelsLender, Pair};
+use crate::utils::MemoryUsage;
 use anyhow::Result;
-use dsi_bitstream::prelude::NE;
 use dsi_progress_logger::ProgressLog;
 
 /// Returns the transpose of the provided labeled graph as a
@@ -30,12 +29,7 @@ pub fn transpose_labeled_seq<SD>(
     pl: &mut impl ProgressLog,
 ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
 where
-    SD: BitSerializer<NE, BitWriter<NE>>
-        + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-        + Send
-        + Sync
-        + Clone,
-    SD::SerType: Clone + Copy + Send + Sync + 'static,
+    SD: LabelSerDeser,
 {
     ParSortedLabeledGraphConf::default()
         .memory_usage(memory_usage)
@@ -92,12 +86,7 @@ pub fn transpose_labeled_par<SD, G>(
     pl: &mut impl ProgressLog,
 ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
 where
-    SD: BitSerializer<NE, BitWriter<NE>>
-        + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
-        + Send
-        + Sync
-        + Clone,
-    SD::SerType: Clone + Copy + Send + Sync + 'static,
+    SD: LabelSerDeser,
     G: LabeledSequentialGraph<SD::SerType>
         + IntoParLenders<
             ParLender: for<'a> NodeLabelsLender<

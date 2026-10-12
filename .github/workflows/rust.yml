@@ -70,7 +70,7 @@ jobs:
 
       - name: Generate code coverage
         run: |
-          cargo +nightly tarpaulin --verbose --engine llvm --all-features --workspace --out Lcov
+          cargo +nightly tarpaulin --verbose --engine llvm --timeout 600 --all-features --workspace --out Lcov
 
       - name: Coveralls
         uses: coverallsapp/github-action@v2

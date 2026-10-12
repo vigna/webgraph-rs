@@ -57,9 +57,10 @@ pub struct AllForward {
     pub forward_iterations: usize,
 }
 
-/// The result returned by [`run`] on [`RadiusDiameter`].
+/// The result returned by [`run`] and [`run_symm`] on [`RadiusDiameter`].
 ///
 /// [`run`]: super::Level::run
+/// [`run_symm`]: super::Level::run_symm
 /// [`RadiusDiameter`]: super::RadiusDiameter
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct RadiusDiameter {
@@ -77,9 +78,10 @@ pub struct RadiusDiameter {
     pub diameter_iterations: usize,
 }
 
-/// The result returned by [`run`] on [`Diameter`].
+/// The result returned by [`run`] and [`run_symm`] on [`Diameter`].
 ///
 /// [`run`]: super::Level::run
+/// [`run_symm`]: super::Level::run_symm
 /// [`Diameter`]: super::Diameter
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Diameter {
@@ -91,9 +93,10 @@ pub struct Diameter {
     pub diameter_iterations: usize,
 }
 
-/// The result returned by [`run`] on [`Radius`].
+/// The result returned by [`run`] and [`run_symm`] on [`Radius`].
 ///
 /// [`run`]: super::Level::run
+/// [`run_symm`]: super::Level::run_symm
 /// [`Radius`]: super::Radius
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Radius {

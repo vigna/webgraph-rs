@@ -8,13 +8,19 @@
 // does not support (same convention as the other CLI integration tests).
 #![cfg(not(miri))]
 
+mod common;
+
 use anyhow::Result;
+use common::{compress_with_ef, read_floats};
 use dsi_bitstream::prelude::*;
+use predicates::prelude::PredicateBooleanExt;
 use std::time::Duration;
 use webgraph::graphs::vec_graph::VecGraph;
-use webgraph::prelude::*;
+use webgraph_algo::rank::birank::BiRank;
+use webgraph_algo::rank::pagerank::{Mode, PageRank};
+use webgraph_algo::rank::preds::{L1Norm, MaxIter};
 use webgraph_cli::rank::{birank, pagerank};
-use webgraph_cli::{FloatSliceFormat, GranularityArgs, LogIntervalArg, NumThreadsArg, cli_main};
+use webgraph_cli::{FloatSliceFormat, GranularityArgs, LogIntervalArg, NumThreadsArg};
 
 fn log_interval() -> LogIntervalArg {
     LogIntervalArg {
@@ -37,8 +43,7 @@ fn test_pagerank_little_endian_graph() -> Result<()> {
     let transpose = VecGraph::from_arcs([(1, 0), (2, 0), (2, 1), (0, 2)]);
     let tmp = tempfile::tempdir()?;
     let basename = tmp.path().join("transpose-le").display().to_string();
-    BvComp::with_basename(&basename).comp_graph::<LE>(&transpose)?;
-    cli_main(vec!["webgraph", "build", "ef", &basename])?;
+    compress_with_ef::<LE>(&transpose, &basename)?;
 
     let output = tmp.path().join("rank.txt");
     pagerank::main(pagerank::CliArgs {
@@ -57,15 +62,11 @@ fn test_pagerank_little_endian_graph() -> Result<()> {
         log_interval: log_interval(),
     })?;
 
-    let ranks: Vec<f64> = std::fs::read_to_string(&output)?
-        .lines()
-        .map(|l| l.parse::<f64>())
-        .collect::<Result<_, _>>()?;
-    assert_eq!(ranks.len(), 3);
-    assert!(
-        ranks.iter().all(|r| r.is_finite() && *r >= 0.0),
-        "ranks not finite/nonnegative: {ranks:?}"
-    );
+    // The CLI must compute the same ranks as the library
+    let mut pr = PageRank::new(&transpose);
+    pr.alpha(0.85).mode(Mode::StronglyPreferential);
+    pr.run(L1Norm::try_from(1e-6)?.or(MaxIter::from(10)));
+    assert_eq!(read_floats(&output)?, pr.rank());
     Ok(())
 }
 
@@ -77,10 +78,8 @@ fn test_birank_little_endian_graph() -> Result<()> {
     let tmp = tempfile::tempdir()?;
     let g_base = tmp.path().join("g-le").display().to_string();
     let t_base = tmp.path().join("t-le").display().to_string();
-    BvComp::with_basename(&g_base).comp_graph::<LE>(&graph)?;
-    BvComp::with_basename(&t_base).comp_graph::<LE>(&transpose)?;
-    cli_main(vec!["webgraph", "build", "ef", &g_base])?;
-    cli_main(vec!["webgraph", "build", "ef", &t_base])?;
+    compress_with_ef::<LE>(&graph, &g_base)?;
+    compress_with_ef::<LE>(&transpose, &t_base)?;
 
     let output = tmp.path().join("birank.txt");
     birank::main(birank::CliArgs {
@@ -102,11 +101,11 @@ fn test_birank_little_endian_graph() -> Result<()> {
         log_interval: log_interval(),
     })?;
 
-    let ranks: Vec<f64> = std::fs::read_to_string(&output)?
-        .lines()
-        .map(|l| l.parse::<f64>())
-        .collect::<Result<_, _>>()?;
-    assert_eq!(ranks.len(), 4);
+    // The CLI must compute the same ranks as the library
+    let mut br = BiRank::new(&graph, &transpose, 2);
+    br.alpha(0.85).beta(0.85);
+    br.run(MaxIter::from(10));
+    assert_eq!(read_floats(&output)?, br.rank());
     Ok(())
 }
 

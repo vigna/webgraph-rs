@@ -34,13 +34,7 @@ pub struct CliArgs {
 pub fn main(args: CliArgs) -> Result<()> {
     create_parent_dir(&args.perm)?;
 
-    match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => bfs::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => bfs::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.basename, |E| bfs::<E>(args))
 }
 
 pub fn bfs<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>

@@ -5,20 +5,15 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
-use super::{BitReader, BitWriter};
-use crate::traits::SortedIterator;
-use crate::utils::{ArcMmapHelper, MmapHelper, Triple};
+use super::{BitReader, BitWriter, create_batch, impl_batch_iter, num_distinct_pairs, open_batch};
+use crate::utils::Triple;
 use crate::{
     traits::{BitDeserializer, BitSerializer},
     utils::{BatchCodec, humanize},
 };
 
-use std::sync::Arc;
-
 use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
-use mmap_rs::MmapFlags;
-use rdst::*;
 
 /// A codec for encoding and decoding batches of triples using grouped gap compression.
 ///
@@ -184,48 +179,13 @@ where
     type DecodedBatch = GroupedGapsIter<E, SD, OUTDEGREE_CODE, SRC_CODE, DST_CODE>;
     type EncodedBatchStats = GroupedGapsStats;
 
-    fn encode_batch(
-        &self,
-        path: impl AsRef<std::path::Path>,
-        batch: &mut [((usize, usize), Self::Label)],
-    ) -> Result<(usize, Self::EncodedBatchStats)> {
-        let start = std::time::Instant::now();
-        Triple::cast_batch_mut(batch).radix_sort_unstable();
-        log::debug!("Sorted {} arcs in {:?}", batch.len(), start.elapsed());
-        self.encode_sorted_batch(path, batch)
-    }
-
     fn encode_sorted_batch(
         &self,
         path: impl AsRef<std::path::Path>,
         batch: &[((usize, usize), Self::Label)],
     ) -> Result<(usize, Self::EncodedBatchStats)> {
         debug_assert!(Triple::cast_batch(batch).is_sorted(), "Batch is not sorted");
-        // create a bitstream to write to the file
-        let file_path = path.as_ref();
-        let mut stream = buf_bit_writer::from_path::<E, usize>(file_path).with_context(|| {
-            format!(
-                "Could not create BatchIterator temporary file {}",
-                file_path.display()
-            )
-        })?;
-
-        // Pre-count unique pairs for the length prefix when deduplicating
-        let batch_len = if DEDUP {
-            if batch.is_empty() {
-                0
-            } else {
-                1 + batch.windows(2).filter(|w| w[0].0 != w[1].0).count()
-            }
-        } else {
-            batch.len()
-        };
-
-        // prefix the stream with the length of the batch
-        // we use a delta code since it'll be a big number most of the time
-        stream
-            .write_delta(batch_len as u64)
-            .context("Could not write length")?;
+        let (mut stream, batch_len) = create_batch::<E, _>(path.as_ref(), batch, DEDUP)?;
 
         let mut stats = GroupedGapsStats {
             total_triples: batch_len,
@@ -248,12 +208,7 @@ where
 
             // compute outdegree (unique destinations when deduplicating)
             let outdegree = if DEDUP {
-                let group = &batch[i..i + group_size];
-                if group.is_empty() {
-                    0
-                } else {
-                    1 + group.windows(2).filter(|w| w[0].0.1 != w[1].0.1).count()
-                }
+                num_distinct_pairs(&batch[i..i + group_size])
             } else {
                 group_size
             };
@@ -298,17 +253,7 @@ where
     }
 
     fn decode_batch(&self, path: impl AsRef<std::path::Path>) -> Result<Self::DecodedBatch> {
-        // open the file
-        let mut stream = <BufBitReader<E, _>>::new(MemWordReader::new(ArcMmapHelper(Arc::new(
-            MmapHelper::mmap(
-                path.as_ref(),
-                MmapFlags::TRANSPARENT_HUGE_PAGES | MmapFlags::SEQUENTIAL,
-            )
-            .with_context(|| format!("Could not mmap {}", path.as_ref().display()))?,
-        ))));
-
-        // read the length of the batch (first value in the stream)
-        let len = stream.read_delta().context("Could not read length")? as usize;
+        let (stream, len) = open_batch(path.as_ref())?;
 
         // create the iterator
         Ok(GroupedGapsIter {
@@ -349,20 +294,6 @@ pub struct GroupedGapsIter<
     dst_left: usize,
     /// Previous destination node
     prev_dst: usize,
-}
-
-// SAFETY: gaps are decoded in non-decreasing (src, dst) order.
-unsafe impl<
-    E: Endianness,
-    D: BitDeserializer<E, BitReader<E>>,
-    const OUTDEGREE_CODE: usize,
-    const SRC_CODE: usize,
-    const DST_CODE: usize,
-> SortedIterator for GroupedGapsIter<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
-where
-    BitReader<E>: BitRead<E> + CodesRead<E>,
-    BitWriter<E>: BitWrite<E> + CodesWrite<E>,
-{
 }
 
 impl<
@@ -407,31 +338,4 @@ where
     }
 }
 
-impl<
-    E: Endianness,
-    D: BitDeserializer<E, BitReader<E>>,
-    const OUTDEGREE_CODE: usize,
-    const SRC_CODE: usize,
-    const DST_CODE: usize,
-> ExactSizeIterator for GroupedGapsIter<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
-where
-    BitReader<E>: BitRead<E> + CodesRead<E>,
-    BitWriter<E>: BitWrite<E> + CodesWrite<E>,
-{
-    fn len(&self) -> usize {
-        self.len - self.current
-    }
-}
-
-impl<
-    E: Endianness,
-    D: BitDeserializer<E, BitReader<E>>,
-    const OUTDEGREE_CODE: usize,
-    const SRC_CODE: usize,
-    const DST_CODE: usize,
-> core::iter::FusedIterator for GroupedGapsIter<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
-where
-    BitReader<E>: BitRead<E> + CodesRead<E>,
-    BitWriter<E>: BitWrite<E> + CodesWrite<E>,
-{
-}
+impl_batch_iter!(GroupedGapsIter<OUTDEGREE_CODE, SRC_CODE, DST_CODE>);

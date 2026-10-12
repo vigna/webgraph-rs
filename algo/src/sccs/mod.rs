@@ -39,10 +39,18 @@
 //! [parallel]: symm_par()
 
 use crate::llp;
+use dsi_progress_logger::ProgressLog;
 use epserde::prelude::*;
+use no_break::NoBreak;
 use rayon::{
     iter::{IntoParallelRefMutIterator, ParallelIterator},
     slice::ParallelSliceMut,
+};
+use std::ops::ControlFlow::Continue;
+use webgraph::traits::RandomAccessGraph;
+use webgraph::visits::{
+    Sequential,
+    depth_first::{EventNoPred, SeqNoPred},
 };
 
 mod tarjan;
@@ -55,6 +63,48 @@ pub use symm_seq::*;
 
 mod symm_par;
 pub use symm_par::*;
+
+/// Computes components by sequential depth-first visits of `graph` from
+/// `roots`, in that order, each new visit discovering a new component.
+///
+/// This is the second phase of Kosaraju's algorithm, and, when `roots`
+/// enumerates the nodes in order, the computation of the connected components
+/// of a symmetric graph. The roots must contain all nodes.
+fn components_by_dfs(
+    graph: impl RandomAccessGraph,
+    roots: impl IntoIterator<Item = usize>,
+    message: &str,
+    pl: &mut impl ProgressLog,
+) -> Sccs {
+    let num_nodes = graph.num_nodes();
+    pl.item_name("node");
+    pl.expected_updates(num_nodes);
+    pl.start(message);
+
+    let mut visit = SeqNoPred::new(&graph);
+    let mut components = vec![0; num_nodes].into_boxed_slice();
+    let mut number_of_components = 0;
+
+    visit
+        .visit(roots, |event| {
+            match event {
+                EventNoPred::Previsit { node, .. } => {
+                    pl.light_update();
+                    components[node] = number_of_components;
+                }
+                EventNoPred::Done { .. } => {
+                    number_of_components += 1;
+                }
+                _ => (),
+            }
+            Continue(())
+        })
+        .continue_value_no_break();
+
+    pl.done();
+
+    Sccs::new(number_of_components, components)
+}
 
 /// Strongly connected components.
 ///

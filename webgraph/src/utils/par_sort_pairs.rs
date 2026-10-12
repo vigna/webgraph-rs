@@ -46,21 +46,22 @@
 //! [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
 //! [`SortedLabeledGraph`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraph
 
-use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tempfile::TempDir;
 
-use anyhow::{Context, Result, ensure};
+use anyhow::Result;
 use crossbeam_queue::SegQueue;
 use dsi_progress_logger::ProgressLog;
 use rayon::prelude::*;
 
-use crate::utils::DefaultBatchCodec;
-
 use super::MemoryUsage;
 use super::kmerge_iters::KMergeIters;
+use super::par_sort_common::{
+    PartitionBuffers, Sorter, impl_sorter_conf, merge_partitions, strip_labels,
+};
 use super::{BatchCodec, CodecIter};
+use crate::utils::DefaultBatchCodec;
 use crate::utils::{SortedPairIter, SplitIters};
 
 /// Takes a parallel iterator of (labeled) pairs as input, and turns them into
@@ -165,99 +166,20 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
         pairs: impl ParallelIterator<Item = Result<(usize, usize), E>>,
         pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
-        let split = self.try_sort_labeled(
+        Ok(strip_labels(self.try_sort_labeled(
             &<DefaultBatchCodec<DEDUP>>::default(),
             pairs.map(|pair| -> Result<_> {
                 let (src, dst) = pair.map_err(Into::into)?;
                 Ok(((src, dst), ()))
             }),
             pl,
-        )?;
-
-        let strip: fn(((usize, usize), ())) -> (usize, usize) = |(pair, _)| pair;
-        let iters_without_labels: Vec<_> = split
-            .iters
-            .into_vec()
-            .into_iter()
-            .map(|iter| iter.map(strip))
-            .collect();
-
-        Ok(SplitIters::new(
-            split.boundaries,
-            iters_without_labels.into_boxed_slice(),
-        ))
+        )?))
     }
 }
+
+impl_sorter_conf!(ParSortPairs);
 
 impl<const DEDUP: bool> ParSortPairs<DEDUP> {
-    /// Creates a new [`ParSortPairs`] instance.
-    pub(crate) fn create(num_nodes: usize) -> Result<Self> {
-        Ok(Self {
-            num_nodes,
-            num_partitions: rayon::current_num_threads(),
-            memory_usage: None,
-        })
-    }
-}
-
-impl ParSortPairs {
-    /// Creates a new [`ParSortPairs`] instance.
-    ///
-    /// The methods [`num_partitions`] (which sets the number of iterators in
-    /// the resulting [`SplitIters`]) and [`memory_usage`] can be used to
-    /// customize the instance.
-    ///
-    /// [`num_partitions`]: ParSortPairs::num_partitions
-    /// [`memory_usage`]: ParSortPairs::memory_usage
-    pub fn new(num_nodes: usize) -> Result<Self> {
-        Self::create(num_nodes)
-    }
-
-    /// Creates a new [`ParSortPairs`] instance with deduplication enabled.
-    ///
-    /// When enabled, each partition iterator in the resulting [`SplitIters`]
-    /// will skip consecutive elements sharing the same pair of nodes, keeping
-    /// only the first occurrence.
-    ///
-    /// See [`new`] for details.
-    ///
-    /// [`new`]: ParSortPairs::new
-    pub fn new_dedup(num_nodes: usize) -> Result<ParSortPairs<true>> {
-        ParSortPairs::create(num_nodes)
-    }
-}
-
-impl<const DEDUP: bool> ParSortPairs<DEDUP> {
-    /// How many partitions to split the nodes into.
-    ///
-    /// This is the number of iterators in the resulting [`SplitIters`].
-    ///
-    /// Defaults to [`rayon::current_num_threads`].
-    ///
-    /// # Panics
-    ///
-    /// This method will panic if `num_partitions` is zero.
-    pub const fn num_partitions(self, num_partitions: usize) -> Self {
-        assert!(num_partitions > 0, "num_partitions must be positive");
-        Self {
-            num_partitions,
-            ..self
-        }
-    }
-
-    /// How much memory to use for in-memory sorts.
-    ///
-    /// Larger values yield faster merges (by reducing logarithmically the
-    /// number of batches to merge) but consume linearly more memory. We suggest
-    /// to set this parameter as large as possible, depending on the available
-    /// memory. The default is the default of [`MemoryUsage`].
-    pub const fn memory_usage(self, memory_usage: MemoryUsage) -> Self {
-        Self {
-            memory_usage: Some(memory_usage),
-            ..self
-        }
-    }
-
     /// See [`try_sort_labeled`].
     ///
     /// This is a convenience method for parallel iterators that cannot fail.
@@ -295,45 +217,20 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
         pairs: P,
         pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>>> {
-        let unsorted_pairs = pairs;
-
-        let num_partitions = self.num_partitions;
-        let num_buffers = rayon::current_num_threads() * num_partitions;
-        // max(1): a zero batch size (BatchSize(0), or a MemorySize smaller
-        // than one element) would allocate zero-capacity buffers, whose
-        // effective batch size would then be whatever Vec's growth policy
-        // picks on the first push.
-        let batch_size = self
-            .memory_usage
-            .unwrap_or_default()
-            .batch_size::<((usize, usize), C::Label)>()
-            .div_ceil(num_buffers)
-            .max(1);
-        let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
-
+        let sorter = Sorter::new(
+            batch_codec,
+            self.num_nodes,
+            self.num_partitions,
+            self.memory_usage,
+            Some(rayon::current_num_threads()),
+        )?;
         let mut pl = pl.concurrent();
-        pl.item_name("pair");
-        pl.start("Reading and sorting pairs...");
-        let total_memory =
-            batch_size * num_buffers * std::mem::size_of::<((usize, usize), C::Label)>();
-        pl.info(format_args!(
-            "Threads: {}; partitions: {}; batch size: {}; memory: {}B",
-            rayon::current_num_threads(),
-            num_partitions,
-            batch_size,
-            super::humanize(total_memory as f64),
-        ));
+        sorter.start(&mut pl);
 
         let worker_id = AtomicUsize::new(0);
-        let presort_tmp_dir =
-            Arc::new(tempfile::tempdir().context("Could not create temporary directory")?);
-
         let sorter_thread_states = Arc::new(SegQueue::<SorterThreadState<C>>::new());
 
-        // Iterators in partitioned_presorted_pairs[partition_id] contain all
-        // pairs (src, dst, label) where num_nodes_per_partition*partition_id <=
-        // src < num_nodes_per_partition*(partition_id+1)
-        unsorted_pairs
+        pairs
             .try_for_each_init(
                 // Rayon calls this initializer on every sequential iterator inside
                 // the parallel iterator. Depending on how the parallel iterator was
@@ -353,11 +250,7 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
                         sorter_thread_states
                             .pop()
                             .unwrap_or_else(|| SorterThreadState {
-                                worker_id: worker_id.fetch_add(1, Ordering::Relaxed),
-                                unsorted_buffers: (0..num_partitions)
-                                    .map(|_| Vec::with_capacity(batch_size))
-                                    .collect(),
-                                sorted_pairs: (0..num_partitions).map(|_| Vec::new()).collect(),
+                                buffers: sorter.buffers(worker_id.fetch_add(1, Ordering::Relaxed)),
                                 queue: None,
                             });
 
@@ -365,53 +258,15 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
                     state.queue = Some(Arc::clone(&sorter_thread_states));
                     (pl.clone(), state)
                 },
-                |(pl, thread_state), pair| -> Result<_> {
-                    let ((src, dst), label) = pair.map_err(Into::into)?;
-                    ensure!(
-                        src < self.num_nodes,
-                        "Expected {} nodes, but got node id {src}",
-                        self.num_nodes
-                    );
-                    ensure!(
-                        dst < self.num_nodes,
-                        "Expected {} nodes, but got successor node id {dst}",
-                        self.num_nodes
-                    );
-                    let partition_id = src / num_nodes_per_partition;
-                    let SorterThreadState {
-                        worker_id,
-                        sorted_pairs,
-                        unsorted_buffers,
-                        queue: _,
-                    } = thread_state;
-
-                    let sorted_pairs = &mut sorted_pairs[partition_id];
-                    let buf = &mut unsorted_buffers[partition_id];
-                    if buf.len() >= buf.capacity() {
-                        let buf_len = buf.len();
-                        flush_buffer(
-                            presort_tmp_dir.path(),
-                            batch_codec,
-                            *worker_id,
-                            partition_id,
-                            sorted_pairs,
-                            buf,
-                        )
-                        .context("Could not flush buffer")?;
-                        assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
-                        pl.update_with_count(buf_len);
-                    }
-
-                    buf.push(((src, dst), label));
-                    Ok(())
+                |(pl, state), pair| -> Result<()> {
+                    sorter.push(&mut state.buffers, pair.map_err(Into::into)?, pl)
                 },
             )
             .inspect_err(|_| {
                 // SorterThreadState panics when dropped while holding data, so we have to explicitly
                 // clear it before returning an error
                 while let Some(mut sorter_thread_state) = sorter_thread_states.pop() {
-                    sorter_thread_state.sorted_pairs.clear();
-                    sorter_thread_state.unsorted_buffers.clear();
+                    sorter_thread_state.buffers.clear();
                 }
             })?;
 
@@ -420,106 +275,24 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
             .map_while(|()| sorter_thread_states.pop())
             .collect();
 
-        // flush remaining buffers
-        let partitioned_presorted_pairs: Vec<Vec<CodecIter<C>>> = sorter_thread_states
+        // Flush the remaining buffers and merge the {partition_id ->
+        // [iterators]} maps of each thread
+        let partitions = sorter_thread_states
             .into_par_iter()
-            .map_with(pl.clone(), |pl, mut thread_state: SorterThreadState<C>| {
-                let mut sorted_pairs = Vec::new();
-                std::mem::swap(&mut sorted_pairs, &mut thread_state.sorted_pairs);
-                let mut unsorted_buffers = Vec::new();
-                std::mem::swap(&mut unsorted_buffers, &mut thread_state.unsorted_buffers);
-
-                let mut partitioned_sorted_pairs = Vec::with_capacity(num_partitions);
-                assert_eq!(sorted_pairs.len(), num_partitions);
-                assert_eq!(unsorted_buffers.len(), num_partitions);
-                for (partition_id, (mut sorted_pairs, mut buf)) in
-                    sorted_pairs.into_iter().zip(unsorted_buffers).enumerate()
-                {
-                    let buf_len = buf.len();
-                    flush_buffer(
-                        presort_tmp_dir.path(),
-                        batch_codec,
-                        thread_state.worker_id,
-                        partition_id,
-                        &mut sorted_pairs,
-                        &mut buf,
-                    )
-                    .context("Could not flush buffer at the end")?;
-                    assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
-                    pl.update_with_count(buf_len);
-
-                    partitioned_sorted_pairs.push(sorted_pairs);
-                }
-                Ok(partitioned_sorted_pairs)
+            .map_with(pl.clone(), |pl, mut state: SorterThreadState<C>| {
+                sorter.finish(&mut state.buffers, pl)
             })
-            // At this point, the iterator could be collected into {worker_id ->
-            // {partition_id -> [iterators]}}, i.e., Vec<Vec<Vec<BatchIterator>>>>.
-            //
-            // Let's merge the {partition_id -> [iterators]} maps of each worker
-            .try_reduce(
-                || (0..num_partitions).map(|_| Vec::new()).collect(),
-                |mut pair_partitions1: Vec<Vec<CodecIter<C>>>,
-                 pair_partitions2: Vec<Vec<CodecIter<C>>>|
-                 -> Result<Vec<Vec<CodecIter<C>>>> {
-                    assert_eq!(pair_partitions1.len(), num_partitions);
-                    assert_eq!(pair_partitions2.len(), num_partitions);
-                    for (partition1, partition2) in
-                        pair_partitions1.iter_mut().zip(pair_partitions2)
-                    {
-                        partition1.extend(partition2);
-                    }
-                    Ok(pair_partitions1)
-                },
-            )?;
-        // At this point, the iterator was turned into {partition_id ->
-        // [iterators]}, i.e., Vec<Vec<BatchIterator>>>.
+            .try_reduce(|| sorter.no_batches(), |a, b| Ok(merge_partitions(a, b)))?;
         pl.done();
 
-        // Build boundaries array: [0, nodes_per_partition,
-        // 2*nodes_per_partition, ..., num_nodes]
-        let boundaries: Vec<usize> = (0..=num_partitions)
-            .map(|i| {
-                i.saturating_mul(num_nodes_per_partition)
-                    .min(self.num_nodes)
-            })
-            .collect();
-
-        // Build iterators array
-        let iters: Vec<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>> =
-            partitioned_presorted_pairs
-                .into_iter()
-                .map(|partition| {
-                    // 'partition' contains N iterators that are not sorted with
-                    // respect to each other. We merge them and turn them into a
-                    // single sorted iterator.
-                    KMergeIters::with_anchor(partition, Arc::clone(&presort_tmp_dir))
-                })
-                .collect();
-
-        Ok(SplitIters::new(
-            boundaries.into_boxed_slice(),
-            iters.into_boxed_slice(),
-        ))
+        Ok(sorter.into_split_iters(partitions))
     }
 }
 
 struct SorterThreadState<C: BatchCodec> {
-    worker_id: usize,
-    sorted_pairs: Vec<Vec<CodecIter<C>>>,
-    unsorted_buffers: Vec<Vec<((usize, usize), C::Label)>>,
+    buffers: PartitionBuffers<C>,
     /// Where should this SorterThreadState put itself back to when dropped
     queue: Option<Arc<SegQueue<Self>>>,
-}
-
-impl<C: BatchCodec> SorterThreadState<C> {
-    fn new_empty() -> Self {
-        SorterThreadState {
-            worker_id: usize::MAX,
-            sorted_pairs: Vec::new(),
-            unsorted_buffers: Vec::new(),
-            queue: None,
-        }
-    }
 }
 
 impl<C: BatchCodec> Drop for SorterThreadState<C> {
@@ -527,61 +300,21 @@ impl<C: BatchCodec> Drop for SorterThreadState<C> {
         match self.queue.take() {
             Some(queue) => {
                 // Put self back on the queue
-                let mut other_self = Self::new_empty();
-                std::mem::swap(&mut other_self, self);
-                queue.push(other_self);
+                queue.push(SorterThreadState {
+                    buffers: std::mem::take(&mut self.buffers),
+                    queue: None,
+                });
             }
             None => {
                 assert!(
-                    self.sorted_pairs.iter().all(|vec| vec.is_empty()),
+                    self.buffers.sorted.iter().all(|vec| vec.is_empty()),
                     "Dropped SorterThreadState without consuming sorted_pairs"
                 );
                 assert!(
-                    self.unsorted_buffers.iter().all(|vec| vec.is_empty()),
+                    self.buffers.unsorted.iter().all(|vec| vec.is_empty()),
                     "Dropped SorterThreadState without consuming unsorted_buffers"
                 );
             }
         }
     }
-}
-
-pub(crate) fn flush_buffer<C: BatchCodec>(
-    tmp_dir: &Path,
-    batch_codec: &C,
-    worker_id: usize,
-    partition_id: usize,
-    sorted_pairs: &mut Vec<CodecIter<C>>,
-    buf: &mut Vec<((usize, usize), C::Label)>,
-) -> Result<()> {
-    // Skip empty buffers: the end-of-sort flush covers every partition of
-    // every worker state, and sparse inputs would otherwise create and mmap
-    // an empty batch file for each of them.
-    if buf.is_empty() {
-        return Ok(());
-    }
-
-    let path = tmp_dir.join(format!(
-        "sorted_batch_{worker_id}_{partition_id}_{}",
-        sorted_pairs.len()
-    ));
-
-    // Safety check. It's not foolproof (TOCTOU) but should catch most
-    // programming errors.
-    ensure!(
-        !path.exists(),
-        "Can't create temporary file {}, it already exists",
-        path.display()
-    );
-
-    batch_codec
-        .encode_batch(&path, buf)
-        .with_context(|| format!("Could not write sorted batch to {}", path.display()))?;
-    sorted_pairs.push(
-        batch_codec
-            .decode_batch(&path)
-            .with_context(|| format!("Could not read sorted batch from {}", path.display()))?
-            .into_iter(),
-    );
-    buf.clear();
-    Ok(())
 }

@@ -6,19 +6,17 @@
  */
 
 use crate::{FloatSliceFormat, GranularityArgs, LogIntervalArg, NumThreadsArg, get_thread_pool};
-use anyhow::{Result, bail};
+use anyhow::Result;
 use clap::{ArgGroup, Args, Parser};
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::progress_logger;
-use epserde::deser::{Deserialize, Flags};
 use rand::SeedableRng;
 use std::path::PathBuf;
-use webgraph::utils::{Granularity, MmapHelper};
-use webgraph::{
-    graphs::bvgraph::get_endianness,
-    prelude::{BvGraph, DCF, DEG_CUMUL_EXTENSION, LoadModeCodesReader, Mmap},
+use webgraph::prelude::{
+    BvGraph, LoadModeCodesReader, Mmap, RandomAccessLabeling, SequentialLabeling,
 };
+use webgraph::utils::{Granularity, MmapHelper};
 use webgraph_algo::distances::hyperball::{self, HyperBallBuilder};
 
 #[derive(Args, Debug, Clone)]
@@ -129,13 +127,7 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => hyperball::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => hyperball::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.basename, |E| hyperball::<E>(args))
 }
 
 pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()>
@@ -155,19 +147,7 @@ where
         .load()?;
 
     log::info!("Loading DCF...");
-    if !args.basename.with_extension(DEG_CUMUL_EXTENSION).exists() {
-        bail!(
-            "Missing DCF file. Please run `webgraph build dcf {}`.",
-            args.basename.display()
-        );
-    }
-
-    let deg_cumul_func = unsafe {
-        DCF::mmap(
-            args.basename.with_extension(DEG_CUMUL_EXTENSION),
-            Flags::RANDOM_ACCESS,
-        )
-    }?;
+    let deg_cumul_func = crate::load_dcf(&args.basename, graph.num_nodes(), graph.num_arcs())?;
 
     // As soon as we can use a more recent compiler, this can be avoided using
     // Some(&BvGraph::with_basename(transposed_path).endianness::<E>().load()?) below.

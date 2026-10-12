@@ -14,73 +14,52 @@ use crate::utils::par_sort_iters::ParSortIters;
 use crate::utils::{MemoryUsage, SplitIters};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLog;
+use itertools::Itertools;
 
-/// Merges two sorted iterators of node pairs, deduplicating consecutive
-/// equal elements. When `NO_LOOPS` is true, self-loops (pairs where
-/// source equals destination) are also removed.
-#[derive(Clone)]
-struct MergeDedupPairs<const NO_LOOPS: bool, I0, I1> {
-    iter0: I0,
-    iter1: I1,
-    pending0: Option<(usize, usize)>,
-    pending1: Option<(usize, usize)>,
-    last: Option<(usize, usize)>,
-}
-
-impl<const NO_LOOPS: bool, I0, I1> MergeDedupPairs<NO_LOOPS, I0, I1>
-where
-    I0: Iterator<Item = (usize, usize)>,
-    I1: Iterator<Item = (usize, usize)>,
+/// Returns an iterator on an arc and on its reverse, skipping self-loops if
+/// `NO_LOOPS` is true, and returning them once otherwise.
+///
+/// The two-element iterator is fully inlined by LLVM, generating the same code
+/// as a hand-written loop.
+#[inline(always)]
+fn sym_arcs<const NO_LOOPS: bool>(
+    (src, dst): (usize, usize),
+) -> core::iter::Chain<core::option::IntoIter<(usize, usize)>, core::option::IntoIter<(usize, usize)>>
 {
-    fn new(mut iter0: I0, mut iter1: I1) -> Self {
-        Self {
-            pending0: iter0.next(),
-            pending1: iter1.next(),
-            iter0,
-            iter1,
-            last: None,
-        }
+    if src != dst {
+        Some((src, dst)).into_iter().chain(Some((dst, src)))
+    } else if !NO_LOOPS {
+        Some((src, dst)).into_iter().chain(None)
+    } else {
+        None.into_iter().chain(None)
     }
 }
 
-impl<const NO_LOOPS: bool, I0, I1> Iterator for MergeDedupPairs<NO_LOOPS, I0, I1>
+/// Re-splits a sorted graph at the boundaries of its sorted reverse arcs, and
+/// lazily merges the forward and reverse arcs of each part, removing
+/// duplicates and, if `NO_LOOPS` is true, self-loops.
+fn merge_forward<'g, const NO_LOOPS: bool, G, R>(
+    graph: &'g G,
+    SplitIters { boundaries, iters }: SplitIters<R>,
+) -> ParSortedGraph<impl Iterator<Item = ((usize, usize), ())> + Send + Sync + 'g>
 where
-    I0: Iterator<Item = (usize, usize)>,
-    I1: Iterator<Item = (usize, usize)>,
+    G: SequentialGraph + SplitLabeling,
+    for<'a> G::SplitLender<'g>:
+        NodeLabelsLender<'a, IntoIterator: IntoIterator<IntoIter: Clone + Send + Sync>> + Clone,
+    R: Iterator<Item = (usize, usize)> + Send + Sync + 'g,
 {
-    type Item = (usize, usize);
-
-    fn next(&mut self) -> Option<(usize, usize)> {
-        loop {
-            let pair = match (self.pending0, self.pending1) {
-                (Some(a), Some(b)) if a <= b => {
-                    self.pending0 = self.iter0.next();
-                    a
-                }
-                (Some(_), Some(b)) => {
-                    self.pending1 = self.iter1.next();
-                    b
-                }
-                (Some(a), None) => {
-                    self.pending0 = self.iter0.next();
-                    a
-                }
-                (None, Some(b)) => {
-                    self.pending1 = self.iter1.next();
-                    b
-                }
-                (None, None) => return None,
-            };
-            if self.last == Some(pair) {
-                continue;
-            }
-            self.last = Some(pair);
-            if NO_LOOPS && pair.0 == pair.1 {
-                continue;
-            }
-            return Some(pair);
-        }
-    }
+    let merged: Vec<_> = graph
+        .split_iter_at(boundaries.iter().copied())
+        .into_iter()
+        .zip(iters.into_vec())
+        .map(|(fwd, rev)| {
+            fwd.into_pairs()
+                .merge(rev)
+                .dedup()
+                .filter(|&(src, dst)| !NO_LOOPS || src != dst)
+        })
+        .collect();
+    ParSortedGraph::from_parts(boundaries, merged.into_boxed_slice())
 }
 
 /// Returns a [`ParSortedGraph`] representing a symmetrized version of the
@@ -117,26 +96,10 @@ where
     for<'a> G::SplitLender<'g>:
         NodeLabelsLender<'a, IntoIterator: IntoIterator<IntoIter: Clone + Send + Sync>> + Clone,
 {
-    let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
-
-    let SplitIters { boundaries, iters } =
-        par_sort_iters.sort_seq(graph.iter().into_pairs().map(|(src, dst)| (dst, src)), pl)?;
-
-    // Re-split the original graph at the same boundaries used by
-    // ParSortIters, then lazily merge forward and reverse pairs per
-    // partition.
-    let forward_lenders = graph.split_iter_at(boundaries.iter().copied());
-
-    let merged: Vec<_> = forward_lenders
-        .into_iter()
-        .zip(iters.into_vec())
-        .map(|(fwd, rev)| MergeDedupPairs::<NO_LOOPS, _, _>::new(fwd.into_pairs(), rev))
-        .collect();
-
-    Ok(ParSortedGraph::from_parts(
-        boundaries,
-        merged.into_boxed_slice(),
-    ))
+    let reverse = ParSortIters::new(graph.num_nodes())?
+        .memory_usage(memory_usage)
+        .sort_seq(graph.iter().into_pairs().map(|(src, dst)| (dst, src)), pl)?;
+    Ok(merge_forward::<NO_LOOPS, _, _>(graph, reverse))
 }
 
 /// Returns a [`ParSortedGraph`] representing a symmetrized version of the
@@ -185,31 +148,14 @@ where
         NodeLabelsLender<'a, IntoIterator: IntoIterator<IntoIter: Clone + Send + Sync>> + Clone,
 {
     let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
-
     let (lenders, _boundaries) = graph.into_par_lenders();
     let reverse_pairs: Vec<_> = lenders
         .into_vec()
         .into_iter()
         .map(|lender| lender.into_pairs().map(|(src, dst)| (dst, src)))
         .collect();
-
-    let SplitIters { boundaries, iters } = par_sort_iters.sort(reverse_pairs, pl)?;
-
-    // Re-split the original graph at the same boundaries used by
-    // ParSortIters, then lazily merge forward and reverse pairs per
-    // partition.
-    let forward_lenders = graph.split_iter_at(boundaries.iter().copied());
-
-    let merged: Vec<_> = forward_lenders
-        .into_iter()
-        .zip(iters.into_vec())
-        .map(|(fwd, rev)| MergeDedupPairs::<NO_LOOPS, _, _>::new(fwd.into_pairs(), rev))
-        .collect();
-
-    Ok(ParSortedGraph::from_parts(
-        boundaries,
-        merged.into_boxed_slice(),
-    ))
+    let reverse = par_sort_iters.sort(reverse_pairs, pl)?;
+    Ok(merge_forward::<NO_LOOPS, _, _>(graph, reverse))
 }
 
 /// Returns a [`ParSortedGraph`] representing a symmetrized version of the
@@ -228,25 +174,14 @@ pub fn symmetrize_seq<const NO_LOOPS: bool>(
     memory_usage: MemoryUsage,
     pl: &mut impl ProgressLog,
 ) -> Result<ParSortedGraph<SortedPairIter<true>>> {
-    let num_nodes = graph.num_nodes();
-
-    let conf = ParSortedGraph::config()
+    ParSortedGraph::config()
         .dedup()
         .memory_usage(memory_usage)
-        .progress_logger(pl);
-
-    conf.sort_pairs(
-        num_nodes,
-        graph.iter().into_pairs().flat_map(|(src, dst)| {
-            if src != dst {
-                Some((src, dst)).into_iter().chain(Some((dst, src)))
-            } else if !NO_LOOPS {
-                Some((src, dst)).into_iter().chain(None)
-            } else {
-                None.into_iter().chain(None)
-            }
-        }),
-    )
+        .progress_logger(pl)
+        .sort_pairs(
+            graph.num_nodes(),
+            graph.iter().into_pairs().flat_map(sym_arcs::<NO_LOOPS>),
+        )
 }
 
 /// Returns a [`ParSortedGraph`] representing a symmetrized version of the
@@ -287,18 +222,9 @@ where
         .memory_usage(memory_usage)
         .progress_logger(pl);
     let (lenders, _boundaries) = graph.into_par_lenders();
-    let iters = lenders.into_vec().into_iter().map(|lender| {
-        lender.into_pairs().flat_map(move |(src, dst)| {
-            // The two-element iterator is fully inlined by LLVM,
-            // generating the same code as a hand-written loop.
-            if src != dst {
-                Some((src, dst)).into_iter().chain(Some((dst, src)))
-            } else if !NO_LOOPS {
-                Some((src, dst)).into_iter().chain(None)
-            } else {
-                None.into_iter().chain(None)
-            }
-        })
-    });
+    let iters = lenders
+        .into_vec()
+        .into_iter()
+        .map(|lender| lender.into_pairs().flat_map(sym_arcs::<NO_LOOPS>));
     conf.par_sort_pair_iters(num_nodes, iters)
 }

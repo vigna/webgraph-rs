@@ -40,13 +40,7 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => check_symm::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => check_symm::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.basename, |E| check_symm::<E>(args))
 }
 
 pub fn check_symm<E: Endianness>(args: CliArgs) -> Result<()>

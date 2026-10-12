@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
-use crate::{FloatSliceFormat, create_parent_dir};
+use crate::FloatSliceFormat;
 use anyhow::Result;
 use clap::Parser;
 use std::path::PathBuf;
@@ -36,34 +36,29 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    create_parent_dir(&args.dst)?;
+    // Converts the sequence using the given float type.
+    macro_rules! convert {
+        ($F:ty) => {{
+            let data: Vec<$F> = args.src_fmt.load(&args.src)?;
+            let type_name = stringify!($F);
+            log::info!(
+                "Loaded {} {type_name} elements from {}",
+                data.len(),
+                args.src.display()
+            );
+            args.dst_fmt.store(&args.dst, &data, args.precision)?;
+            log::info!(
+                "Stored {} {type_name} elements to {}",
+                data.len(),
+                args.dst.display()
+            );
+        }};
+    }
 
     if args.f32 {
-        let data: Vec<f32> = args.src_fmt.load(&args.src)?;
-        log::info!(
-            "Loaded {} f32 elements from {}",
-            data.len(),
-            args.src.display()
-        );
-        args.dst_fmt.store(&args.dst, &data, args.precision)?;
-        log::info!(
-            "Stored {} f32 elements to {}",
-            data.len(),
-            args.dst.display()
-        );
+        convert!(f32)
     } else {
-        let data: Vec<f64> = args.src_fmt.load(&args.src)?;
-        log::info!(
-            "Loaded {} f64 elements from {}",
-            data.len(),
-            args.src.display()
-        );
-        args.dst_fmt.store(&args.dst, &data, args.precision)?;
-        log::info!(
-            "Stored {} f64 elements to {}",
-            data.len(),
-            args.dst.display()
-        );
+        convert!(f64)
     }
 
     Ok(())

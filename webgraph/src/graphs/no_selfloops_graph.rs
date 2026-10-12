@@ -5,7 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
-use crate::{impl_parallel_from_split, prelude::*};
+use crate::graphs::{impl_into_lender, impl_split};
+use crate::prelude::*;
 use lender::*;
 
 /// A wrapper that removes self-loops from a graph. Since we don't
@@ -42,45 +43,17 @@ impl<G: SequentialGraph> SequentialLabeling for NoSelfLoopsGraph<G> {
     }
 }
 
-impl<G: SequentialGraph + SplitLabeling> SplitLabeling for NoSelfLoopsGraph<G>
-where
-    for<'a> <G as SequentialLabeling>::Lender<'a>: Clone + Send + Sync,
-{
-    type SplitLender<'a>
-        = split::seq::Lender<'a, NoSelfLoopsGraph<G>>
-    where
-        Self: 'a;
-    type IntoIterator<'a>
-        = split::seq::IntoIterator<'a, NoSelfLoopsGraph<G>>
-    where
-        Self: 'a;
-
-    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
-        split::seq::Iter::new(self.iter(), cutpoints)
-    }
-}
-
-impl_parallel_from_split!(
+impl_split!(
+    seq
     [G: SequentialGraph + SplitLabeling]
     NoSelfLoopsGraph<G>
+    [for<'a> <G as SequentialLabeling>::Lender<'a>: Clone + Send + Sync]
     [for<'a> <G as SequentialLabeling>::Lender<'a>: Clone + ExactSizeLender + lender::FusedLender + Send + Sync]
 );
 
 impl<G: SequentialGraph> SequentialGraph for NoSelfLoopsGraph<G> {}
 
-/// Convenience implementation that makes it possible to iterate
-/// over the graph using the [`for_`] macro
-/// (see the [crate documentation]).
-///
-/// [crate documentation]: crate
-impl<'b, G: SequentialGraph> IntoLender for &'b NoSelfLoopsGraph<G> {
-    type Lender = <NoSelfLoopsGraph<G> as SequentialLabeling>::Lender<'b>;
-
-    #[inline(always)]
-    fn into_lender(self) -> Self::Lender {
-        self.iter()
-    }
-}
+impl_into_lender!([G: SequentialGraph] NoSelfLoopsGraph<G>);
 
 #[derive(Debug, Clone)]
 pub struct NodeLabels<I> {
@@ -170,20 +143,3 @@ impl<I: Iterator<Item = usize>> Iterator for Succ<I> {
 unsafe impl<I: Iterator<Item = usize> + SortedIterator> SortedIterator for Succ<I> {}
 
 impl<I: Iterator<Item = usize> + std::iter::FusedIterator> std::iter::FusedIterator for Succ<I> {}
-
-#[cfg(test)]
-#[test]
-fn test_no_self_loops_graph() -> anyhow::Result<()> {
-    use crate::graphs::vec_graph::VecGraph;
-    let g = VecGraph::from_arcs([(0, 1), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2)]);
-    let p = NoSelfLoopsGraph(g);
-    assert_eq!(p.num_nodes(), 3);
-
-    let mut iter = p.iter();
-    assert_eq!(iter.next().unwrap().1.collect::<Vec<_>>(), vec![1]);
-    assert_eq!(iter.next().unwrap().1.collect::<Vec<_>>(), vec![2]);
-    assert_eq!(iter.next().unwrap().1.collect::<Vec<_>>(), vec![0, 1]);
-    assert!(iter.next().is_none());
-
-    Ok(())
-}

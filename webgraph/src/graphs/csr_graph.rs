@@ -6,21 +6,12 @@
  */
 
 use super::bvgraph::EF;
-use crate::{
-    impl_parallel_from_split,
-    prelude::{LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY},
-    traits::*,
-};
+use crate::graphs::{bvgraph::ef_from_builder, impl_into_lender};
+use crate::{impl_parallel_from_split, traits::*};
 use epserde::Epserde;
 use lender::{IntoLender, Lend, Lender, Lending, check_covariance, for_};
 use num_primitive::{PrimitiveNumber, PrimitiveNumberAs};
-use sux::{
-    bits::BitFieldVec,
-    dict::EliasFanoBuilder,
-    rank_sel::{SelectAdaptConst, SelectZeroAdaptConst},
-    traits::TryIntoUnaligned,
-    utils::PrimitiveUnsignedExt,
-};
+use sux::{bits::BitFieldVec, dict::EliasFanoBuilder, utils::PrimitiveUnsignedExt};
 use value_traits::{
     iter::{IterFrom, IterateByValueFrom},
     slices::SliceByValue,
@@ -250,15 +241,8 @@ impl CompressedCsrGraph {
         for _ in last_src..g.num_nodes() {
             efb.push(successors.len() as u64);
         }
-        let ef = efb.build();
+        let ef = ef_from_builder(efb).unwrap();
         // SAFETY: the Elias–Fano structure and successors are built consistently from the graph.
-        let ef: EF = unsafe {
-            ef.map_high_bits(
-                SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
-            )
-            .try_into_unaligned()
-            .unwrap()
-        };
         unsafe { Ok(Self::from_parts(ef, successors)) }
     }
 }
@@ -278,50 +262,35 @@ impl CompressedCsrSortedGraph {
     }
 }
 
-/// Convenience implementation that makes it possible to iterate
-/// over the graph using the [`for_`] macro
-/// (see the [crate documentation]).
+/// Compound trait expressing the trait bounds on the degree cumulative
+/// function of a CSR graph.
 ///
-/// [crate documentation]: crate
-impl<'a, DCF, S> IntoLender for &'a CsrGraph<DCF, S>
-where
-    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
-        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
-    S: SliceByValue + IterateByValueFrom<Item = usize>,
+/// It is implemented by every type satisfying the bounds.
+pub trait CsrDcf:
+    SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+    + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>
 {
-    type Lender = NodeLabels<IterFrom<'a, DCF>, IterFrom<'a, S>>;
-
-    #[inline(always)]
-    fn into_lender(self) -> Self::Lender {
-        self.iter()
-    }
 }
 
-/// Convenience implementation that makes it possible to iterate
-/// over the graph using the [`for_`] macro
-/// (see the [crate documentation]).
-///
-/// [crate documentation]: crate
-impl<'a, DCF, S> IntoLender for &'a CsrSortedGraph<DCF, S>
-where
-    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
-        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
-    S: SliceByValue + IterateByValueFrom<Item = usize>,
+impl<T> CsrDcf for T where
+    T: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>
 {
-    type Lender = <Self as SequentialLabeling>::Lender<'a>;
-
-    #[inline(always)]
-    fn into_lender(self) -> Self::Lender {
-        self.iter()
-    }
 }
 
-impl<DCF, S> SequentialLabeling for CsrGraph<DCF, S>
-where
-    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
-        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
-    S: SliceByValue + IterateByValueFrom<Item = usize>,
-{
+/// Compound trait expressing the trait bounds on the successors of a CSR
+/// graph.
+///
+/// It is implemented by every type satisfying the bounds. Random access
+/// further requires that the values of the slice are `usize`.
+pub trait CsrSuccessors: SliceByValue + IterateByValueFrom<Item = usize> {}
+
+impl<T: SliceByValue + IterateByValueFrom<Item = usize>> CsrSuccessors for T {}
+
+impl_into_lender!([DCF: CsrDcf, S: CsrSuccessors] CsrGraph<DCF, S>);
+impl_into_lender!([DCF: CsrDcf, S: CsrSuccessors] CsrSortedGraph<DCF, S>);
+
+impl<DCF: CsrDcf, S: CsrSuccessors> SequentialLabeling for CsrGraph<DCF, S> {
     type Label = usize;
     type Lender<'a>
         = NodeLabels<IterFrom<'a, DCF>, IterFrom<'a, S>>
@@ -364,22 +333,11 @@ where
         for val in self.dcf.iter_value_from(0).take(n + 1) {
             efb.push(val.as_to::<u64>());
         }
-        unsafe {
-            efb.build().map_high_bits(|high_bits| {
-                SelectZeroAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new(
-                    SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new(high_bits),
-                )
-            }).try_into_unaligned().unwrap()
-        }
+        crate::graphs::bvgraph::dcf_from_builder(efb).unwrap()
     }
 }
 
-impl<DCF, S> SequentialLabeling for CsrSortedGraph<DCF, S>
-where
-    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
-        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
-    S: SliceByValue + IterateByValueFrom<Item = usize>,
-{
+impl<DCF: CsrDcf, S: CsrSuccessors> SequentialLabeling for CsrSortedGraph<DCF, S> {
     type Label = usize;
     type Lender<'a>
         = SortedNodeLabels<IterFrom<'a, DCF>, IterFrom<'a, S>>
@@ -406,27 +364,8 @@ where
     }
 }
 
-impl<D, S> SequentialGraph for CsrGraph<D, S>
-where
-    D: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
-        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
-    S: SliceByValue + IterateByValueFrom<Item = usize>,
-{
-}
-
-impl<D, S> SequentialGraph for CsrSortedGraph<D, S>
-where
-    D: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
-        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
-    S: SliceByValue + IterateByValueFrom<Item = usize>,
-{
-}
-
-impl<DCF, S> RandomAccessLabeling for CsrGraph<DCF, S>
-where
-    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
-        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
-    S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
+impl<DCF: CsrDcf, S: CsrSuccessors + SliceByValue<Value = usize>> RandomAccessLabeling
+    for CsrGraph<DCF, S>
 {
     type Labels<'succ>
         = core::iter::Take<IterFrom<'succ, S>>
@@ -452,11 +391,8 @@ where
     }
 }
 
-impl<DCF, S> RandomAccessLabeling for CsrSortedGraph<DCF, S>
-where
-    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
-        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
-    S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
+impl<DCF: CsrDcf, S: CsrSuccessors + SliceByValue<Value = usize>> RandomAccessLabeling
+    for CsrSortedGraph<DCF, S>
 {
     type Labels<'succ>
         = AssumeSortedIterator<core::iter::Take<IterFrom<'succ, S>>>
@@ -481,117 +417,68 @@ where
     }
 }
 
-impl<DCF, S> RandomAccessGraph for CsrGraph<DCF, S>
-where
-    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
-        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
-    S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
-{
+/// Implements the traits whose implementations are identical for [`CsrGraph`]
+/// and [`CsrSortedGraph`].
+macro_rules! impl_csr_common {
+    ($($ty:ident),*) => {$(
+        impl<DCF: CsrDcf, S: CsrSuccessors> SequentialGraph for $ty<DCF, S> {}
+
+        impl<DCF: CsrDcf, S: CsrSuccessors + SliceByValue<Value = usize>> RandomAccessGraph
+            for $ty<DCF, S>
+        {
+        }
+
+        impl<DCF, S> SplitLabeling for $ty<DCF, S>
+        where
+            DCF: CsrDcf + Sync + 'static,
+            S: CsrSuccessors + SliceByValue<Value = usize> + Sync + 'static,
+        {
+            type SplitLender<'a>
+                = lender::Take<LenderImpl<'a, Self>>
+            where
+                Self: 'a;
+
+            type IntoIterator<'a>
+                = CsrSplitIter<'a, Self>
+            where
+                Self: 'a;
+
+            fn split_iter_at(
+                &self,
+                cutpoints: impl IntoIterator<Item = usize>,
+            ) -> Self::IntoIterator<'_> {
+                CsrSplitIter::new(self, cutpoints)
+            }
+        }
+
+        impl_parallel_from_split!(
+            [DCF: 'static, S: 'static]
+            $ty<DCF, S>
+            [DCF: CsrDcf + Sync, S: CsrSuccessors + SliceByValue<Value = usize> + Sync]
+        );
+    )*};
 }
 
-impl<DCF, S> RandomAccessGraph for CsrSortedGraph<DCF, S>
-where
-    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
-        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
-    S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
-{
-}
-
-impl<DCF: 'static, S: 'static> SplitLabeling for CsrGraph<DCF, S>
-where
-    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
-        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>
-        + Sync,
-    S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize> + Sync,
-{
-    type SplitLender<'a>
-        = lender::Take<LenderImpl<'a, Self>>
-    where
-        Self: 'a;
-
-    type IntoIterator<'a>
-        = CsrSplitIter<'a, Self>
-    where
-        Self: 'a;
-
-    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
-        CsrSplitIter::new(self, cutpoints)
-    }
-}
-
-impl<DCF: 'static, S: 'static> SplitLabeling for CsrSortedGraph<DCF, S>
-where
-    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
-        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>
-        + Sync,
-    S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize> + Sync,
-{
-    type SplitLender<'a>
-        = lender::Take<LenderImpl<'a, Self>>
-    where
-        Self: 'a;
-
-    type IntoIterator<'a>
-        = CsrSplitIter<'a, Self>
-    where
-        Self: 'a;
-
-    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
-        CsrSplitIter::new(self, cutpoints)
-    }
-}
-
-impl_parallel_from_split!(
-    [DCF: 'static, S: 'static]
-    CsrGraph<DCF, S>
-    [
-        DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
-            + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>
-            + Sync,
-        S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize> + Sync
-    ]
-);
-
-impl_parallel_from_split!(
-    [DCF: 'static, S: 'static]
-    CsrSortedGraph<DCF, S>
-    [
-        DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
-            + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>
-            + Sync,
-        S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize> + Sync
-    ]
-);
+impl_csr_common!(CsrGraph, CsrSortedGraph);
 
 /// An iterator over segments of a CSR labeling defined by cutpoints.
 pub struct CsrSplitIter<'a, R: RandomAccessLabeling> {
     labeling: &'a R,
-    cutpoints: Vec<usize>,
-    i: usize,
+    segments: crate::traits::split::Segments,
 }
 
 impl<'a, R: RandomAccessLabeling> CsrSplitIter<'a, R> {
     /// Creates a new iterator from a labeling and a sequence of cutpoints.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there are fewer than two cutpoints, if they are not
+    /// non-decreasing, or if the last cutpoint is greater than the number of
+    /// nodes.
     pub fn new(labeling: &'a R, cutpoints: impl core::iter::IntoIterator<Item = usize>) -> Self {
-        let cutpoints: Vec<usize> = cutpoints.into_iter().collect();
-        assert!(
-            cutpoints.len() >= 2,
-            "cutpoints must have at least 2 elements"
-        );
-        assert!(
-            cutpoints.windows(2).all(|w| w[0] <= w[1]),
-            "cutpoints must be non-decreasing"
-        );
-        assert!(
-            *cutpoints.last().unwrap() <= labeling.num_nodes(),
-            "last cutpoint ({}) must be <= num_nodes ({})",
-            cutpoints.last().unwrap(),
-            labeling.num_nodes()
-        );
         Self {
             labeling,
-            cutpoints,
-            i: 0,
+            segments: crate::traits::split::Segments::new(cutpoints, Some(labeling.num_nodes())),
         }
     }
 }
@@ -602,32 +489,31 @@ impl<'a, R: RandomAccessLabeling> Iterator for CsrSplitIter<'a, R> {
     fn next(&mut self) -> Option<Self::Item> {
         use lender::Lender;
 
-        if self.i + 1 >= self.cutpoints.len() {
-            return None;
-        }
-        let start = self.cutpoints[self.i];
-        let end = self.cutpoints[self.i + 1];
-        self.i += 1;
+        let segment = self.segments.next()?;
         Some(
             LenderImpl {
                 labeling: self.labeling,
-                nodes: start..self.labeling.num_nodes(),
+                nodes: segment.start..self.labeling.num_nodes(),
             }
-            .take(end - start),
+            .take(segment.len()),
         )
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.cutpoints.len() - 1 - self.i;
-        (remaining, Some(remaining))
+        self.segments.size_hint()
     }
 
     fn count(self) -> usize {
-        self.cutpoints.len() - 1 - self.i
+        self.segments.len()
     }
 }
 
-impl<R: RandomAccessLabeling> ExactSizeIterator for CsrSplitIter<'_, R> {}
+impl<R: RandomAccessLabeling> ExactSizeIterator for CsrSplitIter<'_, R> {
+    fn len(&self) -> usize {
+        self.segments.len()
+    }
+}
+
 impl<R: RandomAccessLabeling> core::iter::FusedIterator for CsrSplitIter<'_, R> {}
 
 /// Sequential Lender for the CSR graph.

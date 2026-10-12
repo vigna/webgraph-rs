@@ -179,7 +179,7 @@ use sux::{
     bits::{BitFieldVec, BitVec},
     dict::EliasFanoBuilder,
     prelude::{SelectAdaptConst, SelectZeroAdaptConst},
-    traits::{TryIntoUnaligned, Unaligned},
+    traits::{TryIntoUnaligned, Unaligned, UnalignedConversionError},
 };
 use value_traits::slices::SliceByValue;
 
@@ -239,13 +239,7 @@ pub fn build_ef(
         efb.push(offset);
         pl.light_update();
     }
-    let ef = efb.build();
-    Ok(unsafe {
-        ef.map_high_bits(
-            SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
-        )
-        .try_into_unaligned()?
-    })
+    Ok(ef_from_builder(efb)?)
 }
 
 /// Builds an [`EF`] representation by reading γ-coded offset gaps from a file,
@@ -265,8 +259,12 @@ pub fn build_ef_with_data(
     offsets_path: impl AsRef<Path>,
     pl: &mut impl dsi_progress_logger::ProgressLog,
 ) -> anyhow::Result<EF> {
-    let file_len = 8 * std::fs::metadata(data_path.as_ref())?.len();
-    build_ef(num_nodes, file_len, offsets_path, pl)
+    build_ef(num_nodes, bit_len(data_path)?, offsets_path, pl)
+}
+
+/// Returns the length in bits of a file.
+fn bit_len(path: impl AsRef<Path>) -> anyhow::Result<u64> {
+    Ok(8 * std::fs::metadata(path.as_ref())?.len())
 }
 
 /// Builds and serializes an [`EF`] representation by reading γ-coded offset
@@ -293,8 +291,8 @@ pub fn store_ef(
 /// gaps from a file, computing the upper bound from the bit-length of a data
 /// file.
 ///
-/// This is a convenience wrapper around [`build_ef_with_data`] that also
-/// serializes the result to `ef_path`.
+/// This is a convenience wrapper around [`store_ef`] that sets the upper
+/// bound to `8 * file_size(data_path)`.
 ///
 /// See also [`build_ef`], [`build_ef_with_data`], and [`store_ef`].
 pub fn store_ef_with_data(
@@ -304,10 +302,7 @@ pub fn store_ef_with_data(
     ef_path: impl AsRef<Path>,
     pl: &mut impl dsi_progress_logger::ProgressLog,
 ) -> anyhow::Result<()> {
-    let ef = build_ef_with_data(num_nodes, data_path, offsets_path, pl)?;
-    let mut ef_file = std::io::BufWriter::new(std::fs::File::create(ef_path.as_ref())?);
-    unsafe { epserde::ser::Serialize::serialize(&ef, &mut ef_file)? };
-    Ok(())
+    store_ef(num_nodes, bit_len(data_path)?, offsets_path, ef_path, pl)
 }
 
 /// Compound trait expressing the trait bounds for offsets.
@@ -347,6 +342,42 @@ pub type DCF = Unaligned<
         BitFieldVec<Box<[u64]>>,
     >,
 >;
+
+/// Builds an [`EF`] from a builder containing the offsets, adding the
+/// selection structure of the default representation.
+///
+/// # Errors
+///
+/// See [`TryIntoUnaligned::try_into_unaligned`].
+pub fn ef_from_builder(efb: EliasFanoBuilder<u64>) -> Result<EF, UnalignedConversionError> {
+    // SAFETY: the selection structure is built on the same high bits.
+    unsafe {
+        efb.build().map_high_bits(
+            SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
+        )
+    }
+    .try_into_unaligned()
+}
+
+/// Builds a [`DCF`] from a builder containing the cumulative degrees, adding
+/// the selection structures of the default representation.
+///
+/// # Errors
+///
+/// See [`TryIntoUnaligned::try_into_unaligned`].
+pub fn dcf_from_builder(efb: EliasFanoBuilder<u64>) -> Result<DCF, UnalignedConversionError> {
+    // SAFETY: the selection structures are built on the same high bits.
+    unsafe {
+        efb.build().map_high_bits(|high_bits| {
+            SelectZeroAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new(
+                SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new(
+                    high_bits,
+                ),
+            )
+        })
+    }
+    .try_into_unaligned()
+}
 
 /// Checks that the offsets stored in the offsets file with given
 /// basename are correct for the given [`BvGraphSeq`].

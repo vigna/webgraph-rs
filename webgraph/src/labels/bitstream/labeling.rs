@@ -108,10 +108,11 @@
 //! [`store_ef_with_data`]: crate::graphs::bvgraph::store_ef_with_data
 //! [`build_ef_with_data`]: crate::graphs::bvgraph::build_ef_with_data
 
+use std::borrow::BorrowMut;
 use std::iter::FusedIterator;
 use std::path::Path;
 
-use crate::graphs::bvgraph::{EF, MemBufReader, parse_label_properties};
+use crate::graphs::bvgraph::{EF, LabelProperties, MemBufReader, parse_label_properties};
 use crate::prelude::{BitDeserializer, Offsets, SortedIterator, SortedLender};
 use crate::prelude::{NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
 use crate::utils::MmapHelper;
@@ -123,6 +124,24 @@ use epserde::deser::{Deserialize, Flags, MemCase};
 use lender::*;
 use mmap_rs::MmapFlags;
 use value_traits::slices::SliceByValue;
+
+/// Parses the properties of the labeling with given basename, checking that
+/// its endianness is `E` and that it was written by a serializer named
+/// `deser_name`.
+fn check_label_properties<E: Endianness>(
+    label_basename: &Path,
+    deser_name: String,
+) -> anyhow::Result<LabelProperties> {
+    let label_props = parse_label_properties::<E>(label_basename)?;
+    anyhow::ensure!(
+        label_props.serializer == deser_name,
+        "Deserializer mismatch for {}: properties say \"{}\", but the provided deserializer is \"{}\"",
+        label_basename.display(),
+        label_props.serializer,
+        deser_name,
+    );
+    Ok(label_props)
+}
 
 /// A sequential-only labeling based on a bitstream of labels.
 ///
@@ -196,14 +215,7 @@ where
     /// labeling.
     pub fn load(label_basename: impl AsRef<Path>, bit_deser: D) -> anyhow::Result<Self> {
         let label_basename = label_basename.as_ref();
-        let label_props = parse_label_properties::<E>(label_basename)?;
-        anyhow::ensure!(
-            label_props.serializer == bit_deser.name(),
-            "Deserializer mismatch for {}: properties say \"{}\", but the provided deserializer is \"{}\"",
-            label_basename.display(),
-            label_props.serializer,
-            bit_deser.name(),
-        );
+        let label_props = check_label_properties::<E>(label_basename, bit_deser.name())?;
         let labels_path = label_basename.with_extension("labels");
         let offsets_path = label_basename.with_extension("offsets");
         Ok(Self::new(
@@ -384,14 +396,7 @@ where
     /// [Elias–Fano]: crate::graphs::bvgraph::EF
     pub fn load(label_basename: impl AsRef<Path>, bit_deser: D) -> anyhow::Result<Self> {
         let label_basename = label_basename.as_ref();
-        let label_props = parse_label_properties::<E>(label_basename)?;
-        anyhow::ensure!(
-            label_props.serializer == bit_deser.name(),
-            "Deserializer mismatch for {}: properties say \"{}\", but the provided deserializer is \"{}\"",
-            label_basename.display(),
-            label_props.serializer,
-            bit_deser.name(),
-        );
+        let label_props = check_label_properties::<E>(label_basename, bit_deser.name())?;
         let labels_path = label_basename.with_extension("labels");
         let ef_path = label_basename.with_extension("ef");
         Ok(Self::new(
@@ -457,30 +462,42 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offs
     }
 }
 
+/// An iterator on the labels of a node, which deserializes labels from a
+/// reader (`R` is either the reader or a mutable reference to it) until a
+/// given bit position.
 #[doc(hidden)]
-pub struct LabelsSeq<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> {
-    pub(crate) reader: &'a mut BR,
-    pub(crate) bit_deser: &'a D,
-    pub(crate) end_pos: u64,
-    pub(crate) _marker: std::marker::PhantomData<E>,
+pub struct LabelsImpl<'a, E, BR, D, R> {
+    reader: R,
+    bit_deser: &'a D,
+    end_pos: u64,
+    _marker: std::marker::PhantomData<(E, BR)>,
 }
 
-impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterator
-    for LabelsSeq<'_, E, BR, D>
+/// The iterator on labels of the lenders, which borrows the reader.
+#[doc(hidden)]
+pub type LabelsSeq<'a, E, BR, D> = LabelsImpl<'a, E, BR, D, &'a mut BR>;
+
+/// The iterator on labels returned by random access, which owns the reader.
+#[doc(hidden)]
+pub type Labels<'a, E, BR, D> = LabelsImpl<'a, E, BR, D, BR>;
+
+impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, R: BorrowMut<BR>> Iterator
+    for LabelsImpl<'_, E, BR, D, R>
 {
     type Item = D::DeserType;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.reader.bit_pos().unwrap() >= self.end_pos {
+        let reader = self.reader.borrow_mut();
+        if reader.bit_pos().unwrap() >= self.end_pos {
             None
         } else {
-            Some(self.bit_deser.deserialize(self.reader).unwrap())
+            Some(self.bit_deser.deserialize(reader).unwrap())
         }
     }
 }
 
-impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> FusedIterator
-    for LabelsSeq<'_, E, BR, D>
+impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, R: BorrowMut<BR>>
+    FusedIterator for LabelsImpl<'_, E, BR, D, R>
 {
 }
 
@@ -491,8 +508,8 @@ unsafe impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, 
 }
 
 // SAFETY: labels within a node are read sequentially from the bitstream.
-unsafe impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> SortedIterator
-    for LabelsSeq<'_, E, BR, D>
+unsafe impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, R: BorrowMut<BR>>
+    SortedIterator for LabelsImpl<'_, E, BR, D, R>
 {
 }
 
@@ -530,35 +547,6 @@ where
     }
 }
 
-// TODO: avoid duplicate implementation for labels
-
-#[doc(hidden)]
-pub struct Labels<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> {
-    reader: BR,
-    deserializer: &'a D,
-    end_pos: u64,
-    _marker: std::marker::PhantomData<E>,
-}
-
-impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterator
-    for Labels<'_, E, BR, D>
-{
-    type Item = <D as BitDeserializer<E, BR>>::DeserType;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.reader.bit_pos().unwrap() >= self.end_pos {
-            None
-        } else {
-            Some(self.deserializer.deserialize(&mut self.reader).unwrap())
-        }
-    }
-}
-
-impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> FusedIterator
-    for Labels<'_, E, BR, D>
-{
-}
-
 impl<L, E: Endianness, S: CodesReaderFactory<E>, D, O: Offsets> RandomAccessLabeling
     for BitStreamLabeling<E, S, D, O>
 where
@@ -581,7 +569,7 @@ where
             .unwrap();
         Labels {
             reader,
-            deserializer: &self.bit_deser,
+            bit_deser: &self.bit_deser,
             end_pos: self.offsets.uncase().index_value(node_id + 1),
             _marker: std::marker::PhantomData,
         }

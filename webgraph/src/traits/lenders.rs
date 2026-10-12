@@ -139,13 +139,13 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
     }
 }
 
-/// An [`Iterator`] adapter that converts a [`NodeLabelsLender`] into an
-/// iterator of labeled pairs.
+/// The flattening machinery shared by [`IntoPairs`] and [`IntoLabeledPairs`].
 ///
-/// This struct is created via the [`From`] trait. It converts a lender that
-/// yields `(usize, IntoIterator)` pairs into a flat iterator of `((src, dst), label)`
-/// labeled pairs, where each `(dst, label)` comes from the inner iterator.
-pub struct IntoLabeledPairs<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>> + 'a> {
+/// Each call to [`next`] returns the next node of the lender together with
+/// one of its labels.
+///
+/// [`next`]: Flatten::next
+struct Flatten<'a, L: for<'b> NodeLabelsLender<'b>> {
     current_node: usize,
     // MaybeDangling wraps the iterator to indicate it may reference data from
     // the lender. AliasableBox eliminates noalias retagging that would
@@ -156,12 +156,62 @@ pub struct IntoLabeledPairs<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left
     _marker: PhantomData<&'a L>,
 }
 
+impl<'a, L: for<'b> NodeLabelsLender<'b>> Flatten<'a, L> {
+    fn new(lender: L) -> Self {
+        Self {
+            lender: AliasableBox::from_unique(Box::new(lender)),
+            current_node: 0,
+            current_iter: MaybeDangling::new(None),
+            _marker: PhantomData,
+        }
+    }
+
+    fn next(&mut self) -> Option<(usize, LenderLabel<'a, L>)> {
+        loop {
+            if let Some(inner) = &mut *self.current_iter {
+                if let Some(label) = inner.next() {
+                    return Some((self.current_node, label));
+                }
+            }
+            // SAFETY: We use transmute to extend the lifetime of the iterator
+            // from the temporary borrow of `self.lender` to `'a`. This is sound
+            // because:
+            // 1. We only call `lender.next()` after the previous iterator is
+            //    fully consumed
+            // 2. Therefore, at most one iterator borrowed from `lender` is live
+            //    at any time
+            // 3. `current_iter` is declared before `lender` in the struct, so it
+            //    is dropped first (Rust drops fields in declaration order),
+            //    ensuring the iterator cannot outlive the lender
+            let (next_node, next_iter) = self.lender.next().map(|(x, it)| {
+                (x, unsafe {
+                    std::mem::transmute::<LenderIntoIter<'_, L>, LenderIntoIter<'_, L>>(
+                        it.into_iter(),
+                    )
+                })
+            })?;
+            self.current_node = next_node;
+            *self.current_iter = Some(next_iter);
+        }
+    }
+}
+
+/// An [`Iterator`] adapter that converts a [`NodeLabelsLender`] into an
+/// iterator of labeled pairs.
+///
+/// This struct is created via the [`From`] trait. It converts a lender that
+/// yields `(usize, IntoIterator)` pairs into a flat iterator of `((src, dst), label)`
+/// labeled pairs, where each `(dst, label)` comes from the inner iterator.
+pub struct IntoLabeledPairs<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>> + 'a>(
+    Flatten<'a, L>,
+);
+
 impl<L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>> std::fmt::Debug
     for IntoLabeledPairs<'_, L>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("IntoLabeledPairs")
-            .field("current_node", &self.current_node)
+            .field("current_node", &self.0.current_node)
             .finish_non_exhaustive()
     }
 }
@@ -180,35 +230,9 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>
         (usize, usize),
         <<L as NodeLabelsLender<'a>>::Label as Pair>::Right,
     )> {
-        loop {
-            if let Some(inner) = &mut *self.current_iter {
-                if let Some((dst, label)) = inner.next().map(Pair::into_pair) {
-                    return Some(((self.current_node, dst), label));
-                }
-            }
-            // SAFETY: We use transmute to extend the lifetime of the iterator
-            // from the temporary borrow of `self.lender` to `'a`. This is sound
-            // because:
-            // 1. We only call `lender.next()` after the previous iterator is
-            //    fully consumed
-            // 2. Therefore, at most one iterator borrowed from `lender` is live
-            //    at any time
-            // 3. `current_iter` is declared before `lender` in the struct, so it
-            //    is dropped first (Rust drops fields in declaration order),
-            //    ensuring the iterator cannot outlive the lender
-            if let Some((next_node, next_iter)) = self.lender.next().map(|(x, it)| {
-                (x, unsafe {
-                    std::mem::transmute::<LenderIntoIter<'_, L>, LenderIntoIter<'_, L>>(
-                        it.into_iter(),
-                    )
-                })
-            }) {
-                self.current_node = next_node;
-                *self.current_iter = Some(next_iter);
-            } else {
-                return None;
-            }
-        }
+        let (src, label) = self.0.next()?;
+        let (dst, label) = label.into_pair();
+        Some(((src, dst), label))
     }
 }
 
@@ -217,12 +241,7 @@ where
     L: Sized + for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>,
 {
     fn from(lender: L) -> Self {
-        IntoLabeledPairs {
-            lender: AliasableBox::from_unique(Box::new(lender)),
-            current_node: 0,
-            current_iter: MaybeDangling::new(None),
-            _marker: PhantomData,
-        }
+        IntoLabeledPairs(Flatten::new(lender))
     }
 }
 
@@ -232,65 +251,14 @@ where
 /// This struct is created via the [`From`] trait. It converts a lender that
 /// yields `(usize, IntoIterator)` pairs into a flat iterator of `(src, dst)`
 /// pairs, where each `dst` comes from the inner iterator.
-pub struct IntoPairs<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> {
-    current_node: usize,
-    // MaybeDangling wraps the iterator to indicate it may reference data from
-    // the lender. AliasableBox eliminates noalias retagging that would
-    // invalidate the iterator reference when the struct is moved.
-    // Field order ensures the lender drops last.
-    current_iter: MaybeDangling<Option<LenderIntoIter<'a, L>>>,
-    lender: AliasableBox<L>,
-    _marker: PhantomData<&'a L>,
-}
-
-/*impl<'a, L> Clone for IntoPairs<'a, L>
-where
-    L: for<'b> NodeLabelsLender<'b, Label = usize> + Clone,
-    LenderIntoIter<'a, L>: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            lender: AliasableBox::from_unique(Box::new(L::clone(&self.lender))),
-            current_node: self.current_node,
-            current_iter: MaybeDangling::new((*self.current_iter).clone()),
-            _marker: PhantomData,
-        }
-    }
-}*/
+pub struct IntoPairs<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>>(Flatten<'a, L>);
 
 impl<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> Iterator for IntoPairs<'a, L> {
     type Item = (usize, usize);
 
+    #[inline]
     fn next(&mut self) -> Option<(usize, usize)> {
-        loop {
-            if let Some(inner) = &mut *self.current_iter {
-                if let Some(dst) = inner.next() {
-                    return Some((self.current_node, dst));
-                }
-            }
-            // SAFETY: We use transmute to extend the lifetime of the iterator
-            // from the temporary borrow of `self.lender` to `'a`. This is sound
-            // because:
-            // 1. We only call `lender.next()` after the previous iterator is
-            //    fully consumed
-            // 2. Therefore, at most one iterator borrowed from `lender` is live
-            //    at any time
-            // 3. `current_iter` is declared before `lender` in the struct, so it
-            //    is dropped first (Rust drops fields in declaration order),
-            //    ensuring the iterator cannot outlive the lender
-            if let Some((next_node, next_iter)) = self.lender.next().map(|(x, it)| {
-                (x, unsafe {
-                    std::mem::transmute::<LenderIntoIter<'_, L>, LenderIntoIter<'_, L>>(
-                        it.into_iter(),
-                    )
-                })
-            }) {
-                self.current_node = next_node;
-                *self.current_iter = Some(next_iter);
-            } else {
-                return None;
-            }
-        }
+        self.0.next()
     }
 }
 
@@ -299,12 +267,7 @@ where
     L: Sized + for<'b> NodeLabelsLender<'b, Label = usize>,
 {
     fn from(lender: L) -> Self {
-        IntoPairs {
-            lender: AliasableBox::from_unique(Box::new(lender)),
-            current_node: 0,
-            current_iter: MaybeDangling::new(None),
-            _marker: PhantomData,
-        }
+        IntoPairs(Flatten::new(lender))
     }
 }
 
@@ -319,8 +282,41 @@ pub type LenderIntoIterator<'lend, L> = <L as NodeLabelsLender<'lend>>::IntoIter
 pub type LenderIntoIter<'lend, L> =
     <<L as NodeLabelsLender<'lend>>::IntoIterator as IntoIterator>::IntoIter;
 
+/// Implements [`NodeLabelsLender`] for a [`Lender`] adapter over a lender `L`
+/// that returns the same lends of `L`.
+///
+/// Additional generic parameters can be listed after the type, and additional
+/// bounds can be specified with a final `where` clause.
+macro_rules! impl_node_labels_passthrough {
+    ($ty:ty $(, $gen:ident)* $(where $($bound:tt)+)?) => {
+        impl<'lend, L $(, $gen)*> NodeLabelsLender<'lend> for $ty
+        where
+            L: Lender + for<'next> NodeLabelsLender<'next>,
+            $($($bound)+)?
+        {
+            type Label = LenderLabel<'lend, L>;
+            type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
+        }
+    };
+}
+
 // Missing implementations for [Cloned, Copied, Owned] because they don't
 // implement Lender but Iterator
+
+impl_node_labels_passthrough!(lender::Chunk<'_, L>);
+impl_node_labels_passthrough!(lender::Cycle<L> where L: Clone);
+impl_node_labels_passthrough!(lender::Filter<L, P>, P where
+    P: for<'next> FnMut(&(usize, <L as NodeLabelsLender<'next>>::IntoIterator)) -> bool);
+impl_node_labels_passthrough!(lender::Fuse<L>);
+impl_node_labels_passthrough!(lender::Inspect<L, F>, F where F: for<'next> FnMut(&Lend<'next, L>));
+impl_node_labels_passthrough!(lender::Mutate<L, F>, F where F: FnMut(&mut Lend<'_, L>));
+impl_node_labels_passthrough!(lender::Peekable<'_, L>);
+impl_node_labels_passthrough!(lender::Rev<L> where L: DoubleEndedLender);
+impl_node_labels_passthrough!(lender::Skip<L>);
+impl_node_labels_passthrough!(lender::SkipWhile<L, P>, P where P: for<'next> FnMut(&Lend<'next, L>) -> bool);
+impl_node_labels_passthrough!(lender::StepBy<L>);
+impl_node_labels_passthrough!(lender::Take<L>);
+impl_node_labels_passthrough!(lender::TakeWhile<L, P>, P where P: FnMut(&Lend<'_, L>) -> bool);
 
 impl<'lend, A, B> NodeLabelsLender<'lend> for lender::Chain<A, B>
 where
@@ -336,22 +332,6 @@ where
     type IntoIterator = <A as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
-impl<'lend, T> NodeLabelsLender<'lend> for lender::Chunk<'_, T>
-where
-    T: Lender + for<'next> NodeLabelsLender<'next>,
-{
-    type Label = <T as NodeLabelsLender<'lend>>::Label;
-    type IntoIterator = <T as NodeLabelsLender<'lend>>::IntoIterator;
-}
-
-impl<'lend, L> NodeLabelsLender<'lend> for lender::Cycle<L>
-where
-    L: Clone + Lender + for<'next> NodeLabelsLender<'next>,
-{
-    type Label = LenderLabel<'lend, L>;
-    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
-}
-
 impl<Label, II, L> NodeLabelsLender<'_> for lender::Enumerate<L>
 where
     L: Lender,
@@ -360,15 +340,6 @@ where
 {
     type Label = Label;
     type IntoIterator = II;
-}
-
-impl<'lend, L, P> NodeLabelsLender<'lend> for lender::Filter<L, P>
-where
-    P: for<'next> FnMut(&(usize, <L as NodeLabelsLender<'next>>::IntoIterator)) -> bool,
-    L: Lender + for<'next> NodeLabelsLender<'next>,
-{
-    type Label = LenderLabel<'lend, L>;
-    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
 impl<L, F, II> NodeLabelsLender<'_> for lender::FilterMap<L, F>
@@ -400,23 +371,6 @@ where
     type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
-impl<'lend, L> NodeLabelsLender<'lend> for lender::Fuse<L>
-where
-    L: Lender + for<'next> NodeLabelsLender<'next>,
-{
-    type Label = LenderLabel<'lend, L>;
-    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
-}
-
-impl<'lend, L, F> NodeLabelsLender<'lend> for lender::Inspect<L, F>
-where
-    F: for<'next> FnMut(&Lend<'next, L>),
-    L: Lender + for<'next> NodeLabelsLender<'next>,
-{
-    type Label = LenderLabel<'lend, L>;
-    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
-}
-
 impl<L, F, II> NodeLabelsLender<'_> for lender::Map<L, F>
 where
     F: for<'all> lender::higher_order::FnMutHKA<'all, Lend<'all, L>, B = (usize, II)>,
@@ -437,31 +391,6 @@ where
     type IntoIterator = II;
 }
 
-impl<'lend, L, F> NodeLabelsLender<'lend> for lender::Mutate<L, F>
-where
-    F: FnMut(&mut Lend<'_, L>),
-    L: Lender + for<'next> NodeLabelsLender<'next>,
-{
-    type Label = LenderLabel<'lend, L>;
-    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
-}
-
-impl<'lend, L> NodeLabelsLender<'lend> for lender::Peekable<'_, L>
-where
-    L: Lender + for<'next> NodeLabelsLender<'next>,
-{
-    type Label = LenderLabel<'lend, L>;
-    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
-}
-
-impl<'lend, L> NodeLabelsLender<'lend> for lender::Rev<L>
-where
-    L: Lender + DoubleEndedLender + for<'next> NodeLabelsLender<'next>,
-{
-    type Label = LenderLabel<'lend, L>;
-    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
-}
-
 impl<L, St, F, II> NodeLabelsLender<'_> for lender::Scan<L, St, F>
 where
     for<'all> F:
@@ -471,48 +400,6 @@ where
 {
     type Label = II::Item;
     type IntoIterator = II;
-}
-
-impl<'lend, L> NodeLabelsLender<'lend> for lender::Skip<L>
-where
-    L: Lender + for<'next> NodeLabelsLender<'next>,
-{
-    type Label = LenderLabel<'lend, L>;
-    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
-}
-
-impl<'lend, L, P> NodeLabelsLender<'lend> for lender::SkipWhile<L, P>
-where
-    L: Lender + for<'next> NodeLabelsLender<'next>,
-    P: for<'next> FnMut(&Lend<'next, L>) -> bool,
-{
-    type Label = LenderLabel<'lend, L>;
-    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
-}
-
-impl<'lend, L> NodeLabelsLender<'lend> for lender::StepBy<L>
-where
-    L: Lender + for<'next> NodeLabelsLender<'next>,
-{
-    type Label = LenderLabel<'lend, L>;
-    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
-}
-
-impl<'lend, L> NodeLabelsLender<'lend> for lender::Take<L>
-where
-    L: Lender + for<'next> NodeLabelsLender<'next>,
-{
-    type Label = LenderLabel<'lend, L>;
-    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
-}
-
-impl<'lend, L, P> NodeLabelsLender<'lend> for lender::TakeWhile<L, P>
-where
-    L: Lender + for<'next> NodeLabelsLender<'next>,
-    P: FnMut(&Lend<'_, L>) -> bool,
-{
-    type Label = LenderLabel<'lend, L>;
-    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
 impl<A, B, II> NodeLabelsLender<'_> for lender::Zip<A, B>

@@ -15,7 +15,7 @@ use webgraph::{
     graphs::{
         arc_list_graph::{ArcListGraph, NodeLabels},
         btree_graph::LabeledBTreeGraph,
-        vec_graph::LabeledVecGraph,
+        vec_graph::{LabeledVecGraph, VecGraph},
     },
     traits::{SequentialLabeling, graph},
     utils::SplitIters,
@@ -120,6 +120,10 @@ fn test_arc_list_graph_cnr2000() {
 
 #[test]
 fn test_arc_list_graph() -> anyhow::Result<()> {
+    let arcs = [(0, 1), (0, 2), (1, 0), (2, 1)];
+    let g = ArcListGraph::new(3, arcs);
+    graph::eq(&VecGraph::from_lender(g.iter()), &VecGraph::from_arcs(arcs))?;
+
     let arcs = [
         ((0, 1), Some(1.0)),
         ((0, 2), None),

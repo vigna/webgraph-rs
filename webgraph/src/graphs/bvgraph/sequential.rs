@@ -5,18 +5,14 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
-use std::path::PathBuf;
-
 use super::*;
-use crate::impl_parallel_from_split;
+use crate::graphs::{impl_into_lender, impl_split};
 use crate::utils::CircularBuffer;
 use anyhow::Result;
-use bitflags::Flags;
 use dsi_bitstream::codes::ToInt;
 use dsi_bitstream::traits::BE;
 use dsi_bitstream::traits::BitSeek;
 use lender::*;
-use sux::traits::TryIntoUnaligned;
 
 /// A sequential graph in the BV format.
 ///
@@ -51,36 +47,14 @@ impl BvGraphSeq<()> {
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
     ) -> LoadConf<BE, Sequential, Dynamic, Mmap, Mmap> {
-        LoadConf {
-            basename: PathBuf::from(basename.as_ref()),
-            graph_load_flags: Flags::empty(),
-            offsets_load_flags: Flags::empty(),
-            _marker: std::marker::PhantomData,
-        }
+        LoadConf::new(basename)
     }
 }
 
-impl<F: SequentialDecoderFactory> SplitLabeling for BvGraphSeq<F>
-where
-    for<'a> <F as SequentialDecoderFactory>::Decoder<'a>: Clone + Send + Sync,
-{
-    type SplitLender<'a>
-        = split::seq::Lender<'a, BvGraphSeq<F>>
-    where
-        Self: 'a;
-    type IntoIterator<'a>
-        = split::seq::IntoIterator<'a, BvGraphSeq<F>>
-    where
-        Self: 'a;
-
-    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
-        split::seq::Iter::new(self.iter(), cutpoints)
-    }
-}
-
-impl_parallel_from_split!(
-    [F: SequentialDecoderFactory]
+impl_split!(
+    seq [F: SequentialDecoderFactory]
     BvGraphSeq<F>
+    [for<'a> <F as SequentialDecoderFactory>::Decoder<'a>: Clone + Send + Sync]
     [for<'a> <F as SequentialDecoderFactory>::Decoder<'a>: Clone + Send + Sync]
 );
 
@@ -141,44 +115,13 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
             cumul_deg += iter.next_degree().unwrap() as u64;
             efb.push(cumul_deg);
         }
-        // SAFETY: the cumulative degrees are pushed in non-decreasing order.
-        unsafe {
-            efb.build()
-                .map_high_bits(|high_bits| {
-                    sux::rank_sel::SelectZeroAdaptConst::<
-                        _,
-                        _,
-                        LOG2_ONES_PER_INVENTORY,
-                        LOG2_WORDS_PER_SUBINVENTORY,
-                    >::new(sux::rank_sel::SelectAdaptConst::<
-                        _,
-                        _,
-                        LOG2_ONES_PER_INVENTORY,
-                        LOG2_WORDS_PER_SUBINVENTORY,
-                    >::new(high_bits))
-                })
-                .try_into_unaligned()
-                .unwrap()
-        }
+        dcf_from_builder(efb).unwrap()
     }
 }
 
 impl<F: SequentialDecoderFactory> SequentialGraph for BvGraphSeq<F> {}
 
-/// Convenience implementation that makes it possible to iterate
-/// over the graph using the [`for_`] macro
-/// (see the [crate documentation]).
-///
-/// [`for_`]: lender::for_
-/// [crate documentation]: crate
-impl<'a, F: SequentialDecoderFactory> IntoLender for &'a BvGraphSeq<F> {
-    type Lender = <BvGraphSeq<F> as SequentialLabeling>::Lender<'a>;
-
-    #[inline(always)]
-    fn into_lender(self) -> Self::Lender {
-        self.iter()
-    }
-}
+impl_into_lender!([F: SequentialDecoderFactory] BvGraphSeq<F>);
 
 impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
     /// Creates a new sequential graph from a codes reader builder
@@ -282,22 +225,22 @@ impl<D: Decode> NodeLabels<D> {
 
     /// Gets the successors of the next node in the stream.
     pub fn next_successors(&mut self) -> Result<&[usize]> {
-        let mut res = self.backrefs.take(self.current_node);
-        self.get_successors_iter_priv(self.current_node, &mut res)?;
-        let res = self.backrefs.replace(self.current_node, res);
+        let node_id = self.current_node;
+        let mut res = self.backrefs.take(node_id);
+        self.get_successors_iter_priv(node_id, &mut res)?;
         self.current_node += 1;
-        Ok(res)
+        Ok(self.backrefs.replace(node_id, res))
     }
 
-    /// Inner method called by `next_successors` and the iterator `next` method
+    /// Inner method called by `next_successors`
     fn get_successors_iter_priv(&mut self, node_id: usize, results: &mut Vec<usize>) -> Result<()> {
+        results.clear();
         let degree = self.decoder.read_outdegree() as usize;
         // no edges, we are done!
         if degree == 0 {
             return Ok(());
         }
 
-        results.clear();
         // ensure that we have enough capacity in the vector for not reallocating
         results.reserve(degree);
         // read the reference offset
@@ -402,14 +345,8 @@ impl<D: Decode> Lender for NodeLabels<D> {
         if self.current_node >= self.number_of_nodes {
             return None;
         }
-        let mut res = self.backrefs.take(self.current_node);
-        res.clear();
-        self.get_successors_iter_priv(self.current_node, &mut res)
-            .unwrap();
-
-        let res = self.backrefs.replace(self.current_node, res);
         let node_id = self.current_node;
-        self.current_node += 1;
+        let res = self.next_successors().unwrap();
         Some((node_id, unsafe {
             crate::traits::labels::AssumeSortedIterator::new(res.iter().copied())
         }))

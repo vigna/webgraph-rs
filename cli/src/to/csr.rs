@@ -13,7 +13,6 @@ use dsi_progress_logger::prelude::*;
 use epserde::ser::Serialize;
 use std::io::BufWriter;
 use std::path::PathBuf;
-use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::prelude::*;
 use webgraph::utils::MmapHelper;
 
@@ -31,13 +30,7 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => to_csr::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => to_csr::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.basename, |E| to_csr::<E>(args))
 }
 
 pub fn to_csr<E: Endianness + 'static>(args: CliArgs) -> Result<()>

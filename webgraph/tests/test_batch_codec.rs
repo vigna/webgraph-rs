@@ -4,85 +4,53 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
-#[cfg(test)]
-#[cfg(not(miri))]
-mod tests {
-    use anyhow::Result;
-    use dsi_bitstream::prelude::*;
+#![cfg(not(miri))]
 
-    #[test]
-    fn test_gaps_codec_encode_batch() -> Result<()> {
-        use webgraph::utils::BatchCodec;
-        use webgraph::utils::gaps::GapsCodec;
-        let dir = tempfile::tempdir()?;
-        let path = dir.path().join("batch");
+use anyhow::Result;
+use dsi_bitstream::prelude::*;
+use webgraph::utils::gaps::GapsCodec;
+use webgraph::utils::grouped_gaps::GroupedGapsCodec;
+use webgraph::utils::{BatchCodec, BatchStats};
 
-        let codec = GapsCodec::<BE, (), ()>::default();
-        let mut batch: Vec<((usize, usize), ())> =
-            vec![((2, 3), ()), ((0, 1), ()), ((1, 2), ()), ((0, 2), ())];
-        let (bits, stats) = codec.encode_batch(&path, &mut batch)?;
-        assert!(bits > 0);
-        assert_eq!(stats.total_triples, 4);
+/// Encodes a batch with `codec`, both unsorted and sorted, and checks the
+/// statistics, the length of the file, and the decoded triples.
+fn check_codec<C: BatchCodec<Label = ()>>(codec: &C) -> Result<()>
+where
+    <C::DecodedBatch as IntoIterator>::IntoIter: ExactSizeIterator,
+{
+    let dir = tempfile::tempdir()?;
+    let path = dir.path().join("batch");
+    let mut batch = vec![((2, 3), ()), ((0, 1), ()), ((1, 2), ()), ((0, 2), ())];
+    let expected = [(0, 1), (0, 2), (1, 2), (2, 3)];
 
-        // Decode and verify
-        let decoded = codec.decode_batch(&path)?;
-        let items: Vec<_> = decoded.into_iter().collect();
-        assert_eq!(items.len(), 4);
-        // Should be sorted after encode_batch
-        assert_eq!(items[0].0, (0, 1));
-        assert_eq!(items[1].0, (0, 2));
-        assert_eq!(items[2].0, (1, 2));
-        assert_eq!(items[3].0, (2, 3));
-        Ok(())
-    }
-
-    #[test]
-    fn test_gaps_iter_exact_size() -> Result<()> {
-        use webgraph::utils::BatchCodec;
-        use webgraph::utils::gaps::GapsCodec;
-        let dir = tempfile::tempdir()?;
-        let path = dir.path().join("batch_sz");
-
-        let codec = GapsCodec::<BE, (), ()>::default();
-        let batch: Vec<((usize, usize), ())> = vec![((0, 1), ()), ((1, 2), ()), ((2, 3), ())];
-        codec.encode_sorted_batch(&path, &batch)?;
-
-        let decoded = codec.decode_batch(&path)?;
-        let iter = decoded.into_iter();
-        assert_eq!(iter.len(), 3);
-        let (lo, hi) = iter.size_hint();
-        assert_eq!(lo, 3);
-        assert_eq!(hi, Some(3));
-        Ok(())
-    }
-
-    #[test]
-    fn test_grouped_gaps_codec_new_and_encode() -> Result<()> {
-        use webgraph::utils::BatchCodec;
-        use webgraph::utils::grouped_gaps::GroupedGapsCodec;
-        let dir = tempfile::tempdir()?;
-        let path = dir.path().join("grouped_batch");
-
-        let codec = GroupedGapsCodec::<BE, ()>::new(());
-        let mut batch: Vec<((usize, usize), ())> =
-            vec![((2, 3), ()), ((0, 1), ()), ((0, 2), ()), ((1, 2), ())];
-        let (bits, stats) = codec.encode_batch(&path, &mut batch)?;
-        assert!(bits > 0);
-        assert_eq!(stats.total_triples, 4);
-
-        // Decode and verify
-        let decoded = codec.decode_batch(&path)?;
-        let iter = decoded.into_iter();
-        // Check ExactSizeIterator
+    let (bits, stats) = codec.encode_batch(&path, &mut batch)?;
+    assert_eq!(stats.total_triples(), 4);
+    for (encoded_bits, encoded) in [
+        (bits, true),
+        // The batch has been sorted by encode_batch
+        (codec.encode_sorted_batch(&path, &batch)?.0, false),
+    ] {
+        // The file contains the bits written, padded to a word
+        let file_len = std::fs::metadata(&path)?.len() as usize;
+        assert_eq!(
+            file_len,
+            encoded_bits.div_ceil(usize::BITS as usize) * size_of::<usize>(),
+            "sorted by encode_batch: {encoded}"
+        );
+        let iter = codec.decode_batch(&path)?.into_iter();
         assert_eq!(iter.len(), 4);
-        let (lo, hi) = iter.size_hint();
-        assert_eq!(lo, 4);
-        assert_eq!(hi, Some(4));
-        let items: Vec<_> = iter.collect();
-        assert_eq!(items[0].0, (0, 1));
-        assert_eq!(items[1].0, (0, 2));
-        assert_eq!(items[2].0, (1, 2));
-        assert_eq!(items[3].0, (2, 3));
-        Ok(())
+        assert_eq!(iter.size_hint(), (4, Some(4)));
+        assert_eq!(iter.map(|(pair, _)| pair).collect::<Vec<_>>(), expected);
     }
+    Ok(())
+}
+
+#[test]
+fn test_gaps_codec() -> Result<()> {
+    check_codec(&GapsCodec::<BE, (), ()>::default())
+}
+
+#[test]
+fn test_grouped_gaps_codec() -> Result<()> {
+    check_codec(&GroupedGapsCodec::<BE, ()>::new(()))
 }

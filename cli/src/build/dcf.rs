@@ -14,11 +14,8 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 use log::info;
-use std::fs::File;
-use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
 use sux::prelude::*;
-use sux::traits::TryIntoUnaligned;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -42,55 +39,24 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => {
-            if args.sequential {
-                build_dcf_seq::<BE>(args)
-            } else {
-                build_dcf_par::<BE>(args)
-            }
+    dispatch_endianness!(&args.basename, |E| {
+        if args.sequential {
+            build_dcf_seq::<E>(args)
+        } else {
+            build_dcf_par::<E>(args)
         }
-        #[cfg(feature = "le_bins")]
-        LE::NAME => {
-            if args.sequential {
-                build_dcf_seq::<LE>(args)
-            } else {
-                build_dcf_par::<LE>(args)
-            }
-        }
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    })
 }
 
-fn build_and_serialize(efb: EliasFanoBuilder<u64>, ef_path: &std::path::Path) -> Result<()> {
-    let ef = efb.build();
-    let ef: DCF = unsafe {
-        ef.map_high_bits(|bits| {
-            SelectZeroAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new(
-                SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new(
-                    bits,
-                ),
-            )
-        })
-        .try_into_unaligned()?
-    };
-
+fn build_and_serialize(efb: EliasFanoBuilder<u64>, dcf_path: &std::path::Path) -> Result<()> {
+    let dcf = dcf_from_builder(efb)?;
     info!("Writing to disk...");
-
-    let mut ef_file = BufWriter::new(
-        File::create(ef_path).with_context(|| format!("Could not create {}", ef_path.display()))?,
-    );
-
-    unsafe {
-        ef.serialize(&mut ef_file).with_context(|| {
-            format!(
-                "Could not serialize degree cumulative list to {}",
-                ef_path.display()
-            )
-        })
-    }?;
-
+    unsafe { dcf.store(dcf_path) }.with_context(|| {
+        format!(
+            "Could not serialize degree cumulative list to {}",
+            dcf_path.display()
+        )
+    })?;
     info!("Completed.");
     Ok(())
 }
@@ -116,27 +82,12 @@ where
         });
     }
 
-    let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
-    let f = File::open(&properties_path).with_context(|| {
-        format!(
-            "Could not open properties file: {}",
-            properties_path.display()
-        )
-    })?;
-    let map = java_properties::read(BufReader::new(f))?;
-    let num_nodes = map
-        .get("nodes")
-        .with_context(|| format!("Missing 'nodes' in {}", properties_path.display()))?
-        .parse::<usize>()?;
-    let num_arcs = map
-        .get("arcs")
-        .with_context(|| format!("Missing 'arcs' in {}", properties_path.display()))?
-        .parse::<u64>()?;
-
-    let graph = webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(&basename)
+    let graph = BvGraph::with_basename(&basename)
         .endianness::<E>()
         .load()
         .with_context(|| format!("Could not load graph at {}", basename.display()))?;
+    let num_nodes = graph.num_nodes();
+    let num_arcs = graph.num_arcs();
 
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
 
@@ -199,22 +150,14 @@ where
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
     let basename = args.basename;
-    let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
-    let f = File::open(&properties_path).with_context(|| {
-        format!(
-            "Could not open properties file: {}",
-            properties_path.display()
-        )
-    })?;
-    let map = java_properties::read(BufReader::new(f))?;
-    let num_nodes = map
-        .get("nodes")
-        .with_context(|| format!("Missing 'nodes' in {}", properties_path.display()))?
-        .parse::<usize>()?;
-    let num_arcs = map
-        .get("arcs")
-        .with_context(|| format!("Missing 'arcs' in {}", properties_path.display()))?
-        .parse::<u64>()?;
+    let seq_graph = BvGraphSeq::with_basename(&basename)
+        .endianness::<E>()
+        .load()
+        .with_context(|| format!("Could not load graph at {}", basename.display()))?;
+    let num_nodes = seq_graph.num_nodes();
+    let num_arcs = seq_graph
+        .get_num_arcs()
+        .with_context(|| format!("Unknown number of arcs for {}", basename.display()))?;
 
     let mut efb = EliasFanoBuilder::new(num_nodes + 1, num_arcs);
 
@@ -224,10 +167,6 @@ where
         expected_updates = Some(num_nodes),
         log_interval = args.log_interval.log_interval,
     ];
-    let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&basename)
-        .endianness::<E>()
-        .load()
-        .with_context(|| format!("Could not load graph at {}", basename.display()))?;
 
     pl.start("Building the degree cumulative function...");
     let iter = seq_graph.offset_deg_iter();

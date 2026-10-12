@@ -21,21 +21,24 @@
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use dsi_bitstream::dispatch::Codes;
+use dsi_bitstream::traits::Endianness;
 use epserde::deser::{Deserialize, Flags, MemCase};
 use epserde::ser::Serialize;
 use num_traits::{FromBytes, ToBytes};
 use std::fmt::Display;
+use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 use std::time::SystemTime;
 use sux::bits::BitFieldVec;
 use sux::utils::PrimitiveUnsignedExt;
 use value_traits::slices::SliceByValue;
-use webgraph::prelude::CompFlags;
+use webgraph::graphs::par_graphs::ParGraph;
 #[cfg(target_pointer_width = "64")]
 use webgraph::prelude::JavaPermutation;
+use webgraph::prelude::{BvCompConf, CompFlags, DCF, DEG_CUMUL_EXTENSION, SequentialLabeling};
 use webgraph::traits::{IntoParLenders, NodeLabelsLender};
 use webgraph::utils::{Granularity, MemoryUsage};
 
@@ -45,6 +48,36 @@ macro_rules! SEQ_PROC_WARN {
 
 #[cfg(not(any(feature = "le_bins", feature = "be_bins")))]
 compile_error!("At least one of the features `le_bins` or `be_bins` must be enabled.");
+
+/// Dispatches on the endianness of the graph with basename `$basename`,
+/// evaluating `$body` with `$E` bound to the corresponding [`Endianness`]
+/// type.
+///
+/// The enclosing function must return a [`Result`], as the macro returns an
+/// error if the endianness cannot be read or is not supported by the binary.
+///
+/// [`Endianness`]: dsi_bitstream::traits::Endianness
+macro_rules! dispatch_endianness {
+    ($basename:expr, |$E:ident| $body:expr) => {
+        match ::webgraph::prelude::get_endianness($basename)?.as_str() {
+            #[cfg(feature = "be_bins")]
+            e if e
+                == <::dsi_bitstream::traits::BE as ::dsi_bitstream::traits::Endianness>::NAME =>
+            {
+                type $E = ::dsi_bitstream::traits::BE;
+                $body
+            }
+            #[cfg(feature = "le_bins")]
+            e if e
+                == <::dsi_bitstream::traits::LE as ::dsi_bitstream::traits::Endianness>::NAME =>
+            {
+                type $E = ::dsi_bitstream::traits::LE;
+                $body
+            }
+            e => ::anyhow::bail!("Unknown endianness: {}", e),
+        }
+    };
+}
 
 /// Calls [`par_comp`] dispatching on a runtime endianness string.
 ///
@@ -303,29 +336,13 @@ impl FloatSliceFormat {
         F: ToBytes + Display + epserde::ser::Serialize + Copy + zmij::Float,
         for<'a> &'a [F]: epserde::ser::Serialize,
     {
-        create_parent_dir(&path)?;
-        let path_display = path.as_ref().display();
-        let file = std::fs::File::create(&path)
-            .with_context(|| format!("Could not create slice at {}", path_display))?;
-        let mut file = BufWriter::new(file);
+        let path = path.as_ref();
+        let path_display = path.display();
+        let mut file = create_file(path)?;
 
         match self {
-            FloatSliceFormat::Epserde => {
-                log::info!("Storing in ε-serde format at {}", path_display);
-
-                unsafe {
-                    values
-                        .serialize(&mut file)
-                        .with_context(|| format!("Could not write slice to {}", path_display))
-                }?;
-            }
-            FloatSliceFormat::Java => {
-                log::info!("Storing in Java format at {}", path_display);
-                for word in values.iter() {
-                    file.write_all(word.to_be_bytes().as_ref())
-                        .with_context(|| format!("Could not write slice to {}", path_display))?;
-                }
-            }
+            FloatSliceFormat::Epserde => store_epserde(values, &mut file, path)?,
+            FloatSliceFormat::Java => store_java(values, &mut file, path)?,
             FloatSliceFormat::Ascii => {
                 log::info!("Storing in ASCII format at {}", path_display);
                 let mut buf = zmij::Buffer::new();
@@ -409,33 +426,8 @@ impl FloatSliceFormat {
                 }
                 Ok(result)
             }
-            FloatSliceFormat::Ascii => {
-                log::info!("Loading ASCII format from {}", path_display);
-                let file = std::fs::File::open(path)
-                    .with_context(|| format!("Could not open {}", path_display))?;
-                let reader = BufReader::new(file);
-                reader
-                    .lines()
-                    .enumerate()
-                    .filter(|(_, line)| line.as_ref().map_or(true, |l| !l.trim().is_empty()))
-                    .map(|(i, line)| {
-                        let line = line.with_context(|| {
-                            format!("Error reading line {} of {}", i + 1, path_display)
-                        })?;
-                        line.trim().parse::<F>().map_err(|e| {
-                            anyhow!("Error parsing line {} of {}: {}", i + 1, path_display, e)
-                        })
-                    })
-                    .collect()
-            }
-            FloatSliceFormat::Json => {
-                log::info!("Loading JSON format from {}", path_display);
-                let file = std::fs::File::open(path)
-                    .with_context(|| format!("Could not open {}", path_display))?;
-                let reader = BufReader::new(file);
-                serde_json::from_reader(reader)
-                    .with_context(|| format!("Could not parse JSON from {}", path_display))
-            }
+            FloatSliceFormat::Ascii => load_ascii(path),
+            FloatSliceFormat::Json => load_json(path),
         }
     }
 }
@@ -558,12 +550,7 @@ impl IntSliceFormat {
     /// `max` is the maximum value of the slice. If it is not provided, it will
     /// be computed from the data.
     pub fn store(&self, path: impl AsRef<Path>, data: &[usize], max: Option<usize>) -> Result<()> {
-        // Ensure the parent directory exists
-        create_parent_dir(&path)?;
-
-        let mut file = std::fs::File::create(&path)
-            .with_context(|| format!("Could not create slice at {}", path.as_ref().display()))?;
-        let mut buf = BufWriter::new(&mut file);
+        let mut buf = create_file(path.as_ref())?;
 
         debug_assert_eq!(
             max,
@@ -572,15 +559,7 @@ impl IntSliceFormat {
         );
 
         match self {
-            IntSliceFormat::Epserde => {
-                log::info!("Storing in ε-serde format at {}", path.as_ref().display());
-
-                unsafe {
-                    data.serialize(&mut buf).with_context(|| {
-                        format!("Could not write slice to {}", path.as_ref().display())
-                    })
-                }?;
-            }
+            IntSliceFormat::Epserde => store_epserde(data, &mut buf, path.as_ref())?,
             IntSliceFormat::BitFieldVec => {
                 log::info!(
                     "Storing in BitFieldVec format at {}",
@@ -604,14 +583,7 @@ impl IntSliceFormat {
                 }?;
             }
             #[cfg(target_pointer_width = "64")]
-            IntSliceFormat::Java => {
-                log::info!("Storing in Java format at {}", path.as_ref().display());
-                for word in data.iter() {
-                    buf.write_all(&word.to_be_bytes()).with_context(|| {
-                        format!("Could not write slice to {}", path.as_ref().display())
-                    })?;
-                }
-            }
+            IntSliceFormat::Java => store_java(data, &mut buf, path.as_ref())?,
             IntSliceFormat::Ascii => {
                 log::info!("Storing in ASCII format at {}", path.as_ref().display());
                 for word in data.iter() {
@@ -664,37 +636,69 @@ impl IntSliceFormat {
                     .with_context(|| format!("Could not load slice from {}", path_display))?;
                 Ok(IntSlice::Java(perm))
             }
-            IntSliceFormat::Ascii => {
-                log::info!("Loading ASCII format from {}", path_display);
-                let file = std::fs::File::open(path)
-                    .with_context(|| format!("Could not open {}", path_display))?;
-                let reader = BufReader::new(file);
-                let v: Vec<usize> = reader
-                    .lines()
-                    .enumerate()
-                    .filter(|(_, line)| line.as_ref().map_or(true, |l| !l.trim().is_empty()))
-                    .map(|(i, line)| {
-                        let line = line.with_context(|| {
-                            format!("Error reading line {} of {}", i + 1, path_display)
-                        })?;
-                        line.trim().parse::<usize>().map_err(|e| {
-                            anyhow!("Error parsing line {} of {}: {}", i + 1, path_display, e)
-                        })
-                    })
-                    .collect::<Result<_>>()?;
-                Ok(IntSlice::Owned(v.into_boxed_slice()))
-            }
-            IntSliceFormat::Json => {
-                log::info!("Loading JSON format from {}", path_display);
-                let file = std::fs::File::open(path)
-                    .with_context(|| format!("Could not open {}", path_display))?;
-                let reader = BufReader::new(file);
-                let v: Vec<usize> = serde_json::from_reader(reader)
-                    .with_context(|| format!("Could not parse JSON from {}", path_display))?;
-                Ok(IntSlice::Owned(v.into_boxed_slice()))
-            }
+            IntSliceFormat::Ascii => Ok(IntSlice::Owned(load_ascii(path)?.into())),
+            IntSliceFormat::Json => Ok(IntSlice::Owned(load_json(path)?.into())),
         }
     }
+}
+
+/// Creates a buffered file at `path`, creating also its parent directories.
+fn create_file(path: &Path) -> Result<BufWriter<File>> {
+    create_parent_dir(path)?;
+    let file = File::create(path)
+        .with_context(|| format!("Could not create slice at {}", path.display()))?;
+    Ok(BufWriter::new(file))
+}
+
+/// Stores a slice using ε-serde.
+fn store_epserde<T>(values: &[T], file: &mut BufWriter<File>, path: &Path) -> Result<()>
+where
+    for<'a> &'a [T]: Serialize,
+{
+    log::info!("Storing in ε-serde format at {}", path.display());
+    unsafe { values.serialize(file) }
+        .with_context(|| format!("Could not write slice to {}", path.display()))?;
+    Ok(())
+}
+
+/// Stores a slice in Java format (big-endian values).
+fn store_java<T: ToBytes>(values: &[T], file: &mut BufWriter<File>, path: &Path) -> Result<()> {
+    log::info!("Storing in Java format at {}", path.display());
+    for value in values {
+        file.write_all(value.to_be_bytes().as_ref())
+            .with_context(|| format!("Could not write slice to {}", path.display()))?;
+    }
+    Ok(())
+}
+
+/// Loads values from an ASCII file containing one value per line, skipping
+/// empty lines.
+fn load_ascii<T: FromStr>(path: &Path) -> Result<Vec<T>>
+where
+    T::Err: Display,
+{
+    log::info!("Loading ASCII format from {}", path.display());
+    let file = File::open(path).with_context(|| format!("Could not open {}", path.display()))?;
+    BufReader::new(file)
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| line.as_ref().map_or(true, |l| !l.trim().is_empty()))
+        .map(|(i, line)| {
+            let line = line
+                .with_context(|| format!("Error reading line {} of {}", i + 1, path.display()))?;
+            line.trim()
+                .parse::<T>()
+                .map_err(|e| anyhow!("Error parsing line {} of {}: {}", i + 1, path.display(), e))
+        })
+        .collect()
+}
+
+/// Loads values from a JSON array.
+fn load_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<Vec<T>> {
+    log::info!("Loading JSON format from {}", path.display());
+    let file = File::open(path).with_context(|| format!("Could not open {}", path.display()))?;
+    serde_json::from_reader(BufReader::new(file))
+        .with_context(|| format!("Could not parse JSON from {}", path.display()))
 }
 
 /// Parses a batch size.
@@ -820,8 +824,33 @@ pub struct CompressArgs {
     pub chunk_size: usize,
 }
 
+impl CompressArgs {
+    /// Returns a [`BvCompConf`] writing a graph with basename `dst` using the
+    /// compression parameters specified by these arguments.
+    pub fn bv_comp_conf(&self, dst: impl AsRef<Path>) -> BvCompConf {
+        let conf = BvCompConf::new(dst).comp_flags(self.into());
+        if self.bvgraphz {
+            conf.chunk_size(self.chunk_size)
+        } else {
+            conf
+        }
+    }
+
+    /// Returns the name of the endianness of the graph to write: the one
+    /// specified by these arguments, if any, or that of `E`.
+    pub fn target_endianness<E: Endianness>(&self) -> String {
+        self.endianness.clone().unwrap_or_else(|| E::NAME.into())
+    }
+}
+
 impl From<CompressArgs> for CompFlags {
     fn from(value: CompressArgs) -> Self {
+        (&value).into()
+    }
+}
+
+impl From<&CompressArgs> for CompFlags {
+    fn from(value: &CompressArgs) -> Self {
         CompFlags {
             outdegrees: value.outdegrees.into(),
             references: value.references.into(),
@@ -857,20 +886,6 @@ pub fn get_thread_pool(num_threads: usize) -> rayon::ThreadPool {
     thread_pool
 }
 
-/// Appends a string to the filename of a path.
-///
-/// # Panics
-/// * Will panic if there is no filename.
-/// * Will panic in test mode if the path has an extension.
-pub fn append(path: impl AsRef<Path>, s: impl AsRef<str>) -> PathBuf {
-    debug_assert!(path.as_ref().extension().is_none());
-    let mut path_buf = path.as_ref().to_owned();
-    let mut filename = path_buf.file_name().unwrap().to_owned();
-    filename.push(s.as_ref());
-    path_buf.set_file_name(filename);
-    path_buf
-}
-
 /// Creates all parent directories of the given file path.
 pub fn create_parent_dir(file_path: impl AsRef<Path>) -> Result<()> {
     // ensure that the dst directory exists
@@ -885,56 +900,33 @@ pub fn create_parent_dir(file_path: impl AsRef<Path>) -> Result<()> {
     Ok(())
 }
 
-/// Computes cutpoints for splitting a graph into chunks for parallel
-/// compression.
+/// Computes cutpoints for splitting a graph into `num_parts` chunks for
+/// parallel compression.
 ///
 /// If `use_dcf` is true, loads the DCF file for the given basename and uses
-/// `FairChunks` to balance by arc count. Otherwise, falls back to uniform
-/// cutpoints by node count.
+/// [`dcf_cutpoints`] to balance by arc count. Otherwise, falls back to
+/// [`uniform_cutpoints`] by node count.
+///
+/// [`dcf_cutpoints`]: webgraph::traits::split::dcf_cutpoints
+/// [`uniform_cutpoints`]: webgraph::traits::split::uniform_cutpoints
 pub fn cutpoints(
     basename: &Path,
     num_nodes: usize,
     num_arcs: Option<u64>,
     use_dcf: bool,
+    num_parts: usize,
 ) -> Result<Vec<usize>> {
-    use epserde::prelude::*;
-    use sux::utils::FairChunks;
-    use value_traits::slices::SliceByValue;
-    use webgraph::prelude::{DCF, DEG_CUMUL_EXTENSION};
+    use webgraph::traits::split::{dcf_cutpoints, uniform_cutpoints};
 
     if use_dcf {
-        let dcf_path = basename.with_extension(DEG_CUMUL_EXTENSION);
-        ensure!(
-            dcf_path.exists(),
-            "DCF file {} does not exist; build it with `webgraph build dcf`",
-            dcf_path.display()
-        );
-        let dcf = unsafe { DCF::mmap(&dcf_path, Flags::RANDOM_ACCESS) }?;
-        let dcf = dcf.uncase();
-        ensure!(
-            dcf.len() == num_nodes + 1,
-            "DCF has {} entries, expected {} (num_nodes + 1)",
-            dcf.len(),
-            num_nodes + 1
-        );
-        ensure!(dcf.index_value(0) == 0, "DCF does not start with 0");
-        let num_arcs: u64 = num_arcs.expect("get_num_arcs required for --dcf");
-        ensure!(
-            dcf.index_value(num_nodes) == num_arcs,
-            "DCF ends with {}, expected {} (num_arcs)",
-            dcf.index_value(num_nodes),
-            num_arcs
-        );
-        let num_threads = rayon::current_num_threads();
-        let target_weight = num_arcs.div_ceil(num_threads as u64);
-        let cutpoints: Vec<usize> = std::iter::once(0)
-            .chain(FairChunks::new(target_weight, &dcf).map(|r| r.end))
-            .collect();
+        let num_arcs = num_arcs.context("The number of arcs is required to use the DCF")?;
+        let dcf = load_dcf(basename, num_nodes, num_arcs)?;
+        let cutpoints = dcf_cutpoints(dcf.uncase(), num_parts);
         log::info!(
             "Using DCF-based splitting into {} parts",
             cutpoints.len() - 1
         );
-        Ok(cutpoints)
+        Ok(cutpoints.into_vec())
     } else {
         let dcf_path = basename.with_extension(DEG_CUMUL_EXTENSION);
         if dcf_path.exists() {
@@ -948,10 +940,59 @@ pub fn cutpoints(
                 basename.display()
             );
         }
-        let n = rayon::current_num_threads();
-        let step = num_nodes.div_ceil(n);
-        Ok((0..n + 1).map(move |i| (i * step).min(num_nodes)).collect())
+        Ok(uniform_cutpoints(num_nodes, num_parts).collect())
     }
+}
+
+/// Wraps a graph in a [`ParGraph`] splitting it into `num_parts` parts using
+/// the [cutpoints] computed for the graph with given basename.
+///
+/// [`ParGraph`]: webgraph::graphs::par_graphs::ParGraph
+/// [cutpoints]: cutpoints
+pub fn par_graph<G: SequentialLabeling>(
+    graph: G,
+    basename: &Path,
+    use_dcf: bool,
+    num_parts: usize,
+) -> Result<ParGraph<G>> {
+    let cutpoints = cutpoints(
+        basename,
+        graph.num_nodes(),
+        graph.get_num_arcs(),
+        use_dcf,
+        num_parts,
+    )?;
+    Ok(ParGraph::with_cutpoints(graph, cutpoints))
+}
+
+/// Memory-maps the degree cumulative function (DCF) of the graph with given
+/// basename, checking that it is consistent with the given number of nodes and
+/// arcs.
+pub fn load_dcf(basename: &Path, num_nodes: usize, num_arcs: u64) -> Result<MemCase<DCF>> {
+    let dcf_path = basename.with_extension(DEG_CUMUL_EXTENSION);
+    ensure!(
+        dcf_path.exists(),
+        "DCF file {} does not exist; build it with `webgraph build dcf {}`",
+        dcf_path.display(),
+        basename.display()
+    );
+    let dcf = unsafe { DCF::mmap(&dcf_path, Flags::RANDOM_ACCESS) }
+        .with_context(|| format!("Could not load the DCF from {}", dcf_path.display()))?;
+    let values = dcf.uncase();
+    ensure!(
+        values.len() == num_nodes + 1,
+        "DCF has {} entries, expected {} (num_nodes + 1)",
+        values.len(),
+        num_nodes + 1
+    );
+    ensure!(values.index_value(0) == 0, "DCF does not start with 0");
+    ensure!(
+        values.index_value(num_nodes) == num_arcs,
+        "DCF ends with {}, expected {} (num_arcs)",
+        values.index_value(num_nodes),
+        num_arcs
+    );
+    Ok(dcf)
 }
 
 /// Parses a duration from a string.
@@ -1100,46 +1141,29 @@ where
     I: IntoIterator<Item = T>,
     T: Into<std::ffi::OsString> + Clone,
 {
-    let start = std::time::Instant::now();
-    let cli = Cli::parse_from(args);
-    match cli.command {
-        SubCommands::Analyze(args) => {
-            analyze::main(args)?;
-        }
-        SubCommands::Bench(args) => {
-            bench::main(args)?;
-        }
-        SubCommands::Build(args) => {
-            build::main(args, Cli::command())?;
-        }
-        SubCommands::Check(args) => {
-            check::main(args)?;
-        }
-        SubCommands::From(args) => {
-            from::main(args)?;
-        }
-        SubCommands::Perm(args) => {
-            perm::main(args)?;
-        }
-        SubCommands::Run(args) => {
-            run::main(args)?;
-        }
-        SubCommands::Seq(args) => {
-            seq::main(args)?;
-        }
-        SubCommands::To(args) => {
-            to::main(args)?;
-        }
-        SubCommands::Transform(args) => {
-            transform::main(args)?;
-        }
-    }
+    timed(|| match Cli::parse_from(args).command {
+        SubCommands::Analyze(args) => analyze::main(args),
+        SubCommands::Bench(args) => bench::main(args),
+        SubCommands::Build(args) => build::main(args, Cli::command()),
+        SubCommands::Check(args) => check::main(args),
+        SubCommands::From(args) => from::main(args),
+        SubCommands::Perm(args) => perm::main(args),
+        SubCommands::Run(args) => run::main(args),
+        SubCommands::Seq(args) => seq::main(args),
+        SubCommands::To(args) => to::main(args),
+        SubCommands::Transform(args) => transform::main(args),
+    })
+}
 
+/// Runs a command (including the parsing of its arguments), logging how long
+/// it took.
+fn timed(command: impl FnOnce() -> Result<()>) -> Result<()> {
+    let start = std::time::Instant::now();
+    command()?;
     log::info!(
         "The command took {}",
         pretty_print_elapsed(start.elapsed().as_secs_f64())
     );
-
     Ok(())
 }
 

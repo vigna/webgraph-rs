@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
-use crate::{build_info, pretty_print_elapsed};
+use crate::{build_info, timed};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
@@ -32,21 +32,8 @@ where
     I: IntoIterator<Item = T>,
     T: Into<std::ffi::OsString> + Clone,
 {
-    let start = std::time::Instant::now();
-    let cli = Cli::parse_from(args);
-    match cli.command {
-        SubCommands::BiRank(args) => {
-            birank::main(args)?;
-        }
-        SubCommands::PageRank(args) => {
-            pagerank::main(args)?;
-        }
-    }
-
-    log::info!(
-        "The command took {}",
-        pretty_print_elapsed(start.elapsed().as_secs_f64())
-    );
-
-    Ok(())
+    timed(|| match Cli::parse_from(args).command {
+        SubCommands::BiRank(args) => birank::main(args),
+        SubCommands::PageRank(args) => pagerank::main(args),
+    })
 }

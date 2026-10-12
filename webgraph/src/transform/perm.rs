@@ -5,10 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
+use super::map::{check_map_len, sort_mapped_par, sort_mapped_seq};
 use crate::graphs::par_sorted_graph::{ParSortedGraph, SortedPairIter};
 use crate::prelude::*;
 use crate::traits::{IntoParLenders, NodeLabelsLender};
-use anyhow::{Result, ensure};
+use anyhow::Result;
 use dsi_progress_logger::ProgressLog;
 use value_traits::slices::SliceByValue;
 
@@ -27,18 +28,11 @@ pub fn permute_seq<G: SequentialGraph, P: SliceByValue<Value = usize>>(
     memory_usage: MemoryUsage,
     pl: &mut impl ProgressLog,
 ) -> Result<ParSortedGraph<SortedPairIter>> {
-    ensure!(
-        perm.len() == graph.num_nodes(),
-        "The given permutation has {} values and thus it's incompatible with a graph with {} nodes.",
-        perm.len(),
-        graph.num_nodes(),
-    );
-    let pgraph = PermutedGraph::new(graph, perm);
-    let num_nodes = pgraph.num_nodes();
-    ParSortedGraph::config()
+    check_map_len("permutation", perm.len(), graph.num_nodes())?;
+    let conf = ParSortedGraph::config()
         .memory_usage(memory_usage)
-        .progress_logger(pl)
-        .sort_pairs(num_nodes, pgraph.iter().into_pairs())
+        .progress_logger(pl);
+    sort_mapped_seq(conf, graph, perm, graph.num_nodes())
 }
 
 /// Returns a [`ParSortedGraph`] representing the permuted graph, computed in
@@ -73,21 +67,10 @@ where
         >,
     P: SliceByValue<Value = usize> + Send + Sync,
 {
-    ensure!(
-        perm.len() == graph.num_nodes(),
-        "The given permutation has {} values and thus it's incompatible with a graph with {} nodes.",
-        perm.len(),
-        graph.num_nodes(),
-    );
+    check_map_len("permutation", perm.len(), graph.num_nodes())?;
     let num_nodes = graph.num_nodes();
     let conf = ParSortedGraph::config()
         .memory_usage(memory_usage)
         .progress_logger(pl);
-    let (lenders, _boundaries) = graph.into_par_lenders();
-    let iters = lenders.into_vec().into_iter().map(|lender| {
-        lender
-            .into_pairs()
-            .map(|(src, dst)| (perm.index_value(src), perm.index_value(dst)))
-    });
-    conf.par_sort_pair_iters(num_nodes, iters)
+    sort_mapped_par(conf, graph, perm, num_nodes)
 }

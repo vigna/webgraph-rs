@@ -97,10 +97,10 @@ fn log_comp_stats(stats: &super::CompStats, force: bool) {
 fn write_label_properties<E: dsi_bitstream::traits::Endianness>(
     labels_basename: &Path,
     serializer_name: &str,
-    num_nodes: usize,
-    num_arcs: u64,
-    labels_written_bits: u64,
+    stats: &super::CompStats,
 ) -> Result<()> {
+    let (num_nodes, num_arcs, labels_written_bits) =
+        (stats.num_nodes, stats.num_arcs, stats.labels_written_bits);
     let mut s = String::new();
     s.push_str("#Label properties\n");
     s.push_str(&format!("endianness={}\n", E::NAME));
@@ -126,23 +126,47 @@ fn write_label_properties<E: dsi_bitstream::traits::Endianness>(
     Ok(())
 }
 
+/// Appends the first `bits` bits of the bitstream in `part_path` to `writer`,
+/// which writes to `path`, and then deletes `part_path`.
+fn append_part<E: Endianness, W: BitWrite<E>>(
+    writer: &mut W,
+    path: &Path,
+    part_path: &Path,
+    bits: u64,
+) -> Result<()>
+where
+    BufBitReader<E, WordAdapter<u32, BufReader<File>>>: BitRead<E>,
+{
+    log::debug!(
+        "Copying {bits} bits from {} to {}",
+        part_path.display(),
+        path.display()
+    );
+    let mut reader = buf_bit_reader::from_path::<E, u32>(part_path)
+        .with_context(|| format!("Could not open {}", part_path.display()))?;
+    writer.copy_from(&mut reader, bits).with_context(|| {
+        format!(
+            "Could not copy from {} to {}",
+            part_path.display(),
+            path.display()
+        )
+    })?;
+    std::fs::remove_file(part_path)
+        .with_context(|| format!("Could not remove {}", part_path.display()))?;
+    Ok(())
+}
+
 /// A compression job.
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
+#[derive(Debug, Clone)]
 struct Job {
     job_id: usize,
     first_node: usize,
     last_node: usize,
     chunk_graph_path: PathBuf,
-    written_bits: u64,
     chunk_offsets_path: PathBuf,
-    offsets_written_bits: u64,
-    num_arcs: u64,
-    tot_ref: u64,
-    tot_dist: u64,
-    part_labels_path: Option<PathBuf>,
-    labels_written_bits: u64,
-    part_label_offsets_path: Option<PathBuf>,
-    label_offsets_written_bits: u64,
+    part_labels_path: PathBuf,
+    part_label_offsets_path: PathBuf,
+    stats: super::CompStats,
 }
 
 impl JobId for Job {
@@ -462,6 +486,29 @@ impl<PL> BvCompConf<PL> {
     }
 }
 
+/// Writes the `.properties` file of the graph with given basename and, if
+/// labels are stored (i.e., if `label_serializer_name` is not `()`), the
+/// `.properties` file of the labels.
+fn write_properties<E: Endianness>(
+    comp_flags: &CompFlags,
+    basename: &Path,
+    stats: &super::CompStats,
+    labels_basename: &Path,
+    label_serializer_name: &str,
+) -> Result<()> {
+    log::info!("Writing the .properties file");
+    let properties = comp_flags
+        .to_properties::<E>(stats)
+        .context("Could not serialize properties")?;
+    let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
+    std::fs::write(&properties_path, properties)
+        .with_context(|| format!("Could not write {}", properties_path.display()))?;
+    if label_serializer_name != "()" {
+        write_label_properties::<E>(labels_basename, label_serializer_name, stats)?;
+    }
+    Ok(())
+}
+
 impl<PL: ProgressLog> BvCompConf<PL> {
     /// Compresses sequentially a [`SequentialGraph`] and returns
     /// the number of bits written to the graph bitstream.
@@ -621,25 +668,13 @@ impl<PL: ProgressLog> BvCompConf<PL> {
             }
         }
 
-        log::info!("Writing the .properties file");
-        let properties = self
-            .comp_flags
-            .to_properties::<E>(&comp_stats)
-            .context("Could not serialize properties")?;
-        let properties_path = self.basename.with_extension(PROPERTIES_EXTENSION);
-        std::fs::write(&properties_path, properties)
-            .with_context(|| format!("Could not write {}", properties_path.display()))?;
-
-        let label_ser_name = store_labels_config.label_serializer_name();
-        if label_ser_name != "()" {
-            write_label_properties::<E>(
-                &labels_basename,
-                &label_ser_name,
-                comp_stats.num_nodes,
-                comp_stats.num_arcs,
-                comp_stats.labels_written_bits,
-            )?;
-        }
+        write_properties::<E>(
+            &self.comp_flags,
+            &self.basename,
+            &comp_stats,
+            &labels_basename,
+            &store_labels_config.label_serializer_name(),
+        )?;
 
         Ok(comp_stats.written_bits)
     }
@@ -859,16 +894,10 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                             first_node,
                             last_node,
                             chunk_graph_path,
-                            written_bits: stats.written_bits,
                             chunk_offsets_path,
-                            offsets_written_bits: stats.offsets_written_bits,
-                            num_arcs: stats.num_arcs,
-                            tot_ref: stats.tot_ref,
-                            tot_dist: stats.tot_dist,
-                            part_labels_path: Some(part_labels_path),
-                            labels_written_bits: stats.labels_written_bits,
-                            part_label_offsets_path: Some(part_label_offsets_path),
-                            label_offsets_written_bits: stats.label_offsets_written_bits,
+                            part_labels_path,
+                            part_label_offsets_path,
+                            stats,
                         }))
                     })();
 
@@ -905,99 +934,44 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                     format!("Compression thread {} failed", worker_result.job_id)
                 })?;
                 // An empty lender contributes nothing.
-                let Some(Job {
-                    job_id,
-                    first_node,
-                    last_node,
-                    chunk_graph_path,
-                    written_bits,
-                    chunk_offsets_path,
-                    offsets_written_bits,
-                    num_arcs,
-                    tot_ref,
-                    tot_dist,
-                    part_labels_path,
-                    labels_written_bits,
-                    part_label_offsets_path,
-                    label_offsets_written_bits,
-                }) = job
-                else {
+                let Some(job) = job else {
                     continue;
                 };
                 ensure!(
-                    first_node == next_node,
+                    job.first_node == next_node,
                     "Non-adjacent lenders: lender {} has first node {} instead of {}",
-                    job_id,
-                    first_node,
+                    job.job_id,
+                    job.first_node,
                     next_node
                 );
 
-                next_node = last_node + 1;
-                log::debug!(
-                    "Copying {} [{}..{}) bits from {} to {}",
-                    written_bits,
-                    total_stats.written_bits,
-                    total_stats.written_bits + written_bits,
-                    chunk_graph_path.display(),
-                    graph_path.display()
-                );
-                let mut reader = buf_bit_reader::from_path::<E, u32>(&chunk_graph_path)?;
-                graph_writer
-                    .copy_from(&mut reader, written_bits)
-                    .with_context(|| {
-                        format!(
-                            "Could not copy from {} to {}",
-                            chunk_graph_path.display(),
-                            graph_path.display()
-                        )
-                    })?;
-                std::fs::remove_file(chunk_graph_path)?;
+                next_node = job.last_node + 1;
+                let stats = job.stats;
+                append_part(
+                    &mut graph_writer,
+                    &graph_path,
+                    &job.chunk_graph_path,
+                    stats.written_bits,
+                )?;
+                append_part::<BE, _>(
+                    &mut offsets_writer,
+                    &offsets_path,
+                    &job.chunk_offsets_path,
+                    stats.offsets_written_bits,
+                )?;
+                store_labels_config.concat_part(
+                    &job.part_labels_path,
+                    stats.labels_written_bits,
+                    &job.part_label_offsets_path,
+                    stats.label_offsets_written_bits,
+                )?;
 
-                log::debug!(
-                    "Copying offsets {} [{}..{}) bits from {} to {}",
-                    offsets_written_bits,
-                    total_stats.offsets_written_bits,
-                    total_stats.offsets_written_bits + offsets_written_bits,
-                    chunk_offsets_path.display(),
-                    offsets_path.display()
-                );
-
-                let mut reader = <BufBitReader<BigEndian, _>>::new(<WordAdapter<u32, _>>::new(
-                    BufReader::new(File::open(&chunk_offsets_path).with_context(|| {
-                        format!("Could not open {}", chunk_offsets_path.display())
-                    })?),
-                ));
-                offsets_writer
-                    .copy_from(&mut reader, offsets_written_bits)
-                    .with_context(|| {
-                        format!(
-                            "Could not copy from {} to {}",
-                            chunk_offsets_path.display(),
-                            offsets_path.display()
-                        )
-                    })?;
-                std::fs::remove_file(chunk_offsets_path)?;
-
-                if let (Some(lp), Some(lop)) = (part_labels_path, part_label_offsets_path) {
-                    store_labels_config.concat_part(
-                        &lp,
-                        labels_written_bits,
-                        &lop,
-                        label_offsets_written_bits,
-                    )?;
-                }
-
+                let chunk_num_nodes = job.last_node - job.first_node + 1;
                 total_stats += super::CompStats {
-                    num_nodes: last_node - first_node + 1,
-                    num_arcs,
-                    written_bits,
-                    offsets_written_bits,
-                    tot_ref,
-                    tot_dist,
-                    labels_written_bits,
-                    label_offsets_written_bits,
+                    num_nodes: chunk_num_nodes,
+                    ..stats
                 };
-                self.pl.update_with_count(last_node - first_node + 1);
+                self.pl.update_with_count(chunk_num_nodes);
             }
 
             // A worker that fails before sending (or a lender skipping part
@@ -1019,29 +993,13 @@ impl<PL: ProgressLog> BvCompConf<PL> {
             comp_pl.done();
             self.pl.done();
 
-            log::info!("Writing the .properties file");
-            let properties = self
-                .comp_flags
-                .to_properties::<E>(&total_stats)
-                .context("Could not serialize properties")?;
-            let properties_path = self.basename.with_extension(PROPERTIES_EXTENSION);
-            std::fs::write(&properties_path, properties).with_context(|| {
-                format!(
-                    "Could not write properties to {}",
-                    properties_path.display()
-                )
-            })?;
-
-            let label_ser_name = store_labels_config.label_serializer_name();
-            if label_ser_name != "()" {
-                write_label_properties::<E>(
-                    &label_base,
-                    &label_ser_name,
-                    total_stats.num_nodes,
-                    total_stats.num_arcs,
-                    total_stats.labels_written_bits,
-                )?;
-            }
+            write_properties::<E>(
+                cp_flags,
+                &self.basename,
+                &total_stats,
+                &label_base,
+                &store_labels_config.label_serializer_name(),
+            )?;
 
             log::info!(
                 "Compressed {} arcs into {} bits at {:.3} bits/arc",

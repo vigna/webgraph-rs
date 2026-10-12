@@ -15,10 +15,8 @@ use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 use log::info;
 use std::fs::File;
-use std::io::{BufWriter, Seek};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use sux::prelude::*;
-use sux::traits::TryIntoUnaligned;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug, Clone)]
@@ -34,16 +32,6 @@ pub struct CliArgs {
     pub log_interval: LogIntervalArg,
 }
 
-/// Returns the length in bits of the given file.
-fn file_len_bits(path: &Path) -> Result<u64> {
-    let mut file =
-        File::open(path).with_context(|| format!("Could not open {}", path.display()))?;
-    let len = 8 * file
-        .seek(std::io::SeekFrom::End(0))
-        .with_context(|| format!("Could not seek to end of {}", path.display()))?;
-    Ok(len)
-}
-
 pub fn main(args: CliArgs) -> Result<()> {
     let ef_path = args.basename.with_extension(EF_EXTENSION);
     if ef_path.exists() && ef_path.metadata()?.permissions().readonly() {
@@ -53,13 +41,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         ));
     }
 
-    match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => build_elias_fano::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => build_elias_fano::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.basename, |E| build_elias_fano::<E>(args))
 }
 
 fn build_elias_fano<E: Endianness + 'static>(args: CliArgs) -> Result<()>
@@ -76,27 +58,31 @@ where
     let basename = &args.basename;
     let of_file_path = basename.with_extension(OFFSETS_EXTENSION);
 
-    let graph_path = basename.with_extension(GRAPH_EXTENSION);
-    let labels_file_path = basename.with_extension(LABELS_EXTENSION);
-    let file_len = if graph_path.exists() {
-        info!("Bitstream: '{}'", graph_path.display());
-        file_len_bits(&graph_path)?
-    } else if labels_file_path.exists() {
-        info!("Bitstream: '{}'", labels_file_path.display());
-        file_len_bits(&labels_file_path)?
-    } else {
-        anyhow::bail!(
-            "Neither {} nor {} exist",
-            graph_path.display(),
-            labels_file_path.display()
-        );
-    };
+    let bitstream_path = [GRAPH_EXTENSION, LABELS_EXTENSION]
+        .map(|ext| basename.with_extension(ext))
+        .into_iter()
+        .find(|path| path.exists())
+        .with_context(|| {
+            format!(
+                "Neither {} nor {} exist",
+                basename.with_extension(GRAPH_EXTENSION).display(),
+                basename.with_extension(LABELS_EXTENSION).display()
+            )
+        })?;
+    info!("Bitstream: '{}'", bitstream_path.display());
+    let file_len = 8 * std::fs::metadata(&bitstream_path)
+        .with_context(|| {
+            format!(
+                "Could not read the metadata of {}",
+                bitstream_path.display()
+            )
+        })?
+        .len();
     info!("Bitstream file size: {} bits", file_len);
 
-    let num_nodes = args
-        .number_of_nodes
-        .map(Ok::<_, anyhow::Error>)
-        .unwrap_or_else(|| {
+    let num_nodes = match args.number_of_nodes {
+        Some(num_nodes) => num_nodes,
+        None => {
             let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
             info!(
                 "Reading num_nodes from properties file at '{}'",
@@ -108,12 +94,12 @@ where
                     properties_path.display()
                 )
             })?;
-            let map = java_properties::read(std::io::BufReader::new(f))?;
-            Ok(map
+            java_properties::read(std::io::BufReader::new(f))?
                 .get("nodes")
                 .with_context(|| format!("Missing 'nodes' in {}", properties_path.display()))?
-                .parse::<usize>()?)
-        })?;
+                .parse()?
+        }
+    };
     pl.expected_updates(num_nodes);
 
     let ef = if of_file_path.exists() {
@@ -141,26 +127,13 @@ where
         efb.push(iter.get_pos() as _);
         pl.done();
         info!("Building the index over the high bits...");
-        let ef = efb.build();
-        unsafe {
-            ef.map_high_bits(
-                SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
-            )
-            .try_into_unaligned()?
-        }
+        ef_from_builder(efb)?
     };
 
     let ef_path = basename.with_extension(EF_EXTENSION);
     info!("Writing Elias–Fano to '{}'", ef_path.display());
-    let mut ef_file = BufWriter::new(
-        File::create(&ef_path)
-            .with_context(|| format!("Could not create {}", ef_path.display()))?,
-    );
-
-    unsafe {
-        ef.serialize(&mut ef_file)
-            .with_context(|| format!("Could not serialize Elias–Fano to {}", ef_path.display()))
-    }?;
+    unsafe { ef.store(&ef_path) }
+        .with_context(|| format!("Could not serialize Elias–Fano to {}", ef_path.display()))?;
 
     Ok(())
 }

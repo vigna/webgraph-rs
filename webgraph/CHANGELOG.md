@@ -4,6 +4,28 @@
 
 ### New
 
+- New `ef_from_builder` and `dcf_from_builder` functions that complete an
+  `EF` or a `DCF` from an `EliasFanoBuilder`, and new `uniform_cutpoints`
+  and `dcf_cutpoints` functions in `traits::split` that compute the
+  cutpoints used for parallel processing.
+
+- New compound traits `LabelSerDeser` (the bounds on label (de)serializers
+  of labeled parallel sorting), `CsrDcf`, and `CsrSuccessors` (the bounds on
+  the components of a `CsrGraph`), implemented by every type satisfying the
+  bounds.
+
+- New sealed trait `MmapMode`, implemented by `Mmap` and `LoadMmap`: the
+  memory-flags setters of `LoadConf` (`flags`, `graph_flags`, and
+  `offsets_flags`) are now single methods generic over it.
+
+- `BTreeGraph::remove_arc`, like `LabeledBTreeGraph::remove_arc`.
+
+- `UnitLabelSucc` implements `ExactSizeIterator` when the underlying
+  iterator does.
+
+- `BatchCodec::encode_batch` has now a default implementation that sorts the
+  batch and calls `encode_sorted_batch`.
+
 - `par_map_fold_ord` family of methods that work like `par_map_fold`, but
   guarantee to process results in the same order as the input.
 
@@ -28,6 +50,20 @@
   `transpose`, etc.) have a `&mut impl ProgressLog` argument.
 
 ### Fixed
+
+- The events returned by `DfsOrder` (the iterator of depth-first visits)
+  reported as root the node following the actual root, except for the event
+  of the root itself.
+
+- `graph::eq_labeled` checked that the lenders returned the same node ids
+  only with a debug assertion; now it returns `EqError::Node`, like
+  `graph::eq` and `labels::eq_sorted`.
+
+- `NodeLabels::next_successors` (the lender of `BvGraphSeq`) returned the
+  successors of a previous node for nodes without successors.
+
+- `ParGraph` did not forward `build_dcf`, thus using the slow default
+  implementation.
 
 - `Zip` now zips labels strictly (panicking on mismatched per-node label
   counts instead of silently truncating), checks node streams in release
@@ -144,6 +180,9 @@
 ### Changed
 
 - License is now MIT or Apache.
+
+- `GapsCodec` and `GroupedGapsCodec` no longer require the label type to
+  implement `Debug`.
 
 - All breadth-first visits now emit the same initial event sequence: `Init`,
   then `FrontierSize` at distance zero with the number of accepted roots, and

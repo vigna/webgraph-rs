@@ -636,8 +636,9 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for DfsOrder<'a, 'b, G> {
         }
 
         // Start a new DFS from the next unvisited node
+        // (self.root is not advanced here, as the events of this visit must
+        // report it; the loop above will skip it, as it is now known)
         let root = self.root;
-        self.root += 1;
         self.visited_nodes += 1;
 
         // Initialize the visit for this root

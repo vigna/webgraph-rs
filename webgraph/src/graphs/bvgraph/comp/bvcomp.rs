@@ -580,6 +580,8 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels> BvComp<E, W, SL> {
 #[cfg(test)]
 mod test {
     use super::*;
+    #[cfg(not(miri))]
+    use crate::graphs::bvgraph::comp::test_utils::*;
 
     #[test]
     fn test_compressor_no_ref() -> anyhow::Result<()> {
@@ -660,72 +662,24 @@ mod test {
     #[test]
     #[cfg(not(miri))]
     fn egst_writer_window_zero() -> anyhow::Result<()> {
-        test_compression(0, 0)?;
-        test_compression(0, 1)?;
-        test_compression(0, 2)?;
-        Ok(())
+        test_window(|basename| BvComp::with_basename(basename), 0)
     }
 
     #[test]
     #[cfg(not(miri))]
     fn egst_writer_window_one() -> anyhow::Result<()> {
-        test_compression(1, 0)?;
-        test_compression(1, 1)?;
-        test_compression(1, 2)?;
-        Ok(())
+        test_window(|basename| BvComp::with_basename(basename), 1)
     }
 
     #[test]
     #[cfg(not(miri))]
     fn egst_writer_window_two() -> anyhow::Result<()> {
-        test_compression(2, 0)?;
-        test_compression(2, 1)?;
-        test_compression(2, 2)?;
-        Ok(())
+        test_window(|basename| BvComp::with_basename(basename), 2)
     }
 
     #[test]
     #[cfg(not(miri))]
     fn egst_writer_cnr() -> anyhow::Result<()> {
-        use dsi_bitstream::traits::BE;
-        let cnr_2000 = BvGraphSeq::with_basename("../data/cnr-2000")
-            .endianness::<dsi_bitstream::traits::BE>()
-            .load()?;
-
-        let tmp_dir = tempfile::Builder::new().prefix("bvcomp_test").tempdir()?;
-        let basename = tmp_dir.path().join("cnr-2000");
-        BvComp::with_basename(&basename).comp_graph::<BE>(&cnr_2000)?;
-        let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
-        labels::eq_sorted(&cnr_2000, &seq_graph)?;
-
-        BvComp::with_basename(&basename).par_comp::<BE, _>(&cnr_2000)?;
-
-        let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
-        labels::eq_sorted(&cnr_2000, &seq_graph)?;
-        Ok(())
-    }
-
-    #[cfg(not(miri))]
-    fn test_compression(
-        compression_window: usize,
-        min_interval_length: usize,
-    ) -> anyhow::Result<()> {
-        let cnr_2000 = BvGraphSeq::with_basename("../data/cnr-2000").load()?;
-
-        let tmp_dir = tempfile::Builder::new().prefix("bvcomp_test").tempdir()?;
-        let basename = tmp_dir.path().join("cnr-2000");
-
-        BvComp::with_basename(&basename)
-            .comp_flags(CompFlags {
-                compression_window,
-                min_interval_length,
-                ..Default::default()
-            })
-            .comp_graph::<dsi_bitstream::traits::BE>(&cnr_2000)?;
-
-        let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
-
-        labels::eq_sorted(&cnr_2000, &seq_graph)?;
-        Ok(())
+        test_cnr(|basename| BvComp::with_basename(basename))
     }
 }

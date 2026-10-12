@@ -117,11 +117,8 @@ where
         offsets_written_bits: u64,
     ) -> Result<()> {
         let offsets_writer = self.offsets_writer.as_mut().unwrap();
-        let mut reader =
-            <BufBitReader<BigEndian, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
-                File::open(part_offsets_path)
-                    .with_context(|| format!("Could not open {}", part_offsets_path.display()))?,
-            )));
+        let mut reader = buf_bit_reader::from_path::<BE, u32>(part_offsets_path)
+            .with_context(|| format!("Could not open {}", part_offsets_path.display()))?;
         offsets_writer.copy_from(&mut reader, offsets_written_bits)?;
         std::fs::remove_file(part_offsets_path)?;
         Ok(())
@@ -281,19 +278,13 @@ impl<E: Endianness, S> BitStreamStoreLabels<E, S, File> {
         offsets_path: impl AsRef<Path>,
     ) -> Result<Self> {
         let labels_path = labels_path.as_ref();
-        let offsets_path = offsets_path.as_ref();
-        let bitstream = buf_bit_writer::from_path::<E, usize>(labels_path)
+        let file = File::create(labels_path)
             .with_context(|| format!("Could not create label file {}", labels_path.display()))?;
-        let offsets_writer = OffsetsWriter::from_path(offsets_path, false)?;
-        Ok(Self {
+        Ok(Self::from_writer(
             serializer,
-            bitstream,
-            offsets_writer,
-            bits_for_curr_node: 0,
-            total_label_bits: 0,
-            total_offsets_bits: 0,
-            started: false,
-        })
+            file,
+            OffsetsWriter::from_path(offsets_path, false)?,
+        ))
     }
 }
 

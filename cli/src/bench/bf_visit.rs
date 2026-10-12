@@ -8,7 +8,6 @@
 
 use anyhow::Result;
 use clap::Parser;
-use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -34,64 +33,27 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    let config = BvGraph::with_basename(&args.basename);
+    // Loads the graph with the given endianness and load mode, and visits it.
+    macro_rules! load_and_visit {
+        ($E:ty, $mode:ty) => {{
+            let config = BvGraph::with_basename(&args.basename)
+                .mode::<$mode>()
+                .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
+                .endianness::<$E>();
+            if args._static {
+                visit(config.dispatch::<Static>().load()?)
+            } else {
+                visit(config.load()?)
+            }
+        }};
+    }
 
     for _ in 0..args.repeats {
-        match (get_endianness(&args.basename)?.as_str(), args.mmap) {
-            #[cfg(feature = "be_bins")]
-            (BE::NAME, true) => match args._static {
-                true => visit(
-                    config
-                        .clone()
-                        .mode::<Mmap>()
-                        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
-                        .endianness::<BE>()
-                        .dispatch::<Static>()
-                        .load()?,
-                )?,
-                false => visit(config.clone().endianness::<BE>().load()?)?,
-            },
-            #[cfg(feature = "be_bins")]
-            (BE::NAME, false) => match args._static {
-                true => visit(
-                    config
-                        .clone()
-                        .mode::<LoadMmap>()
-                        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
-                        .endianness::<BE>()
-                        .dispatch::<Static>()
-                        .load()?,
-                )?,
-                false => visit(config.clone().endianness::<BE>().load()?)?,
-            },
-            #[cfg(feature = "le_bins")]
-            (LE::NAME, true) => match args._static {
-                true => visit(
-                    config
-                        .clone()
-                        .mode::<Mmap>()
-                        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
-                        .endianness::<LE>()
-                        .dispatch::<Static>()
-                        .load()?,
-                )?,
-                false => visit(config.clone().endianness::<LE>().load()?)?,
-            },
-            #[cfg(feature = "le_bins")]
-            (LE::NAME, false) => match args._static {
-                true => visit(
-                    config
-                        .clone()
-                        .mode::<LoadMmap>()
-                        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
-                        .endianness::<LE>()
-                        .dispatch::<Static>()
-                        .load()?,
-                )?,
-                false => visit(config.clone().endianness::<LE>().load()?)?,
-            },
-            (e, _) => anyhow::bail!("Unknown endianness: {}", e),
-        };
+        dispatch_endianness!(&args.basename, |E| if args.mmap {
+            load_and_visit!(E, Mmap)
+        } else {
+            load_and_visit!(E, LoadMmap)
+        })?;
     }
     Ok(())
 }

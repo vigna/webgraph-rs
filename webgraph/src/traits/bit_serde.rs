@@ -17,6 +17,7 @@
 //! [`BitStreamLabeling`]: crate::labels::BitStreamLabeling
 //! [`BitStreamLabelingSeq`]: crate::labels::BitStreamLabelingSeq
 
+use crate::utils::{BitReader, BitWriter};
 use dsi_bitstream::prelude::*;
 use num_primitive::PrimitiveInteger;
 use std::marker::PhantomData;
@@ -86,6 +87,39 @@ impl<E: Endianness, BR: BitRead<E>, S, D: BitDeserializer<E, BR>> BitDeserialize
     fn name(&self) -> String {
         self.1.name()
     }
+}
+
+/// Compound trait expressing the bounds on the serializers/deserializers of
+/// labels used when sorting labeled arcs (e.g., by
+/// [`ParSortedLabeledGraph`] and [`transpose_labeled_par`]).
+///
+/// The type serialized and the type deserialized must be the same. The trait
+/// is implemented by every type satisfying the bounds.
+///
+/// [`ParSortedLabeledGraph`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraph
+/// [`transpose_labeled_par`]: crate::transform::transpose_labeled_par
+pub trait LabelSerDeser:
+    BitSerializer<NE, BitWriter<NE>, SerType: Copy + Send + Sync + 'static>
+    + BitDeserializer<
+        NE,
+        BitReader<NE>,
+        DeserType = <Self as BitSerializer<NE, BitWriter<NE>>>::SerType,
+    > + Send
+    + Sync
+    + Clone
+{
+}
+
+impl<T> LabelSerDeser for T where
+    T: BitSerializer<NE, BitWriter<NE>, SerType: Copy + Send + Sync + 'static>
+        + BitDeserializer<
+            NE,
+            BitReader<NE>,
+            DeserType = <T as BitSerializer<NE, BitWriter<NE>>>::SerType,
+        > + Send
+        + Sync
+        + Clone
+{
 }
 
 /// No-op implementation of [`BitSerializer`] for `()`.

@@ -15,6 +15,10 @@ use std::rc::Rc;
 use impl_tools::autoimpl;
 
 use super::{labels::SequentialLabeling, lenders::NodeLabelsLender};
+use sux::{
+    traits::{IndexedSeq, SuccUnchecked},
+    utils::FairChunks,
+};
 
 /// A trait providing methods to split the labeling [iterator] into multiple
 /// thread-safe parts.
@@ -69,11 +73,125 @@ pub trait SplitLabeling: SequentialLabeling {
     ///
     /// [`split_iter_at`]: SplitLabeling::split_iter_at
     fn split_iter(&self, n: usize) -> Self::IntoIterator<'_> {
-        let step = self.num_nodes().div_ceil(n);
-        let num_nodes = self.num_nodes();
-        self.split_iter_at((0..=n).map(move |i| i.saturating_mul(step).min(num_nodes)))
+        self.split_iter_at(uniform_cutpoints(self.num_nodes(), n))
     }
 }
+
+/// Returns `n` + 1 cutpoints splitting `num_nodes` nodes into `n` parts of
+/// approximately the same size.
+///
+/// These are the cutpoints used by [`SplitLabeling::split_iter`].
+///
+/// # Panics
+///
+/// Panics if `n` is zero.
+pub fn uniform_cutpoints(num_nodes: usize, n: usize) -> impl Iterator<Item = usize> + Clone {
+    let step = num_nodes.div_ceil(n);
+    (0..=n).map(move |i| i.saturating_mul(step).min(num_nodes))
+}
+
+/// Returns cutpoints splitting the nodes of a graph into at most `n` parts
+/// containing approximately the same number of arcs.
+///
+/// The cutpoints are computed by [`FairChunks`] from the degree cumulative
+/// function (DCF) of the graph, which must contain one more element than the
+/// number of nodes. The result contains at least two cutpoints, the first one
+/// is zero, and the last one is the number of nodes.
+///
+/// # Panics
+///
+/// Panics if `n` is zero or if the DCF is empty.
+pub fn dcf_cutpoints<D>(dcf: D, n: usize) -> Box<[usize]>
+where
+    D: for<'b> SuccUnchecked<Input = u64, Output<'b> = u64>
+        + for<'b> IndexedSeq<Input = u64, Output<'b> = u64>,
+{
+    assert!(n > 0, "the number of parts must be positive");
+    assert!(!dcf.is_empty(), "the DCF must not be empty");
+    let num_nodes = dcf.len() - 1;
+    let target = dcf.get(num_nodes).div_ceil(n as u64);
+    let mut cutpoints: Vec<usize> = std::iter::once(0)
+        .chain(FairChunks::new(target, dcf).map(|r| r.end))
+        .collect();
+    // FairChunks yields no range for a graph without arcs, and its last
+    // range might end before trailing nodes without successors; the
+    // cutpoints must nonetheless cover all nodes.
+    if cutpoints.len() < 2 || *cutpoints.last().unwrap() != num_nodes {
+        cutpoints.push(num_nodes);
+    }
+    cutpoints.into()
+}
+
+/// An iterator over the segments defined by a sequence of cutpoints.
+///
+/// The `i`-th segment is the range [`cutpoints[i]` . . `cutpoints[i + 1]`).
+#[derive(Debug, Clone)]
+pub(crate) struct Segments {
+    cutpoints: Vec<usize>,
+    i: usize,
+}
+
+impl Segments {
+    /// Creates a new iterator over the segments defined by `cutpoints`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there are fewer than two cutpoints, if they are not
+    /// non-decreasing, or if `num_nodes` is not `None` and the last cutpoint
+    /// is greater than `num_nodes`.
+    pub(crate) fn new(
+        cutpoints: impl core::iter::IntoIterator<Item = usize>,
+        num_nodes: Option<usize>,
+    ) -> Self {
+        let cutpoints: Vec<usize> = cutpoints.into_iter().collect();
+        assert!(
+            cutpoints.len() >= 2,
+            "cutpoints must have at least 2 elements"
+        );
+        assert!(
+            cutpoints.windows(2).all(|w| w[0] <= w[1]),
+            "cutpoints must be non-decreasing"
+        );
+        if let Some(num_nodes) = num_nodes {
+            assert!(
+                *cutpoints.last().unwrap() <= num_nodes,
+                "last cutpoint ({}) must be <= num_nodes ({})",
+                cutpoints.last().unwrap(),
+                num_nodes
+            );
+        }
+        Self { cutpoints, i: 0 }
+    }
+}
+
+impl Iterator for Segments {
+    type Item = core::ops::Range<usize>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.i + 1 >= self.cutpoints.len() {
+            return None;
+        }
+        let segment = self.cutpoints[self.i]..self.cutpoints[self.i + 1];
+        self.i += 1;
+        Some(segment)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len(), Some(self.len()))
+    }
+
+    fn count(self) -> usize {
+        self.len()
+    }
+}
+
+impl ExactSizeIterator for Segments {
+    fn len(&self) -> usize {
+        self.cutpoints.len() - 1 - self.i
+    }
+}
+
+impl core::iter::FusedIterator for Segments {}
 
 /// Ready-made implementation for the sequential case.
 ///
@@ -109,13 +227,15 @@ pub trait SplitLabeling: SequentialLabeling {
 /// [`iter_from`]: SequentialLabeling::iter_from
 /// [`BvGraphSeq`]: crate::graphs::bvgraph::sequential::BvGraphSeq
 pub mod seq {
+    use super::Segments;
     use crate::prelude::SequentialLabeling;
 
     /// An iterator over segments of a sequential labeling defined by cutpoints.
     pub struct Iter<L> {
         lender: L,
-        cutpoints: Vec<usize>,
-        i: usize,
+        /// The position of `lender`.
+        pos: usize,
+        segments: Segments,
     }
 
     impl<L: lender::Lender> Iter<L> {
@@ -125,19 +245,10 @@ pub mod seq {
         /// elements, and the last cutpoint must be at most the number of nodes
         /// in the labeling.
         pub fn new(lender: L, cutpoints: impl core::iter::IntoIterator<Item = usize>) -> Self {
-            let cutpoints: Vec<usize> = cutpoints.into_iter().collect();
-            assert!(
-                cutpoints.len() >= 2,
-                "cutpoints must have at least 2 elements"
-            );
-            assert!(
-                cutpoints.windows(2).all(|w| w[0] <= w[1]),
-                "cutpoints must be non-decreasing"
-            );
             Self {
                 lender,
-                cutpoints,
-                i: 0,
+                pos: 0,
+                segments: Segments::new(cutpoints, None),
             }
         }
     }
@@ -146,37 +257,32 @@ pub mod seq {
         type Item = lender::Take<L>;
 
         fn next(&mut self) -> Option<Self::Item> {
-            if self.i + 1 >= self.cutpoints.len() {
-                return None;
-            }
-            // The lender is positioned at the end of the previous segment,
+            let segment = self.segments.next()?;
+            // The lender is positioned at the start of the previous segment,
             // or at node 0 before the first segment is returned; advance to
             // the start of the current segment.
-            let previous = if self.i == 0 {
-                0
-            } else {
-                self.cutpoints[self.i - 1]
-            };
-            let advance = self.cutpoints[self.i] - previous;
+            let advance = segment.start - self.pos;
             if advance > 0 {
                 self.lender.advance_by(advance).ok()?;
             }
-            let len = self.cutpoints[self.i + 1] - self.cutpoints[self.i];
-            self.i += 1;
-            Some(self.lender.clone().take(len))
+            self.pos = segment.start;
+            Some(self.lender.clone().take(segment.len()))
         }
 
         fn size_hint(&self) -> (usize, Option<usize>) {
-            let remaining = self.cutpoints.len() - 1 - self.i;
-            (remaining, Some(remaining))
+            self.segments.size_hint()
         }
 
         fn count(self) -> usize {
-            self.cutpoints.len() - 1 - self.i
+            self.segments.count()
         }
     }
 
-    impl<L: lender::Lender + Clone> ExactSizeIterator for Iter<L> {}
+    impl<L: lender::Lender + Clone> ExactSizeIterator for Iter<L> {
+        fn len(&self) -> usize {
+            self.segments.len()
+        }
+    }
     impl<L: lender::Lender + Clone> core::iter::FusedIterator for Iter<L> {}
 
     pub type Lender<'a, S> = lender::Take<<S as SequentialLabeling>::Lender<'a>>;
@@ -222,14 +328,14 @@ pub mod seq {
 /// [`RandomAccessLabeling`]: crate::traits::RandomAccessLabeling
 /// [`BvGraph`]: crate::graphs::bvgraph::random_access::BvGraph
 pub mod ra {
+    use super::Segments;
     use crate::prelude::{RandomAccessLabeling, SequentialLabeling};
 
     /// An iterator over segments of a random-access labeling defined by
     /// cutpoints.
     pub struct Iter<'a, R: RandomAccessLabeling> {
         labeling: &'a R,
-        cutpoints: Vec<usize>,
-        i: usize,
+        segments: Segments,
     }
 
     impl<'a, R: RandomAccessLabeling> Iter<'a, R> {
@@ -243,25 +349,9 @@ pub mod ra {
             labeling: &'a R,
             cutpoints: impl core::iter::IntoIterator<Item = usize>,
         ) -> Self {
-            let cutpoints: Vec<usize> = cutpoints.into_iter().collect();
-            assert!(
-                cutpoints.len() >= 2,
-                "cutpoints must have at least 2 elements"
-            );
-            assert!(
-                cutpoints.windows(2).all(|w| w[0] <= w[1]),
-                "cutpoints must be non-decreasing"
-            );
-            assert!(
-                *cutpoints.last().unwrap() <= labeling.num_nodes(),
-                "last cutpoint ({}) must be <= num_nodes ({})",
-                cutpoints.last().unwrap(),
-                labeling.num_nodes()
-            );
             Self {
                 labeling,
-                cutpoints,
-                i: 0,
+                segments: Segments::new(cutpoints, Some(labeling.num_nodes())),
             }
         }
     }
@@ -272,26 +362,24 @@ pub mod ra {
         fn next(&mut self) -> Option<Self::Item> {
             use lender::Lender;
 
-            if self.i + 1 >= self.cutpoints.len() {
-                return None;
-            }
-            let start = self.cutpoints[self.i];
-            let end = self.cutpoints[self.i + 1];
-            self.i += 1;
-            Some(self.labeling.iter_from(start).take(end - start))
+            let segment = self.segments.next()?;
+            Some(self.labeling.iter_from(segment.start).take(segment.len()))
         }
 
         fn size_hint(&self) -> (usize, Option<usize>) {
-            let remaining = self.cutpoints.len() - 1 - self.i;
-            (remaining, Some(remaining))
+            self.segments.size_hint()
         }
 
         fn count(self) -> usize {
-            self.cutpoints.len() - 1 - self.i
+            self.segments.count()
         }
     }
 
-    impl<R: RandomAccessLabeling> ExactSizeIterator for Iter<'_, R> {}
+    impl<R: RandomAccessLabeling> ExactSizeIterator for Iter<'_, R> {
+        fn len(&self) -> usize {
+            self.segments.len()
+        }
+    }
     impl<R: RandomAccessLabeling> core::iter::FusedIterator for Iter<'_, R> {}
 
     pub type Lender<'a, R> = lender::Take<<R as SequentialLabeling>::Lender<'a>>;

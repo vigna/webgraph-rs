@@ -25,13 +25,7 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => build_offsets::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => build_offsets::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.basename, |E| build_offsets::<E>(args))
 }
 
 pub fn build_offsets<E: Endianness + 'static>(args: CliArgs) -> Result<()>

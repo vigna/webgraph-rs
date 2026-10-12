@@ -91,117 +91,31 @@ impl Predicate<PredParams> for MaxUpdates {
     }
 }
 
-/// Stops if the gain of the objective function is below the given threshold.
-///
-/// The [default threshold] is the same as that of the Java implementation.
-///
-/// [default threshold]: Self::DEFAULT_THRESHOLD
-#[derive(Debug, Clone)]
-pub struct MinGain {
-    threshold: f64,
+threshold_predicate! {
+    /// Stops if the gain of the objective function is below the given threshold.
+    ///
+    /// The [default threshold] is the same as that of the Java implementation.
+    ///
+    /// [default threshold]: Self::DEFAULT_THRESHOLD
+    MinGain,
+    default: 0.001,
+    label: "min gain",
+    check: |threshold| { ensure!(threshold >= 0.0, "The threshold must be nonnegative"); },
+    eval: impl<> Predicate<PredParams> |pred_params| pred_params.gain,
 }
 
-impl MinGain {
-    /// The default threshold.
-    pub const DEFAULT_THRESHOLD: f64 = 0.001;
-}
-
-impl TryFrom<Option<f64>> for MinGain {
-    type Error = anyhow::Error;
-    fn try_from(threshold: Option<f64>) -> anyhow::Result<Self> {
-        Ok(match threshold {
-            Some(threshold) => {
-                ensure!(!threshold.is_nan());
-                ensure!(threshold >= 0.0, "The threshold must be nonnegative");
-                MinGain { threshold }
-            }
-            None => Self::default(),
-        })
-    }
-}
-
-impl TryFrom<f64> for MinGain {
-    type Error = anyhow::Error;
-    fn try_from(threshold: f64) -> anyhow::Result<Self> {
-        Some(threshold).try_into()
-    }
-}
-
-impl Default for MinGain {
-    fn default() -> Self {
-        Self::try_from(Self::DEFAULT_THRESHOLD).unwrap()
-    }
-}
-
-impl Display for MinGain {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("(min gain: {})", self.threshold))
-    }
-}
-
-impl PredicateReflection for MinGain {}
-impl Predicate<PredParams> for MinGain {
-    fn eval(&self, pred_params: &PredParams) -> bool {
-        pred_params.gain <= self.threshold
-    }
-}
-
-/// Stops if the average improvement of the gain of the objective function on
-/// a window of ten updates is below the given threshold.
-///
-/// This criterion is a second-order version of [`MinGain`]. It is very useful
-/// to avoid a large number of iterations which do not improve the objective
-/// function significantly.
-#[derive(Debug, Clone)]
-pub struct MinAvgImprov {
-    threshold: f64,
-}
-
-impl MinAvgImprov {
-    /// The default threshold.
-    pub const DEFAULT_THRESHOLD: f64 = 0.1;
-}
-
-impl TryFrom<Option<f64>> for MinAvgImprov {
-    type Error = anyhow::Error;
-    fn try_from(threshold: Option<f64>) -> anyhow::Result<Self> {
-        Ok(match threshold {
-            Some(threshold) => {
-                ensure!(!threshold.is_nan());
-                MinAvgImprov { threshold }
-            }
-            None => Self::default(),
-        })
-    }
-}
-
-impl TryFrom<f64> for MinAvgImprov {
-    type Error = anyhow::Error;
-    fn try_from(threshold: f64) -> anyhow::Result<Self> {
-        Some(threshold).try_into()
-    }
-}
-
-impl Default for MinAvgImprov {
-    fn default() -> Self {
-        Self::try_from(Self::DEFAULT_THRESHOLD).unwrap()
-    }
-}
-
-impl Display for MinAvgImprov {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "(min avg gain improvement: {})",
-            self.threshold
-        ))
-    }
-}
-
-impl PredicateReflection for MinAvgImprov {}
-impl Predicate<PredParams> for MinAvgImprov {
-    fn eval(&self, pred_params: &PredParams) -> bool {
-        pred_params.avg_gain_impr <= self.threshold
-    }
+threshold_predicate! {
+    /// Stops if the average improvement of the gain of the objective function on
+    /// a window of ten updates is below the given threshold.
+    ///
+    /// This criterion is a second-order version of [`MinGain`]. It is very useful
+    /// to avoid a large number of iterations which do not improve the objective
+    /// function significantly.
+    MinAvgImprov,
+    default: 0.1,
+    label: "min avg gain improvement",
+    check: |threshold| {},
+    eval: impl<> Predicate<PredParams> |pred_params| pred_params.avg_gain_impr,
 }
 
 /// Stops after the number of modified nodes falls below the square root of the

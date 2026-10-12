@@ -9,6 +9,7 @@ use super::{ExactSumSweep, output, output_symm};
 use dsi_progress_logger::ProgressLog;
 use sux::bits::AtomicBitVec;
 use webgraph::traits::RandomAccessGraph;
+use webgraph::visits::{Parallel, breadth_first::EventNoPred};
 
 macro_rules! dispatch {
     ($method:ident($($args:expr),+ $(,)?), $use_tot:expr, $pl:expr, |$computer:ident| $body:expr) => {
@@ -22,6 +23,51 @@ macro_rules! dispatch {
             $body
         }
     };
+}
+
+/// Extraction of the results shared by the directed and symmetric cases.
+impl<
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    V1: Parallel<EventNoPred> + Sync,
+    V2: Parallel<EventNoPred> + Sync,
+    OL: Level,
+    const USE_TOT: bool,
+> ExactSumSweep<'_, G1, G2, V1, V2, OL, USE_TOT>
+{
+    fn radius_diameter_output(&self) -> output::RadiusDiameter {
+        assert!(self.diameter_iterations.is_some());
+        assert!(self.radius_iterations.is_some());
+
+        output::RadiusDiameter {
+            diameter: self.diameter_low,
+            radius: self.radius_high,
+            diametral_vertex: self.diameter_vertex,
+            radial_vertex: self.radius_vertex,
+            radius_iterations: self.radius_iterations.unwrap(),
+            diameter_iterations: self.diameter_iterations.unwrap(),
+        }
+    }
+
+    fn diameter_output(&self) -> output::Diameter {
+        assert!(self.diameter_iterations.is_some());
+
+        output::Diameter {
+            diameter: self.diameter_low,
+            diametral_vertex: self.diameter_vertex,
+            diameter_iterations: self.diameter_iterations.unwrap(),
+        }
+    }
+
+    fn radius_output(&self) -> output::Radius {
+        assert!(self.radius_iterations.is_some());
+
+        output::Radius {
+            radius: self.radius_high,
+            radial_vertex: self.radius_vertex,
+            radius_iterations: self.radius_iterations.unwrap(),
+        }
+    }
 }
 
 #[doc(hidden)]
@@ -275,7 +321,7 @@ pub struct RadiusDiameter;
 
 impl Level for RadiusDiameter {
     type Output = output::RadiusDiameter;
-    type OutputSymm = output_symm::RadiusDiameter;
+    type OutputSymm = output::RadiusDiameter;
 
     fn run(
         graph: impl RandomAccessGraph + Sync,
@@ -288,19 +334,7 @@ impl Level for RadiusDiameter {
             new(&graph, &transpose, radial_vertices, pl),
             use_tot,
             pl,
-            |computer| {
-                assert!(computer.diameter_iterations.is_some());
-                assert!(computer.radius_iterations.is_some());
-
-                output::RadiusDiameter {
-                    diameter: computer.diameter_low,
-                    radius: computer.radius_high,
-                    diametral_vertex: computer.diameter_vertex,
-                    radial_vertex: computer.radius_vertex,
-                    radius_iterations: computer.radius_iterations.unwrap(),
-                    diameter_iterations: computer.diameter_iterations.unwrap(),
-                }
-            }
+            |computer| computer.radius_diameter_output()
         )
     }
 
@@ -309,19 +343,8 @@ impl Level for RadiusDiameter {
         use_tot: bool,
         pl: &mut impl ProgressLog,
     ) -> Self::OutputSymm {
-        dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| {
-            assert!(computer.diameter_iterations.is_some());
-            assert!(computer.radius_iterations.is_some());
-
-            output_symm::RadiusDiameter {
-                diameter: computer.diameter_low,
-                radius: computer.radius_high,
-                diametral_vertex: computer.diameter_vertex,
-                radial_vertex: computer.radius_vertex,
-                radius_iterations: computer.radius_iterations.unwrap(),
-                diameter_iterations: computer.diameter_iterations.unwrap(),
-            }
-        })
+        dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| computer
+            .radius_diameter_output())
     }
 
     fn missing_nodes(missing: &Missing) -> usize {
@@ -335,7 +358,7 @@ pub struct Diameter;
 
 impl Level for Diameter {
     type Output = output::Diameter;
-    type OutputSymm = output_symm::Diameter;
+    type OutputSymm = output::Diameter;
 
     fn run(
         graph: impl RandomAccessGraph + Sync,
@@ -348,15 +371,7 @@ impl Level for Diameter {
             new(&graph, &transpose, radial_vertices, pl),
             use_tot,
             pl,
-            |computer| {
-                assert!(computer.diameter_iterations.is_some());
-
-                output::Diameter {
-                    diameter: computer.diameter_low,
-                    diametral_vertex: computer.diameter_vertex,
-                    diameter_iterations: computer.diameter_iterations.unwrap(),
-                }
-            }
+            |computer| computer.diameter_output()
         )
     }
 
@@ -365,15 +380,8 @@ impl Level for Diameter {
         use_tot: bool,
         pl: &mut impl ProgressLog,
     ) -> Self::OutputSymm {
-        dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| {
-            assert!(computer.diameter_iterations.is_some());
-
-            output_symm::Diameter {
-                diameter: computer.diameter_low,
-                diametral_vertex: computer.diameter_vertex,
-                diameter_iterations: computer.diameter_iterations.unwrap(),
-            }
-        })
+        dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| computer
+            .diameter_output())
     }
 
     fn missing_nodes(missing: &Missing) -> usize {
@@ -387,7 +395,7 @@ pub struct Radius;
 
 impl Level for Radius {
     type Output = output::Radius;
-    type OutputSymm = output_symm::Radius;
+    type OutputSymm = output::Radius;
 
     fn run(
         graph: impl RandomAccessGraph + Sync,
@@ -400,15 +408,7 @@ impl Level for Radius {
             new(&graph, &transpose, radial_vertices, pl),
             use_tot,
             pl,
-            |computer| {
-                assert!(computer.radius_iterations.is_some());
-
-                output::Radius {
-                    radius: computer.radius_high,
-                    radial_vertex: computer.radius_vertex,
-                    radius_iterations: computer.radius_iterations.unwrap(),
-                }
-            }
+            |computer| computer.radius_output()
         )
     }
 
@@ -417,15 +417,8 @@ impl Level for Radius {
         use_tot: bool,
         pl: &mut impl ProgressLog,
     ) -> Self::OutputSymm {
-        dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| {
-            assert!(computer.radius_iterations.is_some());
-
-            output_symm::Radius {
-                radius: computer.radius_high,
-                radial_vertex: computer.radius_vertex,
-                radius_iterations: computer.radius_iterations.unwrap(),
-            }
-        })
+        dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| computer
+            .radius_output())
     }
 
     fn missing_nodes(missing: &Missing) -> usize {

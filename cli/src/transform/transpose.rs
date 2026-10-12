@@ -11,7 +11,6 @@ use anyhow::Result;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use dsi_progress_logger::prelude::*;
 use std::path::PathBuf;
-use tempfile::Builder;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -47,25 +46,13 @@ pub struct CliArgs {
 pub fn main(args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
-    match get_endianness(&args.src)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => {
-            if args.sequential {
-                transpose_seq::<BE>(args)
-            } else {
-                transpose_par::<BE>(args)
-            }
+    dispatch_endianness!(&args.src, |E| {
+        if args.sequential {
+            transpose_seq::<E>(args)
+        } else {
+            transpose_par::<E>(args)
         }
-        #[cfg(feature = "le_bins")]
-        LE::NAME => {
-            if args.sequential {
-                transpose_seq::<LE>(args)
-            } else {
-                transpose_par::<LE>(args)
-            }
-        }
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    })
 }
 
 /// Sequential version of [`transpose_par`].
@@ -88,21 +75,10 @@ where
     let sorted =
         webgraph::transform::transpose_seq(&seq_graph, args.memory_usage.memory_usage, &mut pl)?;
 
-    let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
-    let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
-    let chunk_size = args.ca.chunk_size;
-    let bvgraphz = args.ca.bvgraphz;
-    let mut builder = BvCompConf::new(&args.dst)
-        .comp_flags(args.ca.into())
-        .tmp_dir(&dir);
-
-    if bvgraphz {
-        builder = builder.chunk_size(chunk_size);
-    }
-
     // Use uniform cutpoints for compression of the transposed graph
     // (the source DCF does not match the transpose's degree distribution)
-    let mut builder = builder.progress_logger(&mut pl);
+    let target_endianness = args.ca.target_endianness::<E>();
+    let mut builder = args.ca.bv_comp_conf(&args.dst).progress_logger(&mut pl);
     thread_pool.install(|| par_comp!(builder, sorted, target_endianness))?;
 
     Ok(())
@@ -120,12 +96,14 @@ where
         .endianness::<E>()
         .load()?;
 
-    let num_nodes = graph.num_nodes();
-    let get_num_arcs = graph.get_num_arcs();
-    let cp = crate::cutpoints(&args.src, num_nodes, get_num_arcs, args.dcf)?;
+    let par_graph = crate::par_graph(
+        graph,
+        &args.src,
+        args.dcf,
+        thread_pool.current_num_threads(),
+    )?;
 
     // transpose the graph
-    let par_graph = webgraph::graphs::par_graphs::ParGraph::with_cutpoints(graph, cp);
     let mut pl = progress_logger![
         display_memory = true,
         log_interval = args.log_interval.log_interval
@@ -133,19 +111,8 @@ where
     let sorted =
         webgraph::transform::transpose_par(&par_graph, args.memory_usage.memory_usage, &mut pl)?;
 
-    let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
-    let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
-    let chunk_size = args.ca.chunk_size;
-    let bvgraphz = args.ca.bvgraphz;
-    let mut builder = BvCompConf::new(&args.dst)
-        .comp_flags(args.ca.into())
-        .tmp_dir(&dir);
-
-    if bvgraphz {
-        builder = builder.chunk_size(chunk_size);
-    }
-
-    let mut builder = builder.progress_logger(&mut pl);
+    let target_endianness = args.ca.target_endianness::<E>();
+    let mut builder = args.ca.bv_comp_conf(&args.dst).progress_logger(&mut pl);
     thread_pool.install(|| par_comp!(builder, sorted, target_endianness))?;
     Ok(())
 }

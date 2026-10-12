@@ -1,25 +1,26 @@
 #![cfg(feature = "slow_tests")]
+
+mod common;
+
 use anyhow::Result;
+use common::check_rebuilt_offsets;
 use dsi_bitstream::traits::BigEndian;
-use std::path::PathBuf;
+use dsi_progress_logger::no_logging;
 use tempfile::Builder;
-use value_traits::slices::SliceByValue;
-use webgraph::graphs::bvgraph::{GRAPH_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_EXTENSION};
-use webgraph::traits::{RandomAccessGraph, RandomAccessLabeling, SequentialLabeling};
+use webgraph::graphs::bvgraph::{GRAPH_EXTENSION, PROPERTIES_EXTENSION};
+use webgraph::traits::{RandomAccessLabeling, graph};
+use webgraph::transform::permute_seq;
+use webgraph::utils::MemoryUsage;
 use webgraph_cli::IntSliceFormat;
 use webgraph_cli::cli_main;
 use webgraph_cli::init_env_logger;
 
-#[cfg(target_pointer_width = "64")]
-const TEST_GRAPH: &str = "../data/cnr-2000";
-#[cfg(not(target_pointer_width = "64"))]
-const TEST_GRAPH: &str = "../data/cnr-2000_32/cnr-2000";
 const EXPECTED_BITS_PER_ARC: f64 = 2.897;
 
 #[test]
 fn test_llp_pipeline() -> Result<()> {
     init_env_logger()?;
-    let copy_basename = PathBuf::from(TEST_GRAPH);
+    let copy_basename = common::cnr_2000_basename();
     let tmp_dir = Builder::new().prefix("LLPPipeline").tempdir()?;
     let graph_name = copy_basename.file_stem().unwrap();
     let basename = tmp_dir.path().join(graph_name).display().to_string();
@@ -55,24 +56,8 @@ fn test_llp_pipeline() -> Result<()> {
         "--permutation",
         &format!("{}.bfs", basename),
     ])?;
-    // re-build the offsets and compare with original
-    let simpl_offsets = format!("{}-simple.{}", basename, OFFSETS_EXTENSION);
-    let simpl_offsets_orig = format!("{}-simple.{}.orig", basename, OFFSETS_EXTENSION);
-    std::fs::rename(&simpl_offsets, &simpl_offsets_orig)?;
-    cli_main(vec![
-        "webgraph",
-        "build",
-        "offsets",
-        &format!("{}-simple", basename),
-    ])?;
-    // check that the offsets are the same
-    let original_offsets = std::fs::read(&simpl_offsets_orig)?;
-    let simplified_offsets = std::fs::read(simpl_offsets)?;
-    assert_eq!(
-        original_offsets, simplified_offsets,
-        "Offsets do not match after simplification"
-    );
-    std::fs::remove_file(simpl_offsets_orig)?;
+    // Check the offsets against those rebuilt from the graph
+    check_rebuilt_offsets(&format!("{basename}-simple"))?;
 
     log::info!("Step 4: Creates the Elias Fano for the simplified graph");
     cli_main(vec![
@@ -119,24 +104,8 @@ fn test_llp_pipeline() -> Result<()> {
         &format!("{}.composed", basename),
     ])?;
 
-    // re-build the offsets and compare with original
-    let final_offsets = format!("{}-final.{}", basename, OFFSETS_EXTENSION);
-    let final_offsets_orig = format!("{}-final.{}.orig", basename, OFFSETS_EXTENSION);
-    std::fs::rename(&final_offsets, &final_offsets_orig)?;
-    cli_main(vec![
-        "webgraph",
-        "build",
-        "offsets",
-        &format!("{}-final", basename),
-    ])?;
-    // check that the offsets are the same
-    let original_offsets = std::fs::read(&final_offsets_orig)?;
-    let final_offsets_data = std::fs::read(final_offsets)?;
-    assert_eq!(
-        original_offsets, final_offsets_data,
-        "Offsets do not match after final permutation"
-    );
-    std::fs::remove_file(final_offsets_orig)?;
+    // Check the offsets against those rebuilt from the graph
+    check_rebuilt_offsets(&format!("{basename}-final"))?;
 
     log::info!("Step 9: Creates the final Elias Fano");
     cli_main(vec![
@@ -146,36 +115,23 @@ fn test_llp_pipeline() -> Result<()> {
         &format!("{}-final", basename),
     ])?;
 
-    // Load the created graph, and check that it is the same as the original
-    let original = webgraph::graphs::bvgraph::BvGraph::with_basename(TEST_GRAPH)
+    // Check that the final graph is the original graph permuted with the
+    // composed permutation
+    let original = webgraph::graphs::bvgraph::BvGraph::with_basename(&copy_basename)
         .endianness::<BigEndian>()
         .load()?;
-
     let final_graph =
         webgraph::graphs::bvgraph::BvGraph::with_basename(format!("{}-final", basename))
             .endianness::<BigEndian>()
             .load()?;
-
-    assert_eq!(original.num_nodes(), final_graph.num_nodes());
-    assert_eq!(original.num_arcs(), final_graph.num_arcs());
-
     let permutation = IntSliceFormat::default().load(format!("{}.composed", basename))?;
-
-    for node in 0..original.num_nodes() {
-        assert_eq!(
-            original.outdegree(node),
-            final_graph.outdegree(permutation.index_value(node))
-        );
-        let mut original_succ = original
-            .successors(node)
-            .map(|succ| permutation.index_value(succ))
-            .collect::<Vec<usize>>();
-        original_succ.sort_unstable();
-        let final_succ = final_graph
-            .successors(permutation.index_value(node))
-            .collect::<Vec<usize>>();
-        assert_eq!(original_succ, final_succ);
-    }
+    let permuted = permute_seq(
+        &original,
+        &permutation,
+        MemoryUsage::from_perc(10.0),
+        no_logging![],
+    )?;
+    graph::eq(&permuted, &final_graph)?;
 
     log::info!("Loading graph at {}-final.{}", basename, GRAPH_EXTENSION);
     let graph_size = std::fs::metadata(format!("{}-final.{}", basename, GRAPH_EXTENSION))?.len();

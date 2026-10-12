@@ -5,8 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 use crate::{
-    IntSliceFormat, LogIntervalArg, build_info, get_thread_pool, num_threads_parser,
-    pretty_print_elapsed,
+    IntSliceFormat, LogIntervalArg, build_info, get_thread_pool, num_threads_parser, timed,
 };
 use anyhow::Result;
 use clap::Parser;
@@ -14,7 +13,6 @@ use dsi_bitstream::prelude::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::progress_logger;
 use std::path::PathBuf;
-use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -59,26 +57,11 @@ where
     I: IntoIterator<Item = T>,
     T: Into<std::ffi::OsString> + Clone,
 {
-    let start = std::time::Instant::now();
-    let cli = Cli::parse_from(args);
-    main(cli.args)?;
-
-    log::info!(
-        "The command took {}",
-        pretty_print_elapsed(start.elapsed().as_secs_f64())
-    );
-
-    Ok(())
+    timed(|| main(Cli::parse_from(args).args))
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => sccs::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => sccs::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.basename, |E| sccs::<E>(args))
 }
 
 pub fn sccs<E: Endianness>(args: CliArgs) -> Result<()>

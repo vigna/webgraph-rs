@@ -4,407 +4,107 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
+mod common;
+
 use anyhow::Result;
+use common::vec_graph;
 use lender::*;
 use webgraph::{
     graphs::vec_graph::{LabeledVecGraph, VecGraph},
-    labels::{Left, Right, Zip},
-    traits::{RandomAccessLabeling, SequentialLabeling, graph::UnitLabelGraph},
+    labels::{Left, LeftSucc, Right, RightSucc, Zip},
+    traits::{
+        RandomAccessGraph, RandomAccessLabeling, SequentialLabeling,
+        graph::{self, UnitLabelGraph},
+        labels,
+    },
 };
+
+/// A labeled graph whose labels are 10 times the successors plus the source.
+fn labeled_graph() -> LabeledVecGraph<u32> {
+    LabeledVecGraph::from_arcs(
+        [(0, 1), (0, 2), (1, 0), (2, 1)].map(|(s, d)| ((s, d), (10 * d + s) as u32)),
+    )
+}
+
+/// Returns the labels of each node of a random-access labeling.
+fn all_labels<L: RandomAccessLabeling>(l: &L) -> Vec<Vec<L::Label>> {
+    (0..l.num_nodes())
+        .map(|node| l.labels(node).into_iter().collect())
+        .collect()
+}
 
 #[test]
 fn test_left_projection() -> Result<()> {
-    let g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((0, 2), 20), ((1, 2), 30)]);
-    let left = Left(g);
-    assert_eq!(left.num_nodes(), 3);
-
-    let mut iter = left.iter();
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 0);
-    assert_eq!(succ.into_iter().collect::<Vec<_>>(), vec![1, 2]);
-
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 1);
-    assert_eq!(succ.into_iter().collect::<Vec<_>>(), vec![2]);
-
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 2);
-    assert_eq!(succ.into_iter().collect::<Vec<_>>(), Vec::<usize>::new());
+    let left = Left(labeled_graph());
+    labels::eq_sorted(&left, &vec_graph(3, [(0, 1), (0, 2), (1, 0), (2, 1)]))?;
+    labels::check_impl(&left)?;
+    assert_eq!(left.get_num_arcs(), Some(4));
+    assert_eq!(left.num_arcs(), 4);
+    assert_eq!(
+        (0..3).map(|node| left.outdegree(node)).collect::<Vec<_>>(),
+        [2, 1, 1]
+    );
+    graph::eq(
+        &VecGraph::from_lender(left.iter_from(1)),
+        &vec_graph(3, [(1, 0), (2, 1)]),
+    )?;
     Ok(())
 }
 
 #[test]
 fn test_right_projection() -> Result<()> {
-    let g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((0, 2), 20), ((1, 2), 30)]);
-    let right = Right(g);
-    assert_eq!(right.num_nodes(), 3);
-
-    let mut iter = right.iter();
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 0);
-    assert_eq!(succ.into_iter().collect::<Vec<_>>(), vec![10, 20]);
-
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 1);
-    assert_eq!(succ.into_iter().collect::<Vec<_>>(), vec![30]);
-
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 2);
-    assert_eq!(succ.into_iter().collect::<Vec<_>>(), Vec::<u32>::new());
-    Ok(())
-}
-
-#[test]
-fn test_left_random_access() -> Result<()> {
-    let g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((0, 2), 20), ((1, 0), 30)]);
-    let left = Left(g);
-    assert_eq!(left.num_arcs(), 3);
-    assert_eq!(left.outdegree(0), 2);
-    assert_eq!(left.outdegree(1), 1);
-    assert_eq!(
-        RandomAccessLabeling::labels(&left, 0)
-            .into_iter()
-            .collect::<Vec<_>>(),
-        vec![1, 2]
-    );
-    assert_eq!(
-        RandomAccessLabeling::labels(&left, 1)
-            .into_iter()
-            .collect::<Vec<_>>(),
-        vec![0]
-    );
-    Ok(())
-}
-
-#[test]
-fn test_right_random_access() -> Result<()> {
-    let g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((0, 2), 20), ((1, 0), 30)]);
-    let right = Right(g);
-    assert_eq!(right.num_arcs(), 3);
-    assert_eq!(right.outdegree(0), 2);
-    assert_eq!(
-        RandomAccessLabeling::labels(&right, 0)
-            .into_iter()
-            .collect::<Vec<_>>(),
-        vec![10, 20]
-    );
-    Ok(())
-}
-
-#[test]
-fn test_zip_labeling() -> Result<()> {
-    let g0 = VecGraph::from_arcs([(0, 1), (0, 2), (1, 0)]);
-    let g1 = VecGraph::from_arcs([(0, 1), (0, 2), (1, 0)]);
-    let z = Zip(g0, g1);
-    assert_eq!(z.num_nodes(), 3);
-
-    let mut iter = z.iter();
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 0);
-    let s: Vec<_> = succ.collect();
-    assert_eq!(s, vec![(1, 1), (2, 2)]);
-    Ok(())
-}
-
-#[test]
-fn test_zip_random_access() -> Result<()> {
-    let g0 = VecGraph::from_arcs([(0, 1), (0, 2), (1, 0)]);
-    let g1 = VecGraph::from_arcs([(0, 1), (0, 2), (1, 0)]);
-    let z = Zip(g0, g1);
-    assert_eq!(z.num_arcs(), 3);
-    assert_eq!(z.outdegree(0), 2);
-    let succs: Vec<_> = RandomAccessLabeling::labels(&z, 0).collect();
-    assert_eq!(succs, vec![(1, 1), (2, 2)]);
-    let succs: Vec<_> = RandomAccessLabeling::labels(&z, 1).collect();
-    assert_eq!(succs, vec![(0, 0)]);
-    Ok(())
-}
-
-#[test]
-fn test_unit_label_graph() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
-    let u = UnitLabelGraph(g);
-    assert_eq!(u.num_nodes(), 3);
-    assert_eq!(u.num_arcs(), 3);
-
-    let succs: Vec<_> = RandomAccessLabeling::labels(&u, 0).collect();
-    assert_eq!(succs, vec![(1, ()), (2, ())]);
-
-    let mut iter = u.iter();
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 0);
-    assert_eq!(succ.collect::<Vec<_>>(), vec![(1, ()), (2, ())]);
-    Ok(())
-}
-
-#[test]
-fn test_unit_label_graph_iter_from() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 0)]);
-    let lg = UnitLabelGraph(&g);
-    // iter_from(1) starts from node 1
-    let mut iter = lg.iter_from(1);
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 1);
-    assert_eq!(succ.collect::<Vec<_>>(), vec![(2, ())]);
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 2);
-    assert_eq!(succ.collect::<Vec<_>>(), vec![(0, ())]);
-    assert!(iter.next().is_none());
-    Ok(())
-}
-
-#[test]
-fn test_unit_label_graph_num_arcs() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let lg = UnitLabelGraph(&g);
-    assert_eq!(RandomAccessLabeling::num_arcs(&lg), 3);
-    assert_eq!(RandomAccessLabeling::outdegree(&lg, 0), 1);
-    Ok(())
-}
-
-#[test]
-fn test_left_projection_iter_from() -> Result<()> {
-    let g =
-        LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((0, 2), 20), ((1, 0), 30), ((2, 1), 40)]);
-    let left = Left(g);
-    // iter_from(1) should start at node 1
-    let mut iter = left.iter_from(1);
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 1);
-    assert_eq!(succ.into_iter().collect::<Vec<_>>(), vec![0]);
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 2);
-    assert_eq!(succ.into_iter().collect::<Vec<_>>(), vec![1]);
-    assert!(iter.next().is_none());
-    Ok(())
-}
-
-#[test]
-fn test_right_projection_iter_from() -> Result<()> {
-    let g =
-        LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((0, 2), 20), ((1, 0), 30), ((2, 1), 40)]);
-    let right = Right(g);
+    let right = Right(labeled_graph());
+    labels::check_impl(&right)?;
+    assert_eq!(all_labels(&right), [vec![10, 20], vec![1], vec![12]]);
+    assert_eq!(right.get_num_arcs(), Some(4));
+    assert_eq!(right.num_arcs(), 4);
     let mut iter = right.iter_from(1);
     let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 1);
-    assert_eq!(succ.into_iter().collect::<Vec<_>>(), vec![30]);
+    assert_eq!((node, succ.into_iter().collect::<Vec<_>>()), (1, vec![1]));
     Ok(())
 }
 
 #[test]
-fn test_left_projection_num_arcs_outdegree() -> Result<()> {
-    let g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((0, 2), 20), ((1, 0), 30)]);
-    let left = Left(g);
-    assert_eq!(RandomAccessLabeling::num_arcs(&left), 3);
-    assert_eq!(RandomAccessLabeling::outdegree(&left, 0), 2);
-    assert_eq!(RandomAccessLabeling::outdegree(&left, 1), 1);
-    assert_eq!(RandomAccessLabeling::outdegree(&left, 2), 0);
-    Ok(())
-}
-
-#[test]
-fn test_zip_get_num_arcs() {
-    let g1 = VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let g2 = VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let z = Zip(&g1, &g2);
-    // Zip forwards (and cross-checks) the hints of its components
-    assert_eq!(z.get_num_arcs(), Some(2));
-}
-
-#[test]
-fn test_left_get_num_arcs() {
-    let g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((1, 0), 20)]);
-    let left = Left(g);
-    assert_eq!(left.get_num_arcs(), Some(2));
-}
-
-#[test]
-fn test_right_get_num_arcs() {
-    let g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((1, 0), 20)]);
-    let right = Right(g);
-    assert_eq!(right.get_num_arcs(), Some(2));
-}
-
-#[test]
-fn test_assume_sorted_lender() -> Result<()> {
-    use webgraph::traits::labels::AssumeSortedLender;
-    let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let lender = g.iter();
-    // SAFETY: VecGraph lenders are already sorted
-    let mut sorted = unsafe { AssumeSortedLender::new(lender) };
-    let (node, succ) = sorted.next().unwrap();
-    assert_eq!(node, 0);
-    assert_eq!(succ.collect::<Vec<_>>(), vec![1]);
-    let (node, _succ) = sorted.next().unwrap();
-    assert_eq!(node, 1);
-    // Check size_hint
-    let (min, max) = sorted.size_hint();
-    assert_eq!(min, 1);
-    assert_eq!(max, Some(1));
-    Ok(())
-}
-
-#[test]
-fn test_left_random_access_double_ended() -> Result<()> {
-    use webgraph::labels::proj::LeftSucc;
-    let pairs: Vec<(usize, u32)> = vec![(1, 10), (2, 20), (3, 30)];
-    let mut iter = LeftSucc(pairs.into_iter());
-    assert_eq!(iter.next_back(), Some(3));
-    assert_eq!(iter.next(), Some(1));
-    assert_eq!(iter.next_back(), Some(2));
-    assert_eq!(iter.next(), None);
-    Ok(())
-}
-
-#[test]
-fn test_right_random_access_double_ended() -> Result<()> {
-    use webgraph::labels::proj::RightSucc;
-    let pairs: Vec<(usize, u32)> = vec![(1, 10), (2, 20), (3, 30)];
-    let mut iter = RightSucc(pairs.into_iter());
-    assert_eq!(iter.next_back(), Some(30));
-    assert_eq!(iter.next(), Some(10));
-    // nth_back(0) = next_back()
-    assert_eq!(iter.nth_back(0), Some(20));
-    assert_eq!(iter.next(), None);
-    Ok(())
-}
-
-#[test]
-fn test_left_exact_size_iterator() {
-    use webgraph::labels::proj::LeftSucc;
-    let pairs: Vec<(usize, u32)> = vec![(1, 10), (2, 20), (3, 30)];
-    let iter = LeftSucc(pairs.into_iter());
-    assert_eq!(iter.len(), 3);
-}
-
-#[test]
-fn test_right_exact_size_iterator() {
-    use webgraph::labels::proj::RightSucc;
-    let pairs: Vec<(usize, u32)> = vec![(1, 10), (2, 20)];
-    let iter = RightSucc(pairs.into_iter());
-    assert_eq!(iter.len(), 2);
-}
-
-#[test]
-fn test_left_nth_back() -> Result<()> {
-    use webgraph::labels::proj::LeftSucc;
-    let pairs: Vec<(usize, u32)> = vec![(1, 10), (2, 20), (3, 30), (4, 40)];
-    let mut iter = LeftSucc(pairs.into_iter());
-    // nth_back(1) skips 4, returns 3
-    assert_eq!(iter.nth_back(1), Some(3));
-    assert_eq!(iter.next_back(), Some(2));
-    Ok(())
-}
-
-#[test]
-fn test_left_size_hint() {
-    let g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((1, 0), 20)]);
-    let left = Left(g);
-    let lender = left.iter();
-    let (min, max) = lender.size_hint();
-    assert_eq!(min, 2);
-    assert_eq!(max, Some(2));
-}
-
-#[test]
-fn test_left_iterator_is_empty() {
-    use lender::ExactSizeLender;
-    let g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10)]);
-    let left = Left(g);
-    let mut lender = left.iter();
-    assert!(!lender.is_empty());
-    // LabeledVecGraph has 2 nodes (0 and 1), so the lender has 2 entries
-    assert_eq!(lender.len(), 2);
-    let _ = lender.next();
-    assert_eq!(lender.len(), 1);
-    let _ = lender.next();
-    assert!(lender.is_empty());
-    assert_eq!(lender.len(), 0);
-}
-
-#[test]
-fn test_right_iterator_is_empty() {
-    use lender::ExactSizeLender;
-    let g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((1, 0), 20)]);
-    let right = Right(g);
-    let mut lender = right.iter();
-    assert!(!lender.is_empty());
-    assert_eq!(lender.len(), 2);
-    let _ = lender.next();
-    assert_eq!(lender.len(), 1);
-    let _ = lender.next();
-    assert!(lender.is_empty());
-}
-
-#[test]
-fn test_split_iters_into_sorted_labeled_graph() -> Result<()> {
-    use webgraph::graphs::par_sorted_graph::ParSortedLabeledGraph;
-    use webgraph::utils::SplitIters;
-
-    let boundaries: Box<[usize]> = vec![0, 2, 4].into_boxed_slice();
-    let iter1 = vec![((0_usize, 1_usize), ()), ((1, 0), ())];
-    let iter2 = vec![((2_usize, 3_usize), ()), ((3, 2), ())];
-    let iters: Box<[_]> = vec![iter1.into_iter(), iter2.into_iter()].into_boxed_slice();
-
-    let sorted: ParSortedLabeledGraph<_> = SplitIters::new(boundaries, iters).into();
-    assert_eq!(sorted.num_nodes(), 4);
-
-    // Verify the graph yields the correct data
-    let mut all_arcs = Vec::new();
-    for_!((node, succ) in sorted.iter() {
-        for (s, _label) in succ {
-            all_arcs.push((node, s));
+fn test_projection_lenders() {
+    for len in [2, 3] {
+        let mut graph = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((1, 0), 20)]);
+        if len == 3 {
+            graph.add_node(2);
         }
-    });
-    all_arcs.sort();
-    assert_eq!(all_arcs, vec![(0, 1), (1, 0), (2, 3), (3, 2)]);
-    Ok(())
+        let left = Left(&graph);
+        let right = Right(&graph);
+        let mut left = left.iter();
+        let mut right = right.iter();
+        for remaining in (0..=len).rev() {
+            assert_eq!(left.size_hint(), (remaining, Some(remaining)));
+            assert_eq!(ExactSizeLender::len(&right), remaining);
+            assert_eq!(ExactSizeLender::is_empty(&left), remaining == 0);
+            assert_eq!(left.next().is_some(), remaining > 0);
+            assert_eq!(right.next().is_some(), remaining > 0);
+        }
+    }
 }
 
 #[test]
-fn test_labeled_graph_zip() -> Result<()> {
-    use webgraph::labels::Zip;
-    let g = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let labels = webgraph::graphs::vec_graph::LabeledVecGraph::<u32>::from_arcs([
-        ((0, 1), 10),
-        ((1, 2), 20),
-    ]);
-    let zipped = Zip(&g, &labels);
-    assert_eq!(zipped.num_nodes(), 3);
-    let mut iter = zipped.iter();
-    let (_node, succ) = iter.next().unwrap();
-    let s: Vec<_> = succ.into_iter().collect();
-    assert_eq!(s, vec![(1, (1, 10))]);
-    Ok(())
-}
+fn test_projection_successors() {
+    let pairs: Vec<(usize, u32)> = vec![(1, 10), (2, 20), (3, 30), (4, 40)];
 
-#[test]
-fn test_eq_sorted_labeled() -> Result<()> {
-    use webgraph::traits::labels;
-    let g1 = webgraph::graphs::vec_graph::LabeledVecGraph::<u32>::from_arcs([
-        ((0, 1), 10),
-        ((1, 2), 20),
-    ]);
-    let g2 = webgraph::graphs::vec_graph::LabeledVecGraph::<u32>::from_arcs([
-        ((0, 1), 10),
-        ((1, 2), 20),
-    ]);
-    labels::eq_sorted(&g1, &g2)?;
-    Ok(())
-}
+    let mut left = LeftSucc(pairs.clone().into_iter());
+    assert_eq!(left.len(), 4);
+    assert_eq!(left.next_back(), Some(4));
+    assert_eq!(left.next(), Some(1));
+    // nth_back(1) skips 3
+    assert_eq!(left.nth_back(1), Some(2));
+    assert_eq!(left.next(), None);
 
-#[test]
-fn test_eq_sorted_labeled_mismatch() {
-    use webgraph::traits::labels;
-    let g1 = webgraph::graphs::vec_graph::LabeledVecGraph::<u32>::from_arcs([
-        ((0, 1), 10),
-        ((1, 2), 20),
-    ]);
-    let g2 = webgraph::graphs::vec_graph::LabeledVecGraph::<u32>::from_arcs([
-        ((0, 1), 10),
-        ((1, 2), 30), // Different label
-    ]);
-    assert!(labels::eq_sorted(&g1, &g2).is_err());
+    let mut right = RightSucc(pairs.into_iter());
+    assert_eq!(right.len(), 4);
+    assert_eq!(right.next_back(), Some(40));
+    assert_eq!(right.next(), Some(10));
+    // nth_back(0) is next_back()
+    assert_eq!(right.nth_back(0), Some(30));
+    assert_eq!(right.next(), Some(20));
+    assert_eq!(right.next(), None);
 }
 
 #[test]
@@ -412,15 +112,40 @@ fn test_projection_successor_size_hint() {
     // Regression: LeftSucc/RightSucc implemented ExactSizeIterator::len but
     // inherited the default (0, None) size_hint, violating the
     // ExactSizeIterator contract.
-    let mut left = webgraph::labels::LeftSucc(vec![(1usize, 10usize), (2, 20)].into_iter());
+    let mut left = LeftSucc(vec![(1usize, 10usize), (2, 20)].into_iter());
     assert_eq!(left.size_hint(), (2, Some(2)));
     assert_eq!(left.next(), Some(1));
     assert_eq!(left.size_hint(), (1, Some(1)));
 
-    let mut right = webgraph::labels::RightSucc(vec![(1usize, 10usize), (2, 20)].into_iter());
+    let mut right = RightSucc(vec![(1usize, 10usize), (2, 20)].into_iter());
     assert_eq!(right.size_hint(), (2, Some(2)));
     assert_eq!(right.next(), Some(10));
     assert_eq!(right.size_hint(), (1, Some(1)));
+}
+
+#[test]
+fn test_zip() -> Result<()> {
+    let g = common::test_graph();
+    let labeled = LabeledVecGraph::<u32>::from_arcs(
+        common::TEST_GRAPH_ARCS.map(|(s, d)| ((s, d), (10 * s + d) as u32)),
+    );
+    let z = Zip(&g, &labeled);
+    // Zip forwards (and cross-checks) the hints of its components
+    assert_eq!(z.get_num_arcs(), Some(11));
+    assert_eq!(z.num_arcs(), 11);
+    labels::check_impl(&z)?;
+    let expected: Vec<Vec<_>> = (0..g.num_nodes())
+        .map(|node| {
+            g.successors(node)
+                .map(|succ| (succ, (succ, (10 * node + succ) as u32)))
+                .collect()
+        })
+        .collect();
+    assert_eq!(all_labels(&z), expected);
+    // Regression: Zip did not forward get_num_arcs, so build_dcf and
+    // arc-based granularity failed even though the count was known.
+    assert_eq!(z.build_dcf().len(), g.num_nodes() + 1);
+    Ok(())
 }
 
 #[test]
@@ -439,15 +164,61 @@ fn test_zip_mismatched_label_counts_panic() {
 }
 
 #[test]
-fn test_zip_get_num_arcs_forwarded() {
-    // Regression: Zip did not forward get_num_arcs, so build_dcf and
-    // arc-based granularity failed even though the count was known.
-    let g = VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let mut l = LabeledVecGraph::<u32>::empty(3);
-    l.add_arc(0, 1, 10);
-    l.add_arc(1, 2, 20);
-    let z = Zip(&g, &l);
-    assert_eq!(z.get_num_arcs(), Some(2));
-    let dcf = z.build_dcf();
-    assert_eq!(dcf.len(), 4);
+fn test_unit_label_graph() -> Result<()> {
+    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 0)]);
+    let u = UnitLabelGraph(&g);
+    labels::check_impl(&u)?;
+    assert_eq!(u.num_arcs(), 4);
+    assert_eq!(u.outdegree(0), 2);
+    assert_eq!(
+        all_labels(&u),
+        [vec![(1, ()), (2, ())], vec![(2, ())], vec![(0, ())]]
+    );
+    let mut iter = u.iter_from(1);
+    let (node, succ) = iter.next().unwrap();
+    assert_eq!((node, succ.collect::<Vec<_>>()), (1, vec![(2, ())]));
+    Ok(())
+}
+
+#[test]
+fn test_assume_sorted_lender() {
+    use webgraph::traits::labels::AssumeSortedLender;
+    let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
+    // SAFETY: VecGraph lenders are already sorted
+    let mut sorted = unsafe { AssumeSortedLender::new(g.iter()) };
+    let (node, succ) = sorted.next().unwrap();
+    assert_eq!((node, succ.collect::<Vec<_>>()), (0, vec![1]));
+    sorted.next();
+    assert_eq!(sorted.size_hint(), (1, Some(1)));
+}
+
+#[test]
+fn test_split_iters_into_sorted_labeled_graph() -> Result<()> {
+    use webgraph::graphs::par_sorted_graph::ParSortedLabeledGraph;
+    use webgraph::utils::SplitIters;
+
+    let iter1 = vec![((0_usize, 1_usize), ()), ((1, 0), ())];
+    let iter2 = vec![((2_usize, 3_usize), ()), ((3, 2), ())];
+    let sorted: ParSortedLabeledGraph<_> = SplitIters::new(
+        vec![0, 2, 4].into_boxed_slice(),
+        vec![iter1.into_iter(), iter2.into_iter()].into_boxed_slice(),
+    )
+    .into();
+    assert_eq!(sorted.num_nodes(), 4);
+    let mut arcs = vec![];
+    for_!((node, succ) in sorted.iter() {
+        arcs.extend(succ.into_iter().map(|(s, _label)| (node, s)));
+    });
+    assert_eq!(arcs, [(0, 1), (1, 0), (2, 3), (3, 2)]);
+    Ok(())
+}
+
+#[test]
+fn test_eq_sorted_labeled() -> Result<()> {
+    let g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((1, 2), 20)]);
+    labels::eq_sorted(&g, &g.clone())?;
+    // Different label
+    let other = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((1, 2), 30)]);
+    assert!(labels::eq_sorted(&g, &other).is_err());
+    Ok(())
 }

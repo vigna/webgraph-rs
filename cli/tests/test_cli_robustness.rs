@@ -8,6 +8,8 @@
 // does not support (same convention as the other CLI integration tests).
 #![cfg(not(miri))]
 
+mod common;
+
 use anyhow::Result;
 use webgraph_cli::cli_main;
 
@@ -155,12 +157,9 @@ fn test_run_llp_empty_graph() -> Result<()> {
     // files for zero nodes; the permutation is now empty.
     use dsi_bitstream::prelude::BE;
     use webgraph::graphs::vec_graph::VecGraph;
-    use webgraph::prelude::BvComp;
     let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("empty");
-    BvComp::with_basename(&basename).comp_graph::<BE>(&VecGraph::empty(0))?;
-    let base = basename.display().to_string();
-    cli_main(vec!["webgraph", "build", "ef", &base])?;
+    let base = tmp.path().join("empty").display().to_string();
+    common::compress_with_ef::<BE>(&VecGraph::empty(0), &base)?;
     cli_main(vec!["webgraph", "build", "dcf", &base])?;
     let perm = tmp.path().join("empty.perm").display().to_string();
     cli_main(vec!["webgraph", "run", "llp", &base, &perm])?;

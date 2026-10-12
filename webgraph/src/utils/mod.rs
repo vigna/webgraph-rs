@@ -57,6 +57,8 @@ pub use matrix::Matrix;
 
 pub mod kmerge_iters;
 
+mod par_sort_common;
+
 pub mod par_sort_pairs;
 pub use par_sort_pairs::ParSortPairs;
 

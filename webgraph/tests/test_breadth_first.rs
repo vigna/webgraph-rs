@@ -5,540 +5,549 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
+//! Tests for breadth-first visits: the same tests are run on all sequential
+//! and parallel implementations.
+
 mod common;
 
 use anyhow::Result;
+use common::test_graph;
 use no_break::NoBreak;
-use std::ops::ControlFlow::Continue;
+use std::ops::ControlFlow::{Break, Continue};
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(not(miri))]
-use sync_cell_slice::SyncSlice;
-use webgraph::prelude::*;
-#[cfg(not(miri))]
 use webgraph::utils::Granularity;
+use webgraph::visits::breadth_first::{EventNoPred, EventPred, IterEvent, IterFromRootsEvent};
 #[cfg(not(miri))]
-use webgraph::{prelude::BvGraph, visits::Parallel};
-use webgraph::{
-    prelude::VecGraph,
-    traits::{RandomAccessGraph, SequentialLabeling},
-    visits::Sequential,
-};
+use webgraph::visits::{Parallel, breadth_first::FilterArgsNoPred};
+use webgraph::visits::{Sequential, breadth_first::FilterArgsPred};
+use webgraph::{graphs::vec_graph::VecGraph, prelude::*};
 
+/// Computes BFS distances by visiting first from `start`, and then from the
+/// following nodes (cyclically) that have not been reached yet.
 fn correct_distances<G: RandomAccessGraph>(graph: &G, start: usize) -> Vec<usize> {
-    let mut distances = Vec::new();
-    let mut visits = vec![-1; graph.num_nodes()];
-    let mut current_frontier = Vec::new();
-    let mut next_frontier = Vec::new();
-
-    for i in 0..graph.num_nodes() {
-        let start_node = (i + start) % graph.num_nodes();
-        if visits[start_node] != -1 {
+    let n = graph.num_nodes();
+    let mut distances = vec![usize::MAX; n];
+    for i in 0..n {
+        let root = (i + start) % n;
+        if distances[root] != usize::MAX {
             continue;
         }
+        distances[root] = 0;
+        let mut frontier = vec![root];
         let mut distance = 1;
-        visits[start_node] = 0;
-        current_frontier.push(start_node);
-
-        while !current_frontier.is_empty() {
-            for node in current_frontier {
+        while !frontier.is_empty() {
+            let mut next_frontier = vec![];
+            for node in frontier {
                 for succ in graph.successors(node) {
-                    if visits[succ] == -1 {
+                    if distances[succ] == usize::MAX {
+                        distances[succ] = distance;
                         next_frontier.push(succ);
-                        visits[succ] = distance;
                     }
                 }
             }
-            current_frontier = next_frontier;
-            next_frontier = Vec::new();
+            frontier = next_frontier;
             distance += 1;
         }
     }
-
-    for dist in visits {
-        distances.push(dist.try_into().unwrap());
-    }
-
     distances
 }
 
-fn into_non_atomic(v: Vec<AtomicUsize>) -> Vec<usize> {
-    let mut res = Vec::new();
-    for element in v {
-        res.push(element.load(Ordering::Relaxed));
-    }
-    res
+/// A breadth-first event, independent of the presence of predecessors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Ev {
+    Init,
+    FrontierSize(usize, usize),
+    Visit(usize, usize),
+    Revisit(usize),
+    Done,
 }
 
-macro_rules! test_bfv_algo_seq {
-    ($bfv:expr, $name:ident) => {
+impl From<EventPred> for Ev {
+    fn from(event: EventPred) -> Self {
+        match event {
+            EventPred::Init {} => Ev::Init,
+            EventPred::FrontierSize { distance, size } => Ev::FrontierSize(distance, size),
+            EventPred::Visit { node, distance, .. } => Ev::Visit(node, distance),
+            EventPred::Revisit { node, .. } => Ev::Revisit(node),
+            EventPred::Done {} => Ev::Done,
+        }
+    }
+}
+
+impl From<EventNoPred> for Ev {
+    fn from(event: EventNoPred) -> Self {
+        match event {
+            EventNoPred::Init {} => Ev::Init,
+            EventNoPred::FrontierSize { distance, size } => Ev::FrontierSize(distance, size),
+            EventNoPred::Visit { node, distance, .. } => Ev::Visit(node, distance),
+            EventNoPred::Revisit { node, .. } => Ev::Revisit(node),
+            EventNoPred::Done {} => Ev::Done,
+        }
+    }
+}
+
+/// Returns the sorted (node, distance) pairs of the visit events.
+fn visits(events: &[Ev]) -> Vec<(usize, usize)> {
+    let mut visits: Vec<_> = events
+        .iter()
+        .filter_map(|ev| match *ev {
+            Ev::Visit(node, distance) => Some((node, distance)),
+            _ => None,
+        })
+        .collect();
+    visits.sort();
+    visits
+}
+
+/// Returns the sorted nodes of the revisit events.
+fn revisits(events: &[Ev]) -> Vec<usize> {
+    let mut revisits: Vec<_> = events
+        .iter()
+        .filter_map(|ev| match *ev {
+            Ev::Revisit(node) => Some(node),
+            _ => None,
+        })
+        .collect();
+    revisits.sort();
+    revisits
+}
+
+/// Returns the sorted (distance, size) pairs of the frontier-size events.
+fn frontier_sizes(events: &[Ev]) -> Vec<(usize, usize)> {
+    let mut sizes: Vec<_> = events
+        .iter()
+        .filter_map(|ev| match *ev {
+            Ev::FrontierSize(distance, size) => Some((distance, size)),
+            _ => None,
+        })
+        .collect();
+    sizes.sort();
+    sizes
+}
+
+/// Checks that the events start with `Init`, `FrontierSize` at distance 0
+/// with the number of roots, and the root visits, and end with `Done`.
+fn check_prefix_and_suffix(events: &[Ev], roots: &[usize]) {
+    assert_eq!(events[0], Ev::Init);
+    assert_eq!(events[1], Ev::FrontierSize(0, roots.len()));
+    for ev in &events[2..2 + roots.len()] {
+        match ev {
+            Ev::Visit(node, 0) => assert!(roots.contains(node), "unexpected root {node}"),
+            ev => panic!("expected a root visit, got {ev:?}"),
+        }
+    }
+    assert_eq!(*events.last().unwrap(), Ev::Done);
+}
+
+/// Generates the tests for a breadth-first visit, given an expression
+/// building a visit from a graph, the type of the filter arguments, and the
+/// names of the visit methods.
+macro_rules! bfs_tests {
+    ($name:ident, $new:expr, $FilterArgs:ty, $visit:ident, $visit_filtered:ident, $visit_with:ident, $visit_filtered_with:ident) => {
         mod $name {
             use super::*;
-            #[cfg(not(miri))]
-            use std::collections::BTreeMap;
 
-            #[test]
-            fn test_simple_graph() -> Result<()> {
-                let arcs = vec![
-                    (0, 1),
-                    (0, 2),
-                    (1, 3),
-                    (1, 4),
-                    (1, 5),
-                    (2, 4),
-                    (3, 6),
-                    (4, 6),
-                    (5, 6),
-                    (5, 7),
-                    (6, 2),
-                ];
-                let graph = VecGraph::from_arcs(arcs);
-                let mut visit = $bfv(&graph);
-                let distances: Vec<AtomicUsize> = (0..graph.num_nodes())
-                    .map(|_| AtomicUsize::new(0))
+            /// Visits from `roots` using `filter` and returns all events, in order.
+            fn filtered_events<G: RandomAccessGraph + Sync>(
+                graph: &G,
+                roots: &[usize],
+                filter: impl Fn($FilterArgs) -> bool + Sync,
+            ) -> Vec<Ev> {
+                let events = Mutex::new(vec![]);
+                $new(graph)
+                    .$visit_filtered(
+                        roots.iter().copied(),
+                        |event| {
+                            events.lock().unwrap().push(Ev::from(event));
+                            Continue(())
+                        },
+                        filter,
+                    )
+                    .continue_value_no_break();
+                events.into_inner().unwrap()
+            }
+
+            /// Visits from `roots` and returns all events, in order.
+            fn events<G: RandomAccessGraph + Sync>(graph: &G, roots: &[usize]) -> Vec<Ev> {
+                filtered_events(graph, roots, |_| true)
+            }
+
+            /// Visits from each root in turn (without resetting) and returns
+            /// the distances.
+            fn distances<G: RandomAccessGraph + Sync>(
+                graph: &G,
+                roots: impl IntoIterator<Item = usize>,
+            ) -> Vec<usize> {
+                let mut visit = $new(graph);
+                let distances: Vec<_> = (0..graph.num_nodes())
+                    .map(|_| AtomicUsize::new(usize::MAX))
                     .collect();
-                let expected_distances = correct_distances(&graph, 0);
-
-                for root in 0..graph.num_nodes() {
+                for root in roots {
                     visit
-                        .visit([root], |event| {
-                            if let breadth_first::EventPred::Visit { node, distance, .. } = event {
+                        .$visit([root], |event| {
+                            if let Ev::Visit(node, distance) = Ev::from(event) {
                                 distances[node].store(distance, Ordering::Relaxed);
                             }
                             Continue(())
                         })
                         .continue_value_no_break();
                 }
-                let actual_distances = into_non_atomic(distances);
-
-                assert_eq!(actual_distances, expected_distances);
-
-                Ok(())
+                distances.into_iter().map(AtomicUsize::into_inner).collect()
             }
 
             #[test]
-            fn test_nontrivial_seed() -> Result<()> {
-                let arcs = vec![(0, 1), (1, 2), (3, 2)];
-                let graph = VecGraph::from_arcs(arcs);
-                let mut visit = $bfv(&graph);
-                let mut distances = vec![0; graph.num_nodes()];
+            fn test_distances() {
+                let graph = test_graph();
+                assert_eq!(distances(&graph, [0]), [0, 1, 1, 2, 2, 2, 3, 3]);
+                for start in 0..graph.num_nodes() {
+                    let roots = (0..graph.num_nodes()).map(|i| (i + start) % graph.num_nodes());
+                    assert_eq!(distances(&graph, roots), correct_distances(&graph, start));
+                }
+            }
 
-                visit
-                    .visit([0, 3], |event| {
-                        if let breadth_first::EventPred::Visit { node, distance, .. } = event {
-                            distances[node] = distance;
+            #[test]
+            fn test_events() {
+                let graph = test_graph();
+                let events = events(&graph, &[0]);
+                check_prefix_and_suffix(&events, &[0]);
+                assert_eq!(
+                    visits(&events),
+                    [
+                        (0, 0),
+                        (1, 1),
+                        (2, 1),
+                        (3, 2),
+                        (4, 2),
+                        (5, 2),
+                        (6, 3),
+                        (7, 3)
+                    ]
+                );
+                // Each of the 11 - 7 non-tree arcs generates a revisit
+                assert_eq!(revisits(&events), [2, 4, 6, 6]);
+                assert_eq!(frontier_sizes(&events), [(0, 1), (1, 2), (2, 3), (3, 2)]);
+            }
+
+            #[test]
+            fn test_multiple_roots() {
+                // 0 -> 1 -> 2 <- 3, 4 -> 5
+                let graph = VecGraph::from_arcs([(0, 1), (1, 2), (3, 2), (4, 5)]);
+                let events = events(&graph, &[0, 3]);
+                check_prefix_and_suffix(&events, &[0, 3]);
+                assert_eq!(visits(&events), [(0, 0), (1, 1), (2, 1), (3, 0)]);
+            }
+
+            #[test]
+            fn test_filter() {
+                // 0 -> 1 -> 2 -> 3
+                let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3)]);
+                let events = filtered_events(&graph, &[0], |args| args.node != 2);
+                assert_eq!(visits(&events), [(0, 0), (1, 1)]);
+                let events = filtered_events(&graph, &[0], |args| args.distance <= 2);
+                assert_eq!(visits(&events), [(0, 0), (1, 1), (2, 2)]);
+            }
+
+            #[test]
+            fn test_filtered_revisits() {
+                // Regression: the sequential BFS emitted Revisit events
+                // without consulting the filter, unlike the parallel ones.
+                let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
+                let events = filtered_events(&graph, &[0], |args| args.distance <= 1);
+                assert_eq!(revisits(&events), []);
+                let events = filtered_events(&graph, &[0], |args| args.distance <= 2);
+                assert_eq!(revisits(&events), [2]);
+            }
+
+            #[test]
+            fn test_visit_with() {
+                let graph = test_graph();
+                let count = AtomicUsize::new(0);
+                $new(&graph)
+                    .$visit_with([0], &count, |count, event| {
+                        if let Ev::Visit(..) = Ev::from(event) {
+                            count.fetch_add(1, Ordering::Relaxed);
                         }
                         Continue(())
                     })
                     .continue_value_no_break();
+                assert_eq!(count.into_inner(), 8);
 
-                assert_eq!(distances, [0, 1, 1, 0]);
-
-                Ok(())
+                let count = AtomicUsize::new(0);
+                $new(&graph)
+                    .$visit_filtered_with(
+                        [0],
+                        &count,
+                        |count, event| {
+                            if let Ev::Visit(..) = Ev::from(event) {
+                                count.fetch_add(1, Ordering::Relaxed);
+                            }
+                            Continue(())
+                        },
+                        |_, args: $FilterArgs| args.distance <= 1,
+                    )
+                    .continue_value_no_break();
+                assert_eq!(count.into_inner(), 3);
             }
 
             #[test]
-            #[cfg(not(miri))]
-            fn test_cnr_2000() -> Result<()> {
-                let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
-                let mut visit = $bfv(&graph);
-                let distances: Vec<AtomicUsize> = (0..graph.num_nodes())
-                    .map(|_| AtomicUsize::new(0))
-                    .collect();
-                let expected_distances = correct_distances(&graph, 10000);
-
-                for i in 0..graph.num_nodes() {
-                    let root = (i + 10000) % graph.num_nodes();
+            fn test_reset() {
+                let graph = test_graph();
+                let mut visit = $new(&graph);
+                for _ in 0..2 {
+                    let count = AtomicUsize::new(0);
                     visit
-                        .visit([root], |event| {
-                            if let breadth_first::EventPred::Visit { node, distance, .. } = event {
-                                distances[node].store(distance, Ordering::Relaxed);
+                        .$visit([0], |event| {
+                            if let Ev::Visit(..) = Ev::from(event) {
+                                count.fetch_add(1, Ordering::Relaxed);
                             }
                             Continue(())
                         })
                         .continue_value_no_break();
+                    assert_eq!(count.into_inner(), 8);
+                    visit.reset();
                 }
-
-                let actual_distances = into_non_atomic(distances);
-
-                assert_eq!(actual_distances, expected_distances);
-
-                Ok(())
             }
 
             #[test]
-            #[cfg(not(miri))]
-            fn test_distance_event_cnr_2000_single_root() -> Result<()> {
-                let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
-                let mut visit = $bfv(&graph);
-                let mut distance_to_quantity: BTreeMap<usize, usize> = BTreeMap::new();
-                let mut expected_distance_to_quantity: BTreeMap<usize, usize> = BTreeMap::new();
-
-                visit
-                    .visit([0], |event| {
-                        if let breadth_first::EventPred::Visit { distance, .. } = event {
-                            *expected_distance_to_quantity.entry(distance).or_insert(0) += 1;
-                        }
-                        if let breadth_first::EventPred::FrontierSize { distance, size } = event {
-                            *distance_to_quantity.entry(distance).or_insert(0) += size;
-                        }
-                        Continue(())
-                    })
-                    .continue_value_no_break();
-
-                assert_eq!(distance_to_quantity, expected_distance_to_quantity);
-
-                Ok(())
-            }
-
-            #[test]
-            #[cfg(not(miri))]
-            fn test_distance_event_cnr_2000_multi_root() -> Result<()> {
-                let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
-                let mut visit = $bfv(&graph);
-                let mut distance_to_quantity: BTreeMap<usize, usize> = BTreeMap::new();
-                let mut expected_distance_to_quantity: BTreeMap<usize, usize> = BTreeMap::new();
-
-                visit
-                    .visit([0, graph.num_nodes() / 2, graph.num_nodes() - 1], |event| {
-                        if let breadth_first::EventPred::Visit { distance, .. } = event {
-                            *expected_distance_to_quantity.entry(distance).or_insert(0) += 1;
-                        }
-                        if let breadth_first::EventPred::FrontierSize { distance, size } = event {
-                            *distance_to_quantity.entry(distance).or_insert(0) += size;
-                        }
-                        Continue(())
-                    })
-                    .continue_value_no_break();
-
-                assert_eq!(distance_to_quantity, expected_distance_to_quantity);
-
-                Ok(())
+            fn test_early_termination() {
+                let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 4)]);
+                let result = $new(&graph).$visit([0], |event| {
+                    if let Ev::Visit(2, _) = Ev::from(event) {
+                        return Break("found");
+                    }
+                    Continue(())
+                });
+                assert_eq!(result, Break("found"));
             }
         }
     };
 }
 
-macro_rules! test_bfv_algo_par {
-    ($bfv:expr, $name:ident) => {
+/// Generates the tests on cnr-2000 for a breadth-first visit.
+macro_rules! bfs_cnr_2000_tests {
+    ($name:ident, $new:expr, $visit:ident) => {
         #[cfg(not(miri))]
         mod $name {
             use super::*;
-            use std::collections::BTreeMap;
-            use std::sync::Mutex;
-
-            #[test]
-            fn test_simple_graph() -> Result<()> {
-                let arcs = vec![
-                    (0, 1),
-                    (0, 2),
-                    (1, 3),
-                    (1, 4),
-                    (1, 5),
-                    (2, 4),
-                    (3, 6),
-                    (4, 6),
-                    (5, 6),
-                    (5, 7),
-                    (6, 2),
-                ];
-                let graph = VecGraph::from_arcs(arcs);
-                let mut visit = $bfv(&graph);
-                let distances: Vec<AtomicUsize> = (0..graph.num_nodes())
-                    .map(|_| AtomicUsize::new(0))
-                    .collect();
-                let expected_distances = correct_distances(&graph, 0);
-
-                for root in 0..graph.num_nodes() {
-                    visit
-                        .par_visit([root], |event| {
-                            if let breadth_first::EventPred::Visit { node, distance, .. } = event {
-                                distances[node].store(distance, Ordering::Relaxed);
-                            }
-                            Continue(())
-                        })
-                        .continue_value_no_break();
-                }
-                let actual_distances = into_non_atomic(distances);
-
-                assert_eq!(actual_distances, expected_distances);
-
-                Ok(())
-            }
-
-            #[test]
-            fn test_nontrivial_seed() -> Result<()> {
-                let arcs = vec![(0, 1), (1, 2), (3, 2)];
-                let graph = VecGraph::from_arcs(arcs);
-                let mut visit = $bfv(&graph);
-                let mut distances = vec![0; graph.num_nodes()];
-                let sync_distances = distances.as_sync_slice();
-
-                visit
-                    .par_visit([0, 3], |event| {
-                        if let breadth_first::EventPred::Visit { node, distance, .. } = event {
-                            unsafe { sync_distances[node].set(distance) };
-                        }
-                        Continue(())
-                    })
-                    .continue_value_no_break();
-
-                assert_eq!(distances, [0, 1, 1, 0]);
-
-                Ok(())
-            }
 
             #[test]
             fn test_cnr_2000() -> Result<()> {
                 let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
-                let mut visit = $bfv(&graph);
-                let distances: Vec<AtomicUsize> = (0..graph.num_nodes())
-                    .map(|_| AtomicUsize::new(0))
-                    .collect();
-                let expected_distances = correct_distances(&graph, 10000);
-
-                for i in 0..graph.num_nodes() {
-                    let root = (i + 10000) % graph.num_nodes();
+                let n = graph.num_nodes();
+                let distances: Vec<_> = (0..n).map(|_| AtomicUsize::new(usize::MAX)).collect();
+                let mut visit = $new(&graph);
+                for i in 0..n {
                     visit
-                        .par_visit([root], |event| {
-                            if let breadth_first::EventPred::Visit { node, distance, .. } = event {
+                        .$visit([(i + 10000) % n], |event| {
+                            if let Ev::Visit(node, distance) = Ev::from(event) {
                                 distances[node].store(distance, Ordering::Relaxed);
                             }
                             Continue(())
                         })
                         .continue_value_no_break();
                 }
-
-                let actual_distances = into_non_atomic(distances);
-
-                assert_eq!(actual_distances, expected_distances);
-
+                let distances: Vec<_> =
+                    distances.into_iter().map(AtomicUsize::into_inner).collect();
+                assert_eq!(distances, correct_distances(&graph, 10000));
                 Ok(())
             }
 
             #[test]
-            fn test_distance_event_cnr_2000_single_root() -> Result<()> {
+            fn test_frontier_sizes_cnr_2000() -> Result<()> {
                 let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
-                let mut visit = $bfv(&graph);
-
-                let distance_to_quantity: Mutex<BTreeMap<usize, usize>> =
-                    Mutex::new(BTreeMap::new());
-                let expected_distance_to_quantity: Mutex<BTreeMap<usize, usize>> =
-                    Mutex::new(BTreeMap::new());
-
-                visit
-                    .par_visit([0], |event| {
-                        if let breadth_first::EventPred::Visit { distance, .. } = event {
-                            *expected_distance_to_quantity
-                                .lock()
-                                .unwrap()
-                                .entry(distance)
-                                .or_insert(0) += 1;
-                        }
-                        if let breadth_first::EventPred::FrontierSize { distance, size } = event {
-                            *distance_to_quantity
-                                .lock()
-                                .unwrap()
-                                .entry(distance)
-                                .or_insert(0) += size;
-                        }
-                        Continue(())
-                    })
-                    .continue_value_no_break();
-
-                assert_eq!(
-                    distance_to_quantity.into_inner().unwrap(),
-                    expected_distance_to_quantity.into_inner().unwrap()
-                );
-
-                Ok(())
-            }
-
-            #[test]
-            fn test_distance_event_cnr_2000_multi_root() -> Result<()> {
-                let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
-                let mut visit = $bfv(&graph);
-
-                let distance_to_quantity: Mutex<BTreeMap<usize, usize>> =
-                    Mutex::new(BTreeMap::new());
-                let expected_distance_to_quantity: Mutex<BTreeMap<usize, usize>> =
-                    Mutex::new(BTreeMap::new());
-
-                visit
-                    .par_visit([0, graph.num_nodes() / 2, graph.num_nodes() - 1], |event| {
-                        if let breadth_first::EventPred::Visit { distance, .. } = event {
-                            *expected_distance_to_quantity
-                                .lock()
-                                .unwrap()
-                                .entry(distance)
-                                .or_insert(0) += 1;
-                        }
-                        if let breadth_first::EventPred::FrontierSize { distance, size } = event {
-                            *distance_to_quantity
-                                .lock()
-                                .unwrap()
-                                .entry(distance)
-                                .or_insert(0) += size;
-                        }
-                        Continue(())
-                    })
-                    .continue_value_no_break();
-
-                assert_eq!(
-                    distance_to_quantity.into_inner().unwrap(),
-                    expected_distance_to_quantity.into_inner().unwrap()
-                );
-
+                let n = graph.num_nodes();
+                for roots in [vec![0], vec![0, n / 2, n - 1]] {
+                    let events = Mutex::new(vec![]);
+                    $new(&graph)
+                        .$visit(roots.iter().copied(), |event| {
+                            events.lock().unwrap().push(Ev::from(event));
+                            Continue(())
+                        })
+                        .continue_value_no_break();
+                    let events = events.into_inner().unwrap();
+                    check_prefix_and_suffix(&events, &roots);
+                    // The frontier sizes add up to the number of visits at each distance
+                    let mut visits_by_distance = std::collections::BTreeMap::new();
+                    for (_, distance) in visits(&events) {
+                        *visits_by_distance.entry(distance).or_insert(0) += 1;
+                    }
+                    let sizes: std::collections::BTreeMap<_, _> =
+                        frontier_sizes(&events).into_iter().collect();
+                    assert_eq!(sizes, visits_by_distance);
+                }
                 Ok(())
             }
         }
     };
 }
 
-test_bfv_algo_seq!(webgraph::visits::breadth_first::Seq::<_>::new, sequential);
-test_bfv_algo_par!(
-    |g| {
-        webgraph::visits::breadth_first::ParFairPred::with_granularity(g, Granularity::Nodes(32))
-    },
-    parallel_fair_pred
+bfs_tests!(
+    seq,
+    webgraph::visits::breadth_first::Seq::new,
+    FilterArgsPred,
+    visit,
+    visit_filtered,
+    visit_with,
+    visit_filtered_with
 );
-test_bfv_algo_par!(
-    |g| { webgraph::visits::breadth_first::ParLowMem::with_granularity(g, Granularity::Nodes(32)) },
-    parallel_fast_callback
+bfs_cnr_2000_tests!(
+    seq_cnr_2000,
+    webgraph::visits::breadth_first::Seq::new,
+    visit
 );
 
+#[cfg(not(miri))]
+mod par {
+    use super::*;
+    use webgraph::visits::breadth_first::{ParFairNoPred, ParFairPred, ParLowMem};
+
+    bfs_tests!(
+        fair_pred,
+        |g| ParFairPred::with_granularity(g, Granularity::Nodes(32)),
+        FilterArgsPred,
+        par_visit,
+        par_visit_filtered,
+        par_visit_with,
+        par_visit_filtered_with
+    );
+    bfs_tests!(
+        fair_pred_fine,
+        |g| ParFairPred::with_granularity(g, Granularity::Nodes(1)),
+        FilterArgsPred,
+        par_visit,
+        par_visit_filtered,
+        par_visit_with,
+        par_visit_filtered_with
+    );
+    bfs_tests!(
+        fair_no_pred,
+        ParFairNoPred::new,
+        FilterArgsNoPred,
+        par_visit,
+        par_visit_filtered,
+        par_visit_with,
+        par_visit_filtered_with
+    );
+    bfs_tests!(
+        fair_no_pred_fine,
+        |g| ParFairNoPred::with_granularity(g, Granularity::Nodes(2)),
+        FilterArgsNoPred,
+        par_visit,
+        par_visit_filtered,
+        par_visit_with,
+        par_visit_filtered_with
+    );
+    bfs_tests!(
+        low_mem,
+        |g| ParLowMem::with_granularity(g, Granularity::Nodes(32)),
+        FilterArgsPred,
+        par_visit,
+        par_visit_filtered,
+        par_visit_with,
+        par_visit_filtered_with
+    );
+    bfs_tests!(
+        low_mem_fine,
+        |g| ParLowMem::with_granularity(g, Granularity::Nodes(1)),
+        FilterArgsPred,
+        par_visit,
+        par_visit_filtered,
+        par_visit_with,
+        par_visit_filtered_with
+    );
+    bfs_cnr_2000_tests!(
+        fair_pred_cnr_2000,
+        |g| ParFairPred::with_granularity(g, Granularity::Nodes(32)),
+        par_visit
+    );
+    bfs_cnr_2000_tests!(fair_no_pred_cnr_2000, ParFairNoPred::new, par_visit);
+    bfs_cnr_2000_tests!(
+        low_mem_cnr_2000,
+        |g| ParLowMem::with_granularity(g, Granularity::Nodes(32)),
+        par_visit
+    );
+}
+
+// ── BfsOrder ──
+
+/// Returns the events of the iterator on a sequential visit.
+fn bfs_order(graph: &VecGraph) -> Vec<IterEvent> {
+    (&mut webgraph::visits::breadth_first::Seq::new(graph))
+        .into_iter()
+        .collect()
+}
+
+/// Returns the (node, distance) pairs of iterator events.
+fn node_distances(events: &[IterEvent]) -> Vec<(usize, usize)> {
+    events.iter().map(|e| (e.node, e.distance)).collect()
+}
+
+fn iter_event(root: usize, parent: usize, node: usize, distance: usize) -> IterEvent {
+    IterEvent {
+        root,
+        parent,
+        node,
+        distance,
+    }
+}
+
 #[test]
-fn test_start() -> Result<()> {
+fn test_start() {
     // 4 -> 0 -> 2
     //       `-> 3
     // 1 -> 5
-    let mut graph = webgraph::graphs::vec_graph::VecGraph::new();
+    let graph = VecGraph::from_arcs([(4, 0), (0, 2), (0, 3), (1, 5)]);
+    let order: Vec<_> = bfs_order(&graph).iter().map(|e| e.node).collect();
+    assert_eq!(order, [0, 2, 3, 1, 5, 4]);
 
-    for i in 0..=5 {
-        graph.add_node(i);
-    }
-    graph.add_arc(4, 0);
-    graph.add_arc(0, 2);
-    graph.add_arc(0, 3);
-    graph.add_arc(1, 5);
-
-    let order: Vec<_> = webgraph::visits::breadth_first::Seq::new(&graph)
-        .into_iter()
-        .map(|x| x.node)
-        .collect();
-
-    assert_eq!(order, vec![0, 2, 3, 1, 5, 4]);
-
-    Ok(())
-}
-
-#[test]
-fn test_start_orphan() -> Result<()> {
     // 0 -> 4 -> 2
     //       `-> 3
     // 1 -> 5
-    let mut graph = webgraph::graphs::vec_graph::VecGraph::new();
-
-    for i in 0..=5 {
-        graph.add_node(i);
-    }
-    graph.add_arc(0, 4);
-    graph.add_arc(4, 2);
-    graph.add_arc(4, 3);
-    graph.add_arc(1, 5);
-
-    let order: Vec<_> = webgraph::visits::breadth_first::Seq::new(&graph)
-        .into_iter()
-        .map(|x| x.node)
-        .collect();
-
-    assert_eq!(order, vec![0, 4, 2, 3, 1, 5]);
-
-    Ok(())
+    let graph = VecGraph::from_arcs([(0, 4), (4, 2), (4, 3), (1, 5)]);
+    let order: Vec<_> = bfs_order(&graph).iter().map(|e| e.node).collect();
+    assert_eq!(order, [0, 4, 2, 3, 1, 5]);
 }
 
-// ── BfsOrder tests ──────────────────────────────────────────────────────
-
 #[test]
-fn test_bfs_order_path() {
-    // 0 → 1 → 2 → 3
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3)]);
-    let events: Vec<_> = (&mut breadth_first::Seq::new(&graph)).into_iter().collect();
-
-    assert_eq!(events.len(), 4);
-    // All nodes in a single component rooted at 0
-    for e in &events {
-        assert_eq!(e.root, 0);
-    }
+fn test_bfs_order_test_graph() {
+    let graph = test_graph();
+    let events = bfs_order(&graph);
     assert_eq!(
-        events,
-        vec![
-            breadth_first::IterEvent {
-                root: 0,
-                parent: 0,
-                node: 0,
-                distance: 0
-            },
-            breadth_first::IterEvent {
-                root: 0,
-                parent: 0,
-                node: 1,
-                distance: 1
-            },
-            breadth_first::IterEvent {
-                root: 0,
-                parent: 1,
-                node: 2,
-                distance: 2
-            },
-            breadth_first::IterEvent {
-                root: 0,
-                parent: 2,
-                node: 3,
-                distance: 3
-            },
+        node_distances(&events),
+        [
+            (0, 0),
+            (1, 1),
+            (2, 1),
+            (3, 2),
+            (4, 2),
+            (5, 2),
+            (6, 3),
+            (7, 3)
         ]
     );
+    let parents: Vec<_> = events.iter().map(|e| e.parent).collect();
+    assert_eq!(parents, [0, 0, 0, 1, 1, 1, 3, 5]);
+    assert!(events.iter().all(|e| e.root == 0));
 }
 
 #[test]
-fn test_bfs_order_tree() {
-    //       0
-    //      / \
-    //     1   2
-    //    / \   \
-    //   3   4   5
-    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (1, 4), (2, 5)]);
-    let events: Vec<_> = (&mut breadth_first::Seq::new(&graph)).into_iter().collect();
-
-    assert_eq!(events.len(), 6);
-    // Check distances
-    let distances: Vec<_> = events.iter().map(|e| (e.node, e.distance)).collect();
+fn test_bfs_order_path_and_cycle() {
+    // 0 → 1 → 2 → 3
+    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3)]);
     assert_eq!(
-        distances,
-        vec![(0, 0), (1, 1), (2, 1), (3, 2), (4, 2), (5, 2)]
+        bfs_order(&graph),
+        [
+            iter_event(0, 0, 0, 0),
+            iter_event(0, 0, 1, 1),
+            iter_event(0, 1, 2, 2),
+            iter_event(0, 2, 3, 3),
+        ]
     );
-    // Check parents
-    assert_eq!(events[0].parent, 0); // root is its own parent
-    assert_eq!(events[1].parent, 0); // 1's parent is 0
-    assert_eq!(events[2].parent, 0); // 2's parent is 0
-    assert_eq!(events[3].parent, 1); // 3's parent is 1
-    assert_eq!(events[4].parent, 1); // 4's parent is 1
-    assert_eq!(events[5].parent, 2); // 5's parent is 2
-}
-
-#[test]
-fn test_bfs_order_cycle() {
-    // 0 → 1 → 2 → 0 (cycle)
+    // 0 → 1 → 2 → 0
     let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let events: Vec<_> = (&mut breadth_first::Seq::new(&graph)).into_iter().collect();
-
-    // All three nodes are visited exactly once
-    assert_eq!(events.len(), 3);
-    let nodes: Vec<_> = events.iter().map(|e| e.node).collect();
-    assert_eq!(nodes, vec![0, 1, 2]);
-    assert_eq!(events[0].distance, 0);
-    assert_eq!(events[1].distance, 1);
-    assert_eq!(events[2].distance, 2);
+    assert_eq!(node_distances(&bfs_order(&graph)), [(0, 0), (1, 1), (2, 2)]);
 }
 
 #[test]
@@ -549,14 +558,16 @@ fn test_bfs_order_diamond() {
     //  \ /
     //   3
     let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3)]);
-    let events: Vec<_> = (&mut breadth_first::Seq::new(&graph)).into_iter().collect();
-
-    assert_eq!(events.len(), 4);
-    // Node 3 should be visited exactly once, at distance 2
-    let node3 = events.iter().find(|e| e.node == 3).unwrap();
-    assert_eq!(node3.distance, 2);
-    // Its parent should be 1 (discovered first via BFS)
-    assert_eq!(node3.parent, 1);
+    assert_eq!(
+        bfs_order(&graph),
+        [
+            iter_event(0, 0, 0, 0),
+            iter_event(0, 0, 1, 1),
+            iter_event(0, 0, 2, 1),
+            // Discovered first via 1
+            iter_event(0, 1, 3, 2),
+        ]
+    );
 }
 
 #[test]
@@ -564,62 +575,17 @@ fn test_bfs_order_disconnected() {
     // Component 1: 0 → 1
     // Component 2: 2 → 3
     // Isolated: 4
-    let mut graph = VecGraph::new();
+    let mut graph = VecGraph::from_arcs([(0, 1), (2, 3)]);
     graph.add_node(4);
-    graph.add_arc(0, 1);
-    graph.add_arc(2, 3);
-
-    let events: Vec<_> = (&mut breadth_first::Seq::new(&graph)).into_iter().collect();
-
-    assert_eq!(events.len(), 5);
-
-    // First component: root=0
     assert_eq!(
-        events[0],
-        breadth_first::IterEvent {
-            root: 0,
-            parent: 0,
-            node: 0,
-            distance: 0
-        }
-    );
-    assert_eq!(
-        events[1],
-        breadth_first::IterEvent {
-            root: 0,
-            parent: 0,
-            node: 1,
-            distance: 1
-        }
-    );
-    // Second component: root=2
-    assert_eq!(
-        events[2],
-        breadth_first::IterEvent {
-            root: 2,
-            parent: 2,
-            node: 2,
-            distance: 0
-        }
-    );
-    assert_eq!(
-        events[3],
-        breadth_first::IterEvent {
-            root: 2,
-            parent: 2,
-            node: 3,
-            distance: 1
-        }
-    );
-    // Isolated node: root=4
-    assert_eq!(
-        events[4],
-        breadth_first::IterEvent {
-            root: 4,
-            parent: 4,
-            node: 4,
-            distance: 0
-        }
+        bfs_order(&graph),
+        [
+            iter_event(0, 0, 0, 0),
+            iter_event(0, 0, 1, 1),
+            iter_event(2, 2, 2, 0),
+            iter_event(2, 2, 3, 1),
+            iter_event(4, 4, 4, 0),
+        ]
     );
 }
 
@@ -627,575 +593,200 @@ fn test_bfs_order_disconnected() {
 fn test_bfs_order_self_loop() {
     // 0 → 0, 0 → 1, 1 → 1
     let graph = VecGraph::from_arcs([(0, 0), (0, 1), (1, 1)]);
-    let events: Vec<_> = (&mut breadth_first::Seq::new(&graph)).into_iter().collect();
-
-    assert_eq!(events.len(), 2);
-    assert_eq!(events[0].node, 0);
-    assert_eq!(events[0].distance, 0);
-    assert_eq!(events[1].node, 1);
-    assert_eq!(events[1].distance, 1);
+    assert_eq!(node_distances(&bfs_order(&graph)), [(0, 0), (1, 1)]);
 }
 
 #[test]
-fn test_bfs_order_single_node() {
-    let mut graph = VecGraph::new();
-    graph.add_node(0);
-    let events: Vec<_> = (&mut breadth_first::Seq::new(&graph)).into_iter().collect();
-
-    assert_eq!(events.len(), 1);
-    assert_eq!(
-        events[0],
-        breadth_first::IterEvent {
-            root: 0,
-            parent: 0,
-            node: 0,
-            distance: 0
-        }
-    );
+fn test_bfs_order_single_node_and_empty() {
+    assert_eq!(bfs_order(&VecGraph::empty(1)), [iter_event(0, 0, 0, 0)]);
+    // Regression: BfsOrder asserted a non-empty graph, so iterating all
+    // nodes of an empty graph (e.g., in 'webgraph perm bfs') panicked.
+    assert_eq!(bfs_order(&VecGraph::empty(0)), []);
 }
 
 #[test]
 fn test_bfs_order_exact_size() {
     let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3)]);
-    let mut visit = breadth_first::Seq::new(&graph);
+    let mut visit = webgraph::visits::breadth_first::Seq::new(&graph);
     let mut iter = (&mut visit).into_iter();
-
-    assert_eq!(iter.len(), 4);
-    iter.next();
-    assert_eq!(iter.len(), 3);
-    iter.next();
-    assert_eq!(iter.len(), 2);
-    iter.next();
-    assert_eq!(iter.len(), 1);
-    iter.next();
-    assert_eq!(iter.len(), 0);
-    assert!(iter.next().is_none());
-}
-
-#[test]
-fn test_bfs_order_star() {
-    // 0 → {1, 2, 3, 4}
-    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (0, 3), (0, 4)]);
-    let events: Vec<_> = (&mut breadth_first::Seq::new(&graph)).into_iter().collect();
-
-    assert_eq!(events.len(), 5);
-    assert_eq!(events[0].distance, 0);
-    for e in &events[1..] {
-        assert_eq!(e.distance, 1);
-        assert_eq!(e.parent, 0);
+    for len in (0..=4).rev() {
+        assert_eq!(iter.len(), len);
+        assert_eq!(iter.next().is_some(), len > 0);
     }
 }
 
 #[test]
 fn test_bfs_order_reverse_star() {
-    // {1, 2, 3} → 0, nodes 1..3 have no incoming from 0
-    let mut graph = VecGraph::new();
-    graph.add_node(3);
-    graph.add_arc(1, 0);
-    graph.add_arc(2, 0);
-    graph.add_arc(3, 0);
-
-    let events: Vec<_> = (&mut breadth_first::Seq::new(&graph)).into_iter().collect();
-
-    assert_eq!(events.len(), 4);
-    // BFS starts from node 0 (no outgoing), then finds 1, 2, 3 as new roots
+    // {1, 2, 3} → 0: BFS starts from node 0 (no outgoing), then finds 1, 2,
+    // 3 as new roots
+    let graph = VecGraph::from_arcs([(1, 0), (2, 0), (3, 0)]);
     assert_eq!(
-        events[0],
-        breadth_first::IterEvent {
-            root: 0,
-            parent: 0,
-            node: 0,
-            distance: 0
-        }
+        bfs_order(&graph),
+        [
+            iter_event(0, 0, 0, 0),
+            iter_event(1, 1, 1, 0),
+            iter_event(2, 2, 2, 0),
+            iter_event(3, 3, 3, 0),
+        ]
     );
-    assert_eq!(events[1].root, 1);
-    assert_eq!(events[1].distance, 0);
-    assert_eq!(events[2].root, 2);
-    assert_eq!(events[2].distance, 0);
-    assert_eq!(events[3].root, 3);
-    assert_eq!(events[3].distance, 0);
 }
 
 #[test]
-fn test_bfs_order_multi_level() {
-    // 0 → 1 → 3
-    //  \→ 2 → 4 → 5
-    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 4), (4, 5)]);
-    let events: Vec<_> = (&mut breadth_first::Seq::new(&graph)).into_iter().collect();
-
-    assert_eq!(events.len(), 6);
-    let dist_map: Vec<_> = events.iter().map(|e| (e.node, e.distance)).collect();
-    assert_eq!(
-        dist_map,
-        vec![(0, 0), (1, 1), (2, 1), (3, 2), (4, 2), (5, 3)]
-    );
+fn test_bfs_order_distances_vs_callback() {
+    // BfsOrder gives the same distances as the callback-based visit when
+    // visiting all nodes
+    let graph = test_graph();
+    let mut distances = vec![0; graph.num_nodes()];
+    for event in bfs_order(&graph) {
+        distances[event.node] = event.distance;
+    }
+    assert_eq!(distances, correct_distances(&graph, 0));
 }
 
-// ── BfsOrderFromRoots tests ────────────────────────────────────────────
+// ── BfsOrderFromRoots ──
+
+/// Returns the events of the iterator on a sequential visit from `roots`.
+fn bfs_order_from_roots(graph: &VecGraph, roots: &[usize]) -> Result<Vec<IterFromRootsEvent>> {
+    Ok(webgraph::visits::breadth_first::Seq::new(graph)
+        .iter_from_roots(roots.iter().copied())?
+        .collect())
+}
+
+fn from_roots_event(parent: usize, node: usize, distance: usize) -> IterFromRootsEvent {
+    IterFromRootsEvent {
+        parent,
+        node,
+        distance,
+    }
+}
 
 #[test]
 fn test_from_roots_single_root() -> Result<()> {
-    // 0 → 1 → 2
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let mut visit = breadth_first::Seq::new(&graph);
-    let events: Vec<_> = visit.iter_from_roots([0])?.collect();
-
-    assert_eq!(events.len(), 3);
+    // 0 → 1 → 2, isolated node 3
+    let mut graph = VecGraph::from_arcs([(0, 1), (1, 2)]);
+    graph.add_node(3);
     assert_eq!(
-        events,
-        vec![
-            breadth_first::IterFromRootsEvent {
-                parent: 0,
-                node: 0,
-                distance: 0
-            },
-            breadth_first::IterFromRootsEvent {
-                parent: 0,
-                node: 1,
-                distance: 1
-            },
-            breadth_first::IterFromRootsEvent {
-                parent: 1,
-                node: 2,
-                distance: 2
-            },
+        bfs_order_from_roots(&graph, &[0])?,
+        [
+            from_roots_event(0, 0, 0),
+            from_roots_event(0, 1, 1),
+            from_roots_event(1, 2, 2),
+        ]
+    );
+    // A cycle
+    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
+    let events = bfs_order_from_roots(&graph, &[0])?;
+    let node_distances: Vec<_> = events.iter().map(|e| (e.node, e.distance)).collect();
+    assert_eq!(node_distances, [(0, 0), (1, 1), (2, 2)]);
+    // A self-loop
+    let graph = VecGraph::from_arcs([(0, 0), (0, 1)]);
+    assert_eq!(
+        bfs_order_from_roots(&graph, &[0])?,
+        [from_roots_event(0, 0, 0), from_roots_event(0, 1, 1)]
+    );
+    // A single node
+    assert_eq!(
+        bfs_order_from_roots(&VecGraph::empty(1), &[0])?,
+        [from_roots_event(0, 0, 0)]
+    );
+    Ok(())
+}
+
+#[test]
+fn test_from_roots_multiple_roots() -> Result<()> {
+    // Roots first, at distance 0, then their successors
+    let graph = VecGraph::from_arcs([(0, 2), (1, 3)]);
+    assert_eq!(
+        bfs_order_from_roots(&graph, &[0, 1])?,
+        [
+            from_roots_event(0, 0, 0),
+            from_roots_event(1, 1, 0),
+            from_roots_event(0, 2, 1),
+            from_roots_event(1, 3, 1),
+        ]
+    );
+    // Roots are visited in the order in which they are given
+    let graph = VecGraph::from_arcs([(0, 1), (2, 3)]);
+    assert_eq!(
+        bfs_order_from_roots(&graph, &[2, 0])?,
+        [
+            from_roots_event(2, 2, 0),
+            from_roots_event(0, 0, 0),
+            from_roots_event(2, 3, 1),
+            from_roots_event(0, 1, 1),
+        ]
+    );
+    // A shared successor is visited only once, via the first root
+    let graph = VecGraph::from_arcs([(0, 2), (1, 2)]);
+    assert_eq!(
+        bfs_order_from_roots(&graph, &[0, 1])?,
+        [
+            from_roots_event(0, 0, 0),
+            from_roots_event(1, 1, 0),
+            from_roots_event(0, 2, 1),
+        ]
+    );
+    // A root reachable from another root is returned as a root
+    let graph = VecGraph::from_arcs([(0, 1), (1, 2)]);
+    assert_eq!(
+        bfs_order_from_roots(&graph, &[0, 1])?,
+        [
+            from_roots_event(0, 0, 0),
+            from_roots_event(1, 1, 0),
+            from_roots_event(1, 2, 1),
+        ]
+    );
+    // Duplicate roots do not cause double visits of other nodes
+    let events = bfs_order_from_roots(&graph, &[0, 0])?;
+    let non_root: Vec<_> = events.iter().filter(|e| e.node != 0).copied().collect();
+    assert_eq!(
+        non_root,
+        [from_roots_event(0, 1, 1), from_roots_event(1, 2, 2)]
+    );
+    // Three roots and a deeper graph
+    let graph = VecGraph::from_arcs([(0, 3), (1, 4), (2, 5), (3, 6), (4, 7)]);
+    let events = bfs_order_from_roots(&graph, &[0, 1, 2])?;
+    let node_distances: Vec<_> = events.iter().map(|e| (e.node, e.distance)).collect();
+    assert_eq!(
+        node_distances,
+        [
+            (0, 0),
+            (1, 0),
+            (2, 0),
+            (3, 1),
+            (4, 1),
+            (5, 1),
+            (6, 2),
+            (7, 2)
         ]
     );
     Ok(())
 }
 
 #[test]
-fn test_from_roots_two_roots() -> Result<()> {
-    // 0 → 2, 1 → 3
-    let graph = VecGraph::from_arcs([(0, 2), (1, 3)]);
-    let mut visit = breadth_first::Seq::new(&graph);
-    let events: Vec<_> = visit.iter_from_roots([0, 1])?.collect();
-
-    assert_eq!(events.len(), 4);
-    // Roots first, at distance 0
-    assert_eq!(
-        events[0],
-        breadth_first::IterFromRootsEvent {
-            parent: 0,
-            node: 0,
-            distance: 0
-        }
-    );
-    assert_eq!(
-        events[1],
-        breadth_first::IterFromRootsEvent {
-            parent: 1,
-            node: 1,
-            distance: 0
-        }
-    );
-    // Then their successors at distance 1
-    assert_eq!(
-        events[2],
-        breadth_first::IterFromRootsEvent {
-            parent: 0,
-            node: 2,
-            distance: 1
-        }
-    );
-    assert_eq!(
-        events[3],
-        breadth_first::IterFromRootsEvent {
-            parent: 1,
-            node: 3,
-            distance: 1
-        }
-    );
-    Ok(())
-}
-
-#[test]
-fn test_from_roots_shared_successor() -> Result<()> {
-    // 0 → 2, 1 → 2
-    // Node 2 should be visited only once (via the first root that discovers it).
-    let graph = VecGraph::from_arcs([(0, 2), (1, 2)]);
-    let mut visit = breadth_first::Seq::new(&graph);
-    let events: Vec<_> = visit.iter_from_roots([0, 1])?.collect();
-
-    assert_eq!(events.len(), 3);
-    assert_eq!(events[0].node, 0);
-    assert_eq!(events[1].node, 1);
-    assert_eq!(events[2].node, 2);
-    assert_eq!(events[2].distance, 1);
-    // Discovered via root 0 (first in queue)
-    assert_eq!(events[2].parent, 0);
-    Ok(())
-}
-
-#[test]
-fn test_from_roots_root_reachable_from_other_root() -> Result<()> {
-    // 0 → 1, and both 0 and 1 are roots.
-    // Node 1 should be returned as a root (distance 0), not as a successor.
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let mut visit = breadth_first::Seq::new(&graph);
-    let events: Vec<_> = visit.iter_from_roots([0, 1])?.collect();
-
-    assert_eq!(events.len(), 3);
-    // Both roots at distance 0
-    assert_eq!(
-        events[0],
-        breadth_first::IterFromRootsEvent {
-            parent: 0,
-            node: 0,
-            distance: 0
-        }
-    );
-    assert_eq!(
-        events[1],
-        breadth_first::IterFromRootsEvent {
-            parent: 1,
-            node: 1,
-            distance: 0
-        }
-    );
-    // Node 2 at distance 1 (successor of 1, but 1 is already visited as root
-    // so it won't be re-discovered from 0)
-    assert_eq!(
-        events[2],
-        breadth_first::IterFromRootsEvent {
-            parent: 1,
-            node: 2,
-            distance: 1
-        }
-    );
-    Ok(())
-}
-
-#[test]
-fn test_from_roots_unreachable_nodes() -> Result<()> {
-    // 0 → 1, isolated node 2
-    // Starting from root 0, node 2 should not be visited.
-    let mut graph = VecGraph::new();
-    graph.add_node(2);
-    graph.add_arc(0, 1);
-
-    let mut visit = breadth_first::Seq::new(&graph);
-    let events: Vec<_> = visit.iter_from_roots([0])?.collect();
-
-    assert_eq!(events.len(), 2);
-    assert_eq!(events[0].node, 0);
-    assert_eq!(events[1].node, 1);
-    Ok(())
-}
-
-#[test]
 fn test_from_roots_empty_roots_error() {
     let graph = VecGraph::from_arcs([(0, 1)]);
-    let mut visit = breadth_first::Seq::new(&graph);
+    let mut visit = webgraph::visits::breadth_first::Seq::new(&graph);
     assert!(visit.iter_from_roots(std::iter::empty::<usize>()).is_err());
 }
 
 #[test]
-fn test_from_roots_cycle() -> Result<()> {
-    // 0 → 1 → 2 → 0
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let mut visit = breadth_first::Seq::new(&graph);
-    let events: Vec<_> = visit.iter_from_roots([0])?.collect();
-
-    assert_eq!(events.len(), 3);
-    let nodes: Vec<_> = events.iter().map(|e| e.node).collect();
-    assert_eq!(nodes, vec![0, 1, 2]);
-    assert_eq!(events[0].distance, 0);
-    assert_eq!(events[1].distance, 1);
-    assert_eq!(events[2].distance, 2);
-    Ok(())
-}
-
-#[test]
-fn test_from_roots_diamond() -> Result<()> {
-    //   0
-    //  / \
-    // 1   2
-    //  \ /
-    //   3
-    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3)]);
-    let mut visit = breadth_first::Seq::new(&graph);
-    let events: Vec<_> = visit.iter_from_roots([0])?.collect();
-
-    assert_eq!(events.len(), 4);
-    let node3 = events.iter().find(|e| e.node == 3).unwrap();
-    assert_eq!(node3.distance, 2);
-    assert_eq!(node3.parent, 1);
-    Ok(())
-}
-
-#[test]
-fn test_from_roots_self_loop() -> Result<()> {
-    // 0 → 0, 0 → 1
-    let graph = VecGraph::from_arcs([(0, 0), (0, 1)]);
-    let mut visit = breadth_first::Seq::new(&graph);
-    let events: Vec<_> = visit.iter_from_roots([0])?.collect();
-
-    assert_eq!(events.len(), 2);
-    assert_eq!(events[0].node, 0);
-    assert_eq!(events[0].distance, 0);
-    assert_eq!(events[1].node, 1);
-    assert_eq!(events[1].distance, 1);
-    Ok(())
-}
-
-#[test]
-fn test_from_roots_single_node_no_arcs() -> Result<()> {
-    let mut graph = VecGraph::new();
-    graph.add_node(0);
-    let mut visit = breadth_first::Seq::new(&graph);
-    let events: Vec<_> = visit.iter_from_roots([0])?.collect();
-
-    assert_eq!(events.len(), 1);
-    assert_eq!(
-        events[0],
-        breadth_first::IterFromRootsEvent {
-            parent: 0,
-            node: 0,
-            distance: 0
-        }
-    );
-    Ok(())
-}
-
-#[test]
-fn test_from_roots_three_roots_deeper_graph() -> Result<()> {
-    // 0 → 3 → 6
-    // 1 → 4 → 7
-    // 2 → 5
-    let graph = VecGraph::from_arcs([(0, 3), (1, 4), (2, 5), (3, 6), (4, 7)]);
-    let mut visit = breadth_first::Seq::new(&graph);
-    let events: Vec<_> = visit.iter_from_roots([0, 1, 2])?.collect();
-
-    assert_eq!(events.len(), 8);
-    // Roots at distance 0
-    assert_eq!(events[0].node, 0);
-    assert_eq!(events[0].distance, 0);
-    assert_eq!(events[1].node, 1);
-    assert_eq!(events[1].distance, 0);
-    assert_eq!(events[2].node, 2);
-    assert_eq!(events[2].distance, 0);
-    // Distance 1
-    let dist1: Vec<_> = events
-        .iter()
-        .filter(|e| e.distance == 1)
-        .map(|e| e.node)
-        .collect();
-    assert_eq!(dist1, vec![3, 4, 5]);
-    // Distance 2
-    let dist2: Vec<_> = events
-        .iter()
-        .filter(|e| e.distance == 2)
-        .map(|e| e.node)
-        .collect();
-    assert_eq!(dist2, vec![6, 7]);
-    Ok(())
-}
-
-#[test]
 fn test_from_roots_distances_vs_callback() -> Result<()> {
-    // Verify BfsOrderFromRoots gives the same distances as the callback-based visit.
-    let graph = VecGraph::from_arcs([
-        (0, 1),
-        (0, 2),
-        (1, 3),
-        (1, 4),
-        (2, 4),
-        (2, 5),
-        (3, 6),
-        (4, 6),
-        (5, 7),
-        (6, 7),
-    ]);
-
-    // Callback-based distances
-    let mut cb_distances = vec![0; graph.num_nodes()];
-    let mut visit = breadth_first::Seq::new(&graph);
-    visit
+    // BfsOrderFromRoots gives the same distances as the callback-based visit
+    let graph = test_graph();
+    let mut distances = vec![usize::MAX; graph.num_nodes()];
+    for event in bfs_order_from_roots(&graph, &[0])? {
+        distances[event.node] = event.distance;
+    }
+    let mut expected = vec![usize::MAX; graph.num_nodes()];
+    webgraph::visits::breadth_first::Seq::new(&graph)
         .visit([0], |event| {
-            if let breadth_first::EventPred::Visit { node, distance, .. } = event {
-                cb_distances[node] = distance;
+            if let EventPred::Visit { node, distance, .. } = event {
+                expected[node] = distance;
             }
             Continue(())
         })
         .continue_value_no_break();
-
-    // Iterator-based distances
-    let mut iter_distances = vec![0; graph.num_nodes()];
-    let mut visit2 = breadth_first::Seq::new(&graph);
-    for event in visit2.iter_from_roots([0])? {
-        iter_distances[event.node] = event.distance;
-    }
-
-    assert_eq!(cb_distances, iter_distances);
-    Ok(())
-}
-
-#[test]
-fn test_bfs_order_distances_vs_callback() -> Result<()> {
-    // Verify BfsOrder gives the same distances as the callback-based visit
-    // when visiting all nodes.
-    let graph = VecGraph::from_arcs([
-        (0, 1),
-        (0, 2),
-        (1, 3),
-        (1, 4),
-        (2, 4),
-        (2, 5),
-        (3, 6),
-        (4, 6),
-        (5, 7),
-        (6, 7),
-    ]);
-
-    // Callback-based distances (visit from all roots)
-    let mut cb_distances = vec![0; graph.num_nodes()];
-    let mut visit = breadth_first::Seq::new(&graph);
-    for root in 0..graph.num_nodes() {
-        visit
-            .visit([root], |event| {
-                if let breadth_first::EventPred::Visit { node, distance, .. } = event {
-                    cb_distances[node] = distance;
-                }
-                Continue(())
-            })
-            .continue_value_no_break();
-    }
-
-    // Iterator-based distances
-    let mut iter_distances = vec![0; graph.num_nodes()];
-    let mut visit2 = breadth_first::Seq::new(&graph);
-    for event in &mut visit2 {
-        iter_distances[event.node] = event.distance;
-    }
-
-    assert_eq!(cb_distances, iter_distances);
-    Ok(())
-}
-
-#[test]
-fn test_from_roots_duplicate_roots() -> Result<()> {
-    // Passing the same root twice should not cause double visits.
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let mut visit = breadth_first::Seq::new(&graph);
-    let events: Vec<_> = visit.iter_from_roots([0, 0])?.collect();
-
-    // Node 0 appears twice as a root (it is enqueued twice)
-    // but 1 and 2 should still be visited at the correct distance.
-    let non_root: Vec<_> = events.iter().filter(|e| e.node != 0).collect();
-    assert_eq!(non_root.len(), 2);
-    assert_eq!(non_root[0].node, 1);
-    assert_eq!(non_root[0].distance, 1);
-    assert_eq!(non_root[1].node, 2);
-    assert_eq!(non_root[1].distance, 2);
-    Ok(())
-}
-
-/// Checks that all implementations emit the same event prefix:
-/// `Init`, `FrontierSize` at distance 0 with the number of accepted
-/// roots, and then the root `Visit` events.
-#[cfg(not(miri))]
-#[test]
-fn test_event_order_prefix() -> Result<()> {
-    use std::sync::Mutex;
-    use webgraph::visits::breadth_first::{EventNoPred, EventPred};
-
-    #[derive(Debug, PartialEq, Eq, Clone)]
-    enum Ev {
-        Init,
-        FrontierSize(usize, usize),
-        Visit(usize, usize),
-    }
-
-    fn check_prefix(events: &[Ev], roots: &[usize]) {
-        assert_eq!(events[0], Ev::Init);
-        assert_eq!(events[1], Ev::FrontierSize(0, roots.len()));
-        for ev in &events[2..2 + roots.len()] {
-            match ev {
-                Ev::Visit(node, 0) => assert!(roots.contains(node), "unexpected root {node}"),
-                ev => panic!("expected a root visit, got {ev:?}"),
-            }
-        }
-    }
-
-    let graph = VecGraph::from_arcs([(0, 1), (2, 3)]);
-    let roots = [0, 2];
-
-    let events = Mutex::new(Vec::new());
-    breadth_first::Seq::new(&graph)
-        .visit(roots, |event| {
-            match event {
-                EventPred::Init {} => events.lock().unwrap().push(Ev::Init),
-                EventPred::FrontierSize { distance, size } => events
-                    .lock()
-                    .unwrap()
-                    .push(Ev::FrontierSize(distance, size)),
-                EventPred::Visit { node, distance, .. } => {
-                    events.lock().unwrap().push(Ev::Visit(node, distance))
-                }
-                _ => {}
-            }
-            Continue(())
-        })
-        .continue_value_no_break();
-    check_prefix(&events.into_inner().unwrap(), &roots);
-
-    let events = Mutex::new(Vec::new());
-    breadth_first::ParLowMem::new(&graph)
-        .par_visit(roots, |event| {
-            match event {
-                EventPred::Init {} => events.lock().unwrap().push(Ev::Init),
-                EventPred::FrontierSize { distance, size } => events
-                    .lock()
-                    .unwrap()
-                    .push(Ev::FrontierSize(distance, size)),
-                EventPred::Visit { node, distance, .. } => {
-                    events.lock().unwrap().push(Ev::Visit(node, distance))
-                }
-                _ => {}
-            }
-            Continue(())
-        })
-        .continue_value_no_break();
-    check_prefix(&events.into_inner().unwrap(), &roots);
-
-    let events = Mutex::new(Vec::new());
-    breadth_first::ParFairPred::new(&graph)
-        .par_visit(roots, |event| {
-            match event {
-                EventPred::Init {} => events.lock().unwrap().push(Ev::Init),
-                EventPred::FrontierSize { distance, size } => events
-                    .lock()
-                    .unwrap()
-                    .push(Ev::FrontierSize(distance, size)),
-                EventPred::Visit { node, distance, .. } => {
-                    events.lock().unwrap().push(Ev::Visit(node, distance))
-                }
-                _ => {}
-            }
-            Continue(())
-        })
-        .continue_value_no_break();
-    check_prefix(&events.into_inner().unwrap(), &roots);
-
-    let events = Mutex::new(Vec::new());
-    breadth_first::ParFairNoPred::new(&graph)
-        .par_visit(roots, |event| {
-            match event {
-                EventNoPred::Init {} => events.lock().unwrap().push(Ev::Init),
-                EventNoPred::FrontierSize { distance, size } => events
-                    .lock()
-                    .unwrap()
-                    .push(Ev::FrontierSize(distance, size)),
-                EventNoPred::Visit { node, distance, .. } => {
-                    events.lock().unwrap().push(Ev::Visit(node, distance))
-                }
-                _ => {}
-            }
-            Continue(())
-        })
-        .continue_value_no_break();
-    check_prefix(&events.into_inner().unwrap(), &roots);
-
+    assert_eq!(distances, expected);
     Ok(())
 }

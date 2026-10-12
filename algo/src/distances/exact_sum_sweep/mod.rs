@@ -227,6 +227,21 @@ use webgraph::visits::{
     breadth_first::{EventNoPred, ParFairNoPred},
 };
 
+/// Updates the radius and the radial vertex if `ecc` is smaller than the
+/// current radius.
+///
+/// The radius is first checked under a read lock, so that the write lock is
+/// acquired only when an update is likely.
+#[inline(always)]
+fn update_radius(radius: &RwLock<(usize, usize)>, ecc: usize, node: usize) {
+    if ecc < radius.read().unwrap().0 {
+        let mut radius = radius.write().unwrap();
+        if ecc < radius.0 {
+            *radius = (ecc, node);
+        }
+    }
+}
+
 struct ExactSumSweep<
     'a,
     G1: RandomAccessGraph + Sync,
@@ -334,20 +349,7 @@ impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level, 
         pl: &mut impl ProgressLog,
     ) -> Self {
         assert!(graph.num_nodes() > 0, "The graph must be nonempty");
-        assert_eq!(
-            graph.num_nodes(),
-            transpose.num_nodes(),
-            "the graph has {} nodes, but the transpose has {} nodes",
-            graph.num_nodes(),
-            transpose.num_nodes()
-        );
-        assert_eq!(
-            graph.num_arcs(),
-            transpose.num_arcs(),
-            "the graph has {} arcs, but the transpose has {} arcs",
-            graph.num_arcs(),
-            transpose.num_arcs()
-        );
+        crate::utils::assert_transpose(graph, transpose);
 
         let scc = sccs::tarjan(graph, pl);
         pl.info(format_args!(
@@ -531,6 +533,43 @@ impl<
         }
     }
 
+    /// Returns the node maximizing `key` among those for which `filter` is
+    /// true, or [`None`] if there is no such node.
+    ///
+    /// If `USE_TOT` is true, ties are broken by maximizing `tot`, or, if
+    /// `tot_first` is true, `tot` is maximized first, and ties are broken by
+    /// maximizing `key`.
+    fn argmax_with_tot(
+        key: &[usize],
+        tot: &[usize],
+        tot_first: bool,
+        filter: impl Fn(usize) -> bool,
+    ) -> Option<usize> {
+        if !USE_TOT {
+            math::argmax_filtered(key, std::iter::repeat(0usize), |i, _| filter(i))
+        } else if tot_first {
+            math::argmax_filtered(tot, key, |i, _| filter(i))
+        } else {
+            math::argmax_filtered(key, tot, |i, _| filter(i))
+        }
+    }
+
+    /// Returns the node minimizing `key` among those for which `filter` is
+    /// true, or [`None`] if there is no such node.
+    ///
+    /// If `USE_TOT` is true, ties are broken by minimizing `tot`.
+    fn argmin_with_tot(
+        key: &[usize],
+        tot: &[usize],
+        filter: impl Fn(usize) -> bool,
+    ) -> Option<usize> {
+        if USE_TOT {
+            math::argmin_filtered(key, tot, |i, _| filter(i))
+        } else {
+            math::argmin_filtered(key, std::iter::repeat(0usize), |i, _| filter(i))
+        }
+    }
+
     /// Performs `iterations` steps of the SumSweep heuristic, starting from vertex `start`.
     ///
     /// For more information see Section 3 of the paper.
@@ -559,15 +598,9 @@ impl<
 
         for i in 2..iterations {
             if i % 2 == 0 {
-                let v = if USE_TOT {
-                    math::argmax_filtered(self.bw_tot(), self.bw_low(), |i, _| {
-                        self.incomplete_backward(i)
-                    })
-                } else {
-                    math::argmax_filtered(self.bw_low(), std::iter::repeat(0usize), |i, _| {
-                        self.incomplete_backward(i)
-                    })
-                };
+                let v = Self::argmax_with_tot(self.bw_low(), self.bw_tot(), true, |i| {
+                    self.incomplete_backward(i)
+                });
                 self.step_sum_sweep(v, false, pl, |node| {
                     format!(
                         "Performing initial backward SumSweep heuristic visit from {}...",
@@ -575,15 +608,9 @@ impl<
                     )
                 });
             } else {
-                let v = if USE_TOT {
-                    math::argmax_filtered(&self.forward_tot, &self.forward_low, |i, _| {
-                        self.incomplete_forward(i)
-                    })
-                } else {
-                    math::argmax_filtered(&self.forward_low, std::iter::repeat(0usize), |i, _| {
-                        self.incomplete_forward(i)
-                    })
-                };
+                let v = Self::argmax_with_tot(&self.forward_low, &self.forward_tot, true, |i| {
+                    self.incomplete_forward(i)
+                });
                 self.step_sum_sweep(v, true, pl, |node| {
                     format!(
                         "Performing initial forward SumSweep heuristic visit from {}...",
@@ -633,17 +660,10 @@ impl<
             match step_to_perform {
                 0 => self.all_cc_upper_bound(&mut cpl),
                 1 => {
-                    let v = if USE_TOT {
-                        math::argmax_filtered(&self.forward_high, &self.forward_tot, |i, _| {
+                    let v =
+                        Self::argmax_with_tot(&self.forward_high, &self.forward_tot, false, |i| {
                             self.incomplete_forward(i)
-                        })
-                    } else {
-                        math::argmax_filtered(
-                            &self.forward_high,
-                            std::iter::repeat(0usize),
-                            |i, _| self.incomplete_forward(i),
-                        )
-                    };
+                        });
                     self.step_sum_sweep(v, true, &mut cpl, |node| {
                         format!(
                             "Performing a forward BFV from a node maximizing the upper bound ({})...",
@@ -652,17 +672,9 @@ impl<
                     })
                 }
                 2 => {
-                    let v = if USE_TOT {
-                        math::argmin_filtered(&self.forward_low, &self.forward_tot, |i, _| {
-                            self.radial_vertices[i]
-                        })
-                    } else {
-                        math::argmin_filtered(
-                            &self.forward_low,
-                            std::iter::repeat(0usize),
-                            |i, _| self.radial_vertices[i],
-                        )
-                    };
+                    let v = Self::argmin_with_tot(&self.forward_low, &self.forward_tot, |i| {
+                        self.radial_vertices[i]
+                    });
                     self.step_sum_sweep(v, true, &mut cpl, |node| {
                         format!(
                             "Performing a forward BFV from a node minimizing the lower bound ({})...",
@@ -671,15 +683,9 @@ impl<
                     })
                 }
                 3 => {
-                    let v = if USE_TOT {
-                        math::argmax_filtered(self.bw_high(), self.bw_tot(), |i, _| {
-                            self.incomplete_backward(i)
-                        })
-                    } else {
-                        math::argmax_filtered(self.bw_high(), std::iter::repeat(0usize), |i, _| {
-                            self.incomplete_backward(i)
-                        })
-                    };
+                    let v = Self::argmax_with_tot(self.bw_high(), self.bw_tot(), false, |i| {
+                        self.incomplete_backward(i)
+                    });
                     self.step_sum_sweep(v, false, &mut cpl, |node| {
                         format!(
                             "Performing a backward BFV from a node maximizing the upper bound ({})...",
@@ -688,15 +694,9 @@ impl<
                     })
                 }
                 4 => {
-                    let v = if USE_TOT {
-                        math::argmax_filtered(self.bw_tot(), self.bw_high(), |i, _| {
-                            self.incomplete_backward(i)
-                        })
-                    } else {
-                        math::argmax_filtered(self.bw_high(), std::iter::repeat(0usize), |i, _| {
-                            self.incomplete_backward(i)
-                        })
-                    };
+                    let v = Self::argmax_with_tot(self.bw_high(), self.bw_tot(), true, |i| {
+                        self.incomplete_backward(i)
+                    });
                     self.step_sum_sweep(v, false, &mut cpl, |node| {
                         format!(
                             "Performing a backward BFV from a node maximizing the distance sum ({})",
@@ -705,17 +705,10 @@ impl<
                     })
                 }
                 5 => {
-                    let v = if USE_TOT {
-                        math::argmax_filtered(&self.forward_tot, &self.forward_high, |i, _| {
+                    let v =
+                        Self::argmax_with_tot(&self.forward_high, &self.forward_tot, true, |i| {
                             self.incomplete_forward(i)
-                        })
-                    } else {
-                        math::argmax_filtered(
-                            &self.forward_high,
-                            std::iter::repeat(0usize),
-                            |i, _| self.incomplete_forward(i),
-                        )
-                    };
+                        });
                     self.step_sum_sweep(v, true, &mut cpl, |node| {
                         format!(
                             "Performing a forward BFV from a node maximizing the distance sum ({})...",
@@ -805,34 +798,25 @@ impl<
 
         let bw_low = self.bw_low();
         let bw_tot = self.bw_tot();
+        let score = |x: usize| {
+            bw_low[x]
+                + self.forward_low[x]
+                + if self.incomplete_forward(x) {
+                    0
+                } else {
+                    self.num_nodes
+                }
+                + if self.incomplete_backward(x) {
+                    0
+                } else {
+                    self.num_nodes
+                }
+        };
         for (v, &component) in components.iter().enumerate().rev() {
             if let Some(p) = pivot[component] {
                 let p = p.into();
-                let current = bw_low[v]
-                    + self.forward_low[v]
-                    + if self.incomplete_forward(v) {
-                        0
-                    } else {
-                        self.num_nodes
-                    }
-                    + if self.incomplete_backward(v) {
-                        0
-                    } else {
-                        self.num_nodes
-                    };
-
-                let best = bw_low[p]
-                    + self.forward_low[p]
-                    + if self.incomplete_forward(p) {
-                        0
-                    } else {
-                        self.num_nodes
-                    }
-                    + if self.incomplete_backward(p) {
-                        0
-                    } else {
-                        self.num_nodes
-                    };
+                let current = score(v);
+                let best = score(p);
 
                 if current < best
                     || (USE_TOT
@@ -964,21 +948,7 @@ impl<
                         unsafe { forward_low[node].set(distance) };
 
                         if distance == node_forward_high && self.radial_vertices[node] {
-                            let mut update_radius = false;
-                            {
-                                let radius_lock = radius.read().unwrap();
-                                if distance < radius_lock.0 {
-                                    update_radius = true;
-                                }
-                            }
-
-                            if update_radius {
-                                let mut radius_lock = radius.write().unwrap();
-                                if distance < radius_lock.0 {
-                                    radius_lock.0 = distance;
-                                    radius_lock.1 = node;
-                                }
-                            }
+                            update_radius(&radius, distance, node);
                         }
                     }
                 };
@@ -1194,46 +1164,18 @@ impl<
             pl.info(format_args!("Refining upper bounds of nodes..."));
 
             (0..self.num_nodes).into_par_iter().for_each(|node| {
-                let pivot_value = dist_pivot_f[node] + ecc_pivot_f[components[node]];
                 // SAFETY: each node is accessed exactly once.
-                let node_forward_high = unsafe { forward_high[node].get() };
+                let mut node_forward_high = unsafe { forward_high[node].get() };
+                let pivot_value = dist_pivot_f[node] + ecc_pivot_f[components[node]];
 
                 if pivot_value < node_forward_high {
                     // SAFETY: each node is accessed exactly once.
                     unsafe { forward_high[node].set(pivot_value) };
+                    node_forward_high = pivot_value;
+                }
 
-                    if pivot_value == self.forward_low[node] && self.radial_vertices[node] {
-                        let mut update_radius = false;
-                        {
-                            let radius_lock = radius.read().unwrap();
-                            if pivot_value < radius_lock.0 {
-                                update_radius = true;
-                            }
-                        }
-                        if update_radius {
-                            let mut radius_lock = radius.write().unwrap();
-                            if pivot_value < radius_lock.0 {
-                                radius_lock.0 = pivot_value;
-                                radius_lock.1 = node;
-                            }
-                        }
-                    }
-                } else if node_forward_high == self.forward_low[node] && self.radial_vertices[node]
-                {
-                    let mut update_radius = false;
-                    {
-                        let radius_lock = radius.read().unwrap();
-                        if node_forward_high < radius_lock.0 {
-                            update_radius = true;
-                        }
-                    }
-                    if update_radius {
-                        let mut radius_lock = radius.write().unwrap();
-                        if node_forward_high < radius_lock.0 {
-                            radius_lock.0 = node_forward_high;
-                            radius_lock.1 = node;
-                        }
-                    }
+                if node_forward_high == self.forward_low[node] && self.radial_vertices[node] {
+                    update_radius(&radius, node_forward_high, node);
                 }
             });
 
@@ -1307,26 +1249,8 @@ impl<
                     node_forward_high = pivot_value;
                 }
 
-                if node_forward_high == self.forward_low[node] {
-                    let new_ecc = node_forward_high;
-
-                    if self.radial_vertices[node] {
-                        let mut update_radius = false;
-                        {
-                            let radius_lock = radius.read().unwrap();
-                            if new_ecc < radius_lock.0 {
-                                update_radius = true;
-                            }
-                        }
-
-                        if update_radius {
-                            let mut radius_lock = radius.write().unwrap();
-                            if new_ecc < radius_lock.0 {
-                                radius_lock.0 = new_ecc;
-                                radius_lock.1 = node;
-                            }
-                        }
-                    }
+                if node_forward_high == self.forward_low[node] && self.radial_vertices[node] {
+                    update_radius(&radius, node_forward_high, node);
                 }
 
                 // SAFETY: each node is accessed exactly once.

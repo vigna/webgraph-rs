@@ -82,6 +82,17 @@
 
 ### Fixed
 
+- Using `--dcf` on a graph without arcs caused a panic.
+
+- `transform transpose`, `transform map`, `transform symmetrize`, and
+  `to bvgraph` with `--dcf` split the graph using the size of the global
+  thread pool instead of `--num-threads`.
+
+- `bench bf-visit` ignored `--mmap` unless `--static` was specified.
+
+- `webgraph-dist hyperball` did not check that the degree cumulative
+  function matched the graph.
+
 - `from arcs` counts `--lines-to-skip` after ignoring comment lines, as
   documented, and fails when no arcs are read instead of exiting
   successfully without producing a graph; `to arcs --labels` no longer
@@ -100,8 +111,9 @@
   binds `-t` to both `--threshold` and `--num-threads`.
 
 - An unknown `endianness` property value is reported as an error instead of a
-  panic, and `build ef`/`build dcf`/`check ef`/`from arcs --labels` return
-  contextual errors on malformed properties files or I/O failures.
+  panic, and `build ef`/`build dcf`/`check ef`/`bench bvgraph`/`from arcs
+  --labels` return contextual errors on malformed properties files or I/O
+  failures.
 
 - `analyze stats` rejects zero-node graphs and empty `--scc-sizes` files
   instead of emitting NaN/sentinel statistics or panicking.

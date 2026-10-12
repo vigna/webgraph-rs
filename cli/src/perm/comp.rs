@@ -107,54 +107,26 @@ pub fn main(args: CliArgs) -> Result<()> {
     // Dispatch on the concrete type for static dispatch in the composition
     // loop. All perms share the same variant since they are loaded with the
     // same src_fmt.
+    macro_rules! compose_as {
+        ($variant:ident, |$x:ident| $inner:expr) => {{
+            let refs: Vec<_> = perms
+                .iter()
+                .map(|p| {
+                    let IntSlice::$variant($x) = p else {
+                        unreachable!()
+                    };
+                    $inner
+                })
+                .collect();
+            compose(&refs, len, &mut pl)
+        }};
+    }
     let merged = match &perms[0] {
-        IntSlice::Owned(_) => {
-            let refs: Vec<_> = perms
-                .iter()
-                .map(|p| {
-                    let IntSlice::Owned(v) = p else {
-                        unreachable!()
-                    };
-                    v
-                })
-                .collect();
-            compose(&refs, len, &mut pl)
-        }
+        IntSlice::Owned(_) => compose_as!(Owned, |v| v),
         #[cfg(target_pointer_width = "64")]
-        IntSlice::Java(_) => {
-            let refs: Vec<_> = perms
-                .iter()
-                .map(|p| {
-                    let IntSlice::Java(j) = p else { unreachable!() };
-                    j
-                })
-                .collect();
-            compose(&refs, len, &mut pl)
-        }
-        IntSlice::Epserde(_) => {
-            let refs: Vec<_> = perms
-                .iter()
-                .map(|p| {
-                    let IntSlice::Epserde(m) = p else {
-                        unreachable!()
-                    };
-                    m.uncase()
-                })
-                .collect();
-            compose(&refs, len, &mut pl)
-        }
-        IntSlice::BitFieldVec(_) => {
-            let refs: Vec<_> = perms
-                .iter()
-                .map(|p| {
-                    let IntSlice::BitFieldVec(m) = p else {
-                        unreachable!()
-                    };
-                    m.uncase()
-                })
-                .collect();
-            compose(&refs, len, &mut pl)
-        }
+        IntSlice::Java(_) => compose_as!(Java, |j| j),
+        IntSlice::Epserde(_) => compose_as!(Epserde, |m| m.uncase()),
+        IntSlice::BitFieldVec(_) => compose_as!(BitFieldVec, |m| m.uncase()),
     };
 
     args.dst_fmt.store(&args.dst, &merged, None)?;

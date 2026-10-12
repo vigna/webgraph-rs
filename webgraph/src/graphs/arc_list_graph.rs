@@ -5,7 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
-use crate::{impl_parallel_from_split, labels::Left, traits::*};
+use crate::graphs::{impl_into_lender, impl_split};
+use crate::{labels::Left, traits::*};
 use anyhow::{Result, ensure};
 use lender::*;
 
@@ -62,28 +63,11 @@ impl<I: Iterator<Item = (usize, usize)> + Clone>
     }
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync>
-    SplitLabeling for ArcListGraph<I>
-where
-    L: Send + Sync,
-{
-    type SplitLender<'a>
-        = split::seq::Lender<'a, ArcListGraph<I>>
-    where
-        Self: 'a;
-    type IntoIterator<'a>
-        = split::seq::IntoIterator<'a, ArcListGraph<I>>
-    where
-        Self: 'a;
-
-    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
-        split::seq::Iter::new(self.iter(), cutpoints)
-    }
-}
-
-impl_parallel_from_split!(
+impl_split!(
+    seq
     [L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync]
     ArcListGraph<I>
+    [L: Send + Sync]
     [L: Send + Sync]
 );
 
@@ -194,16 +178,7 @@ impl<'lend, L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone>
     type Lend = (usize, Succ<'lend, L, I>);
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> IntoLender
-    for &ArcListGraph<I>
-{
-    type Lender = NodeLabels<L, I>;
-
-    #[inline(always)]
-    fn into_lender(self) -> Self::Lender {
-        self.iter()
-    }
-}
+impl_into_lender!([L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone] ArcListGraph<I>);
 
 impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> SequentialLabeling
     for ArcListGraph<I>

@@ -55,9 +55,10 @@ macro_rules! impl_convert {
             .with_context(|| format!("Could not create {}", target_graph_path.display()))?;
         let encoder = <DynCodesEncoder<$dst, _>>::new(writer, &comp_flags)?;
 
-        let offsets_path = $args.dst.with_extension(OFFSETS_EXTENSION);
-        let mut offsets_writer = buf_bit_writer::from_path::<BE, usize>(&offsets_path)
-            .with_context(|| format!("Could not create {}", offsets_path.display()))?;
+        // The offsets file contains num_nodes + 1 offsets: a leading zero
+        // followed by the end of each successor list, γ-coded as gaps.
+        let mut offsets_writer =
+            OffsetsWriter::from_path($args.dst.with_extension(OFFSETS_EXTENSION), true)?;
 
         pl.start("Inverting endianness...");
 
@@ -69,19 +70,12 @@ macro_rules! impl_convert {
                 offset: 0,
             });
 
-        // The offsets file contains num_nodes + 1 offsets: a leading zero
-        // followed by the end of each successor list, γ-coded as gaps.
-        offsets_writer
-            .write_gamma(0)
-            .context("Could not write gamma")?;
         let mut offset = 0;
         for _ in 0..num_nodes {
             iter.next_degree()?;
             let new_offset = iter.get_decoder().offset;
-            offsets_writer
-                // usize -> u64 is lossless on all supported targets
-                .write_gamma((new_offset - offset) as u64)
-                .context("Could not write gamma")?;
+            // usize -> u64 is lossless on all supported targets
+            offsets_writer.push((new_offset - offset) as u64)?;
             offset = new_offset;
             pl.light_update();
         }

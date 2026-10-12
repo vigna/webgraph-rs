@@ -5,22 +5,23 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
+mod common;
+
 use anyhow::Result;
+use common::graph_and_transpose;
+#[cfg(not(miri))]
+use common::symm_graph;
 use dsi_progress_logger::prelude::*;
 #[cfg(not(miri))]
 use epserde::{deser::Deserialize, ser::Serialize};
-#[cfg(not(miri))]
-use lender::for_;
 use sux::bit_vec;
 use sux::traits::BitVecOpsMut;
 #[cfg(not(miri))]
 use webgraph::graphs::random::ErdosRenyi;
 #[cfg(not(miri))]
-use webgraph::prelude::{BTreeGraph, BvGraph};
+use webgraph::prelude::BvGraph;
 #[cfg(not(miri))]
-use webgraph::transform;
-#[cfg(not(miri))]
-use webgraph::utils::MemoryUsage;
+use webgraph::traits::NodeLabelsLender;
 use webgraph::{graphs::vec_graph::VecGraph, traits::SequentialLabeling};
 use webgraph_algo::sccs::{self, Sccs};
 
@@ -84,10 +85,7 @@ macro_rules! test_scc_algo {
                     (6, 7),
                     (8, 7),
                 ];
-                let transposed_arcs = arcs.iter().map(|(a, b)| (*b, *a)).collect::<Vec<_>>();
-
-                let graph = VecGraph::from_arcs(arcs);
-                let transposed_graph = VecGraph::from_arcs(transposed_arcs);
+                let (graph, transposed_graph) = graph_and_transpose(0, arcs);
 
                 let mut components = $scc(&graph, &transposed_graph, no_logging![]);
 
@@ -107,10 +105,7 @@ macro_rules! test_scc_algo {
             #[test]
             fn test_buckets_2() -> Result<()> {
                 let arcs = [(0, 1), (1, 2), (2, 0), (1, 3)];
-                let transposed_arcs = arcs.iter().map(|(a, b)| (*b, *a)).collect::<Vec<_>>();
-
-                let graph = VecGraph::from_arcs(arcs);
-                let transposed_graph = VecGraph::from_arcs(transposed_arcs);
+                let (graph, transposed_graph) = graph_and_transpose(0, arcs);
 
                 let mut components = $scc(&graph, &transposed_graph, no_logging![]);
                 let sizes = components.sort_by_size();
@@ -123,10 +118,7 @@ macro_rules! test_scc_algo {
             #[test]
             fn test_cycle() -> Result<()> {
                 let arcs = [(0, 1), (1, 2), (2, 3), (3, 0)];
-                let transposed_arcs = arcs.iter().map(|(a, b)| (*b, *a)).collect::<Vec<_>>();
-
-                let graph = VecGraph::from_arcs(arcs);
-                let transposed_graph = VecGraph::from_arcs(transposed_arcs);
+                let (graph, transposed_graph) = graph_and_transpose(0, arcs);
 
                 let components = $scc(&graph, &transposed_graph, no_logging![]);
                 let sizes = components.compute_sizes();
@@ -138,22 +130,10 @@ macro_rules! test_scc_algo {
 
             #[test]
             fn test_complete_graph() -> Result<()> {
-                let mut g = VecGraph::new();
-                for i in 0..5 {
-                    g.add_node(i);
-                }
-                let mut t = g.clone();
-                for i in 0..5 {
-                    for j in 0..5 {
-                        if i != j {
-                            g.add_arc(i, j);
-                            t.add_arc(j, i);
-                        }
-                    }
-                }
-
-                let graph = g;
-                let transposed_graph = t;
+                let (graph, transposed_graph) = graph_and_transpose(
+                    5,
+                    (0..5).flat_map(|i| (0..5).filter(move |&j| j != i).map(move |j| (i, j))),
+                );
 
                 let mut components = $scc(&graph, &transposed_graph, no_logging![]);
 
@@ -170,10 +150,7 @@ macro_rules! test_scc_algo {
             #[test]
             fn test_tree() -> Result<()> {
                 let arcs = [(0, 1), (0, 2), (1, 3), (1, 4), (2, 5), (2, 6)];
-                let transposed_arcs = arcs.iter().map(|(a, b)| (*b, *a)).collect::<Vec<_>>();
-
-                let graph = VecGraph::from_arcs(arcs);
-                let transposed_graph = VecGraph::from_arcs(transposed_arcs);
+                let (graph, transposed_graph) = graph_and_transpose(0, arcs);
 
                 let components = $scc(&graph, &transposed_graph, no_logging![]);
 
@@ -191,13 +168,8 @@ test_scc_algo!(sccs::kosaraju, kosaraju);
 #[test]
 #[cfg(not(miri))]
 fn test_large() -> Result<()> {
-    #[cfg(target_pointer_width = "64")]
-    let basename = "../data/cnr-2000";
-    #[cfg(not(target_pointer_width = "64"))]
-    let basename = "../data/cnr-2000_32/cnr-2000";
-
-    let graph = BvGraph::with_basename(basename).load()?;
-    let transpose = BvGraph::with_basename(basename.to_string() + "-t").load()?;
+    let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
+    let transpose = BvGraph::with_basename(common::cnr_2000_t_basename()).load()?;
 
     let kosaraju = sccs::kosaraju(&graph, &transpose, no_logging![]);
     let tarjan = sccs::tarjan(&graph, no_logging![]);
@@ -224,11 +196,7 @@ fn test_er() -> Result<()> {
     for n in (10..=100).step_by(10) {
         for d in 1..10 {
             let graph = VecGraph::from_lender(ErdosRenyi::new(n, (d as f64) / 10.0, 0).iter());
-
-            let transpose = VecGraph::from_lender(
-                transform::transpose_seq(&graph, MemoryUsage::BatchSize(10000), no_logging![])?
-                    .iter(),
-            );
+            let (graph, transpose) = graph_and_transpose(n, graph.iter().into_pairs());
             let kosaraju = sccs::kosaraju(&graph, &transpose, no_logging![]);
             let tarjan = sccs::tarjan(&graph, no_logging![]);
 
@@ -255,15 +223,8 @@ fn test_lozenge() -> Result<()> {
 fn test_er_symm() -> Result<()> {
     for n in (10..=100).step_by(10) {
         for d in 1..10 {
-            let er = ErdosRenyi::new(n, (d as f64) / 10.0, 0).iter();
-            let mut sym_graph = BTreeGraph::new();
-            sym_graph.add_node(n - 1);
-            for_!((src, succ) in er {
-                for dst in succ {
-                    sym_graph.add_arc(src, dst);
-                    sym_graph.add_arc(dst, src);
-                }
-            });
+            let er = VecGraph::from_lender(ErdosRenyi::new(n, (d as f64) / 10.0, 0).iter());
+            let sym_graph = symm_graph(n, er.iter().into_pairs());
             let symm_par = sccs::symm_par(&sym_graph, no_logging![]);
             let symm_seq = sccs::symm_seq(&sym_graph, no_logging![]);
             let tarjan = sccs::tarjan(sym_graph, no_logging![]);

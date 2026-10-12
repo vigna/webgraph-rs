@@ -161,6 +161,8 @@ use sync_cell_slice::{SyncCell, SyncSlice};
 use webgraph::traits::{RandomAccessGraph, SequentialLabeling};
 use webgraph::utils::Granularity;
 
+use crate::utils::{assert_transpose, check_transpose};
+
 /// Default node granularity for HyperBall parallel tasks.
 pub const DEFAULT_GRANULARITY: usize = 16 * 1024;
 
@@ -596,22 +598,7 @@ impl<
         log2m: u32,
         weights: Option<&'a [usize]>,
     ) -> Result<Self> {
-        let num_elements = match weights {
-            Some(w) => w
-                .iter()
-                .try_fold(0usize, |a, &x| a.checked_add(x))
-                .context("The sum of the HyperBall weights overflows usize")?,
-            None => graph.num_nodes(),
-        };
-        // HyperLogLogBuilder panics on a zero upper bound; fail cleanly.
-        ensure!(
-            num_elements > 0,
-            "HyperLogLog counters require a positive number of elements \
-             (the graph is empty or all weights are zero)"
-        );
-        let logic = HyperLogLogBuilder::new(num_elements)
-            .log2_num_regs(log2m)
-            .build()?;
+        let logic = hll_logic(graph.num_nodes(), weights, log2m)?;
         let array_0 = SliceEstimatorArray::new(logic.clone(), graph.num_nodes());
         let array_1 = SliceEstimatorArray::new(logic, graph.num_nodes());
         Self::from_parts(graph, transpose, deg_cumul_func, weights, array_0, array_1)
@@ -703,22 +690,7 @@ impl<
         log2m: u32,
         weights: Option<&'a [usize]>,
     ) -> Result<Self> {
-        let num_elements = match weights {
-            Some(w) => w
-                .iter()
-                .try_fold(0usize, |a, &x| a.checked_add(x))
-                .context("The sum of the HyperBall weights overflows usize")?,
-            None => graph.num_nodes(),
-        };
-        // HyperLogLogBuilder panics on a zero upper bound; fail cleanly.
-        ensure!(
-            num_elements > 0,
-            "HyperLogLog counters require a positive number of elements \
-             (the graph is empty or all weights are zero)"
-        );
-        let logic = HyperLogLogBuilder::new(num_elements)
-            .log2_num_regs(log2m)
-            .build()?;
+        let logic = hll_logic(graph.num_nodes(), weights, log2m)?;
         let backend_len = logic.backend_len();
         let array_0 = SliceEstimatorArray::new(logic, graph.num_nodes());
         let array_1 = SpillStore::new(graph.num_nodes(), backend_len);
@@ -787,33 +759,8 @@ impl<
     ///   `array_0`.
     pub fn new(graph: &'a G, deg_cumul_func: &'a D, array_0: A, array_1: A) -> Self {
         assert!(array_0.logic() == array_1.logic(), "Incompatible logic");
-        assert_eq!(
-            graph.num_nodes(),
-            array_0.len(),
-            "array_0 should have length {}. Got {}",
-            graph.num_nodes(),
-            array_0.len()
-        );
-        assert_eq!(
-            graph.num_nodes(),
-            array_1.len(),
-            "array_1 should have length {}. Got {}",
-            graph.num_nodes(),
-            array_1.len()
-        );
-        Self {
-            graph,
-            transpose: None,
-            deg_cumul_func,
-            do_sum_of_dists: false,
-            do_sum_of_inv_dists: false,
-            discount_functions: Vec::new(),
-            granularity: Self::DEFAULT_GRANULARITY,
-            weights: None,
-            array_0,
-            array_1,
-            _marker: std::marker::PhantomData,
-        }
+        assert_array_lens(graph.num_nodes(), array_0.len(), array_1.len());
+        Self::from_parts_unchecked(graph, None, deg_cumul_func, None, array_0, array_1)
     }
 }
 
@@ -842,47 +789,16 @@ impl<
         array_0: A,
         array_1: A,
     ) -> Self {
-        assert_eq!(
-            graph.num_nodes(),
-            array_0.len(),
-            "array_0 should have len {}. Got {}",
-            graph.num_nodes(),
-            array_0.len()
-        );
-        assert_eq!(
-            graph.num_nodes(),
-            array_1.len(),
-            "array_1 should have len {}. Got {}",
-            graph.num_nodes(),
-            array_1.len()
-        );
-        assert_eq!(
-            transpose.num_nodes(),
-            graph.num_nodes(),
-            "the transpose should have same number of nodes of the graph ({}). Got {}.",
-            graph.num_nodes(),
-            transpose.num_nodes()
-        );
-        assert_eq!(
-            transpose.num_arcs(),
-            graph.num_arcs(),
-            "the transpose should have same number of arcs of the graph ({}). Got {}.",
-            graph.num_arcs(),
-            transpose.num_arcs()
-        );
-        Self {
+        assert_array_lens(graph.num_nodes(), array_0.len(), array_1.len());
+        assert_transpose(graph, transpose);
+        Self::from_parts_unchecked(
             graph,
-            transpose: Some(transpose),
+            Some(transpose),
             deg_cumul_func,
-            do_sum_of_dists: false,
-            do_sum_of_inv_dists: false,
-            discount_functions: Vec::new(),
-            granularity: Self::DEFAULT_GRANULARITY,
-            weights: None,
+            None,
             array_0,
             array_1,
-            _marker: std::marker::PhantomData,
-        }
+        )
     }
 }
 
@@ -913,20 +829,29 @@ impl<
             );
         }
         if let Some(t) = transpose {
-            ensure!(
-                t.num_nodes() == graph.num_nodes(),
-                "the transpose should have the same number of nodes as the graph ({}), got {}",
-                graph.num_nodes(),
-                t.num_nodes()
-            );
-            ensure!(
-                t.num_arcs() == graph.num_arcs(),
-                "the transpose should have the same number of arcs as the graph ({}), got {}",
-                graph.num_arcs(),
-                t.num_arcs()
-            );
+            check_transpose(graph, t)?;
         }
-        Ok(Self {
+        Ok(Self::from_parts_unchecked(
+            graph,
+            transpose,
+            deg_cumul_func,
+            weights,
+            array_0,
+            array_1,
+        ))
+    }
+
+    /// Creates a builder with default parameters, without checking the
+    /// arguments.
+    fn from_parts_unchecked(
+        graph: &'a G1,
+        transpose: Option<&'a G2>,
+        deg_cumul_func: &'a D,
+        weights: Option<&'a [usize]>,
+        array_0: A,
+        array_1: N,
+    ) -> Self {
+        Self {
             graph,
             transpose,
             deg_cumul_func,
@@ -938,7 +863,7 @@ impl<
             array_0,
             array_1,
             _marker: std::marker::PhantomData,
-        })
+        }
     }
 
     /// Sets whether to compute the sum of distances.
@@ -1112,6 +1037,56 @@ impl<
             _marker: std::marker::PhantomData,
         }
     }
+}
+
+/// Builds the [`HyperLogLog`] logic for a graph with the given number of
+/// nodes and, optionally, weights.
+///
+/// The number of elements of the counters is the number of nodes, or the sum
+/// of the weights, if any.
+fn hll_logic(
+    num_nodes: usize,
+    weights: Option<&[usize]>,
+    log2m: u32,
+) -> Result<HyperLogLog<usize, BuildHasherDefault<DefaultHasher>>> {
+    let num_elements = match weights {
+        Some(w) => w
+            .iter()
+            .try_fold(0usize, |a, &x| a.checked_add(x))
+            .context("The sum of the HyperBall weights overflows usize")?,
+        None => num_nodes,
+    };
+    // HyperLogLogBuilder panics on a zero upper bound; fail cleanly.
+    ensure!(
+        num_elements > 0,
+        "HyperLogLog counters require a positive number of elements \
+         (the graph is empty or all weights are zero)"
+    );
+    Ok(HyperLogLogBuilder::new(num_elements)
+        .log2_num_regs(log2m)
+        .build()?)
+}
+
+/// Panics if the two estimator arrays do not contain one estimator per node.
+fn assert_array_lens(num_nodes: usize, len_0: usize, len_1: usize) {
+    assert_eq!(
+        num_nodes, len_0,
+        "array_0 should have length {num_nodes}. Got {len_0}"
+    );
+    assert_eq!(
+        num_nodes, len_1,
+        "array_1 should have length {num_nodes}. Got {len_1}"
+    );
+}
+
+/// Adds a value to the content of a cell, rounding the result to an `f32`.
+///
+/// # Safety
+///
+/// No other thread may access the cell concurrently.
+#[inline(always)]
+unsafe fn add_f32(cell: &SyncCell<f32>, value: f64) {
+    unsafe { cell.set((cell.get() as f64 + value) as f32) }
 }
 
 /// Data shared by the threads running [`parallel_task`].
@@ -1372,16 +1347,20 @@ where
         Ok(&self.neighborhood_function)
     }
 
+    /// Returns the sum of distances, or an error mentioning `what` if they were
+    /// not requested.
+    fn sum_of_dists_for(&self, what: &str) -> Result<&[f32]> {
+        self.ensure_iteration()?;
+        self.sum_of_dists.as_deref().with_context(|| {
+            format!(
+                "Sum of distances were not requested: use builder.sum_of_distances(true) while building HyperBall to compute {what}"
+            )
+        })
+    }
+
     /// Returns the sum of distances computed by this instance if requested.
     pub fn sum_of_distances(&self) -> Result<&[f32]> {
-        self.ensure_iteration()?;
-        if let Some(distances) = &self.sum_of_dists {
-            Ok(distances)
-        } else {
-            bail!(
-                "Sum of distances were not requested: use builder.sum_of_distances(true) while building HyperBall to compute them"
-            )
-        }
+        self.sum_of_dists_for("them")
     }
 
     /// Returns the harmonic centralities (sum of inverse distances) computed by this instance if requested.
@@ -1412,63 +1391,45 @@ where
 
     /// Computes and returns the closeness centralities from the sum of distances computed by this instance.
     pub fn closeness_centrality(&self) -> Result<Box<[f32]>> {
-        self.ensure_iteration()?;
-        if let Some(distances) = &self.sum_of_dists {
-            Ok(distances
-                .iter()
-                .map(|&d| if d == 0.0 { 0.0 } else { d.recip() })
-                .collect())
-        } else {
-            bail!(
-                "Sum of distances were not requested: use builder.sum_of_distances(true) while building HyperBall to compute closeness centrality"
-            )
-        }
+        Ok(self
+            .sum_of_dists_for("closeness centrality")?
+            .iter()
+            .map(|&d| if d == 0.0 { 0.0 } else { d.recip() })
+            .collect())
     }
 
     /// Computes and returns the Lin centralities from the sum of distances computed by this instance.
     ///
     /// Note that Lin's index for isolated nodes is by (our) definition one (it's smaller than any other node).
     pub fn lin_centrality(&self) -> Result<Box<[f32]>> {
-        self.ensure_iteration()?;
-        if let Some(distances) = &self.sum_of_dists {
-            let logic = self.curr_state.logic();
-            Ok(distances
-                .iter()
-                .enumerate()
-                .map(|(node, &d)| {
-                    if d == 0.0 {
-                        1.0
-                    } else {
-                        let count = logic.estimate(self.curr_state.get_backend(node));
-                        (count * count / d as f64) as f32
-                    }
-                })
-                .collect())
-        } else {
-            bail!(
-                "Sum of distances were not requested: use builder.sum_of_distances(true) while building HyperBall to compute Lin centrality"
-            )
-        }
+        let distances = self.sum_of_dists_for("Lin centrality")?;
+        let logic = self.curr_state.logic();
+        Ok(distances
+            .iter()
+            .enumerate()
+            .map(|(node, &d)| {
+                if d == 0.0 {
+                    1.0
+                } else {
+                    let count = logic.estimate(self.curr_state.get_backend(node));
+                    (count * count / d as f64) as f32
+                }
+            })
+            .collect())
     }
 
     /// Computes and returns the Nieminen centralities from the sum of distances computed by this instance.
     pub fn nieminen_centrality(&self) -> Result<Box<[f32]>> {
-        self.ensure_iteration()?;
-        if let Some(distances) = &self.sum_of_dists {
-            let logic = self.curr_state.logic();
-            Ok(distances
-                .iter()
-                .enumerate()
-                .map(|(node, &d)| {
-                    let count = logic.estimate(self.curr_state.get_backend(node));
-                    ((count * count) - d as f64) as f32
-                })
-                .collect())
-        } else {
-            bail!(
-                "Sum of distances were not requested: use builder.sum_of_distances(true) while building HyperBall to compute Nieminen centrality"
-            )
-        }
+        let distances = self.sum_of_dists_for("Nieminen centrality")?;
+        let logic = self.curr_state.logic();
+        Ok(distances
+            .iter()
+            .enumerate()
+            .map(|(node, &d)| {
+                let count = logic.estimate(self.curr_state.get_backend(node));
+                ((count * count) - d as f64) as f32
+            })
+            .collect())
     }
 
     /// Reads from the internal estimator array and estimates the number of nodes
@@ -1805,33 +1766,20 @@ where
                     let delta = post - pre;
                     // Note that this code is executed only for distances > 0
                     if delta > 0.0 {
+                        // SAFETY (for all add_f32 calls): each node is
+                        // accessed exactly once per iteration.
                         if let Some(distances) = sum_of_dists {
-                            let new_value = delta * (ic.iteration + 1) as f64;
-                            // SAFETY: each node is accessed exactly once per iteration.
-                            unsafe {
-                                distances[node]
-                                    .set((distances[node].get() as f64 + new_value) as f32)
-                            };
+                            unsafe { add_f32(&distances[node], delta * (ic.iteration + 1) as f64) };
                         }
                         if let Some(distances) = sum_of_inv_dists {
-                            let new_value = delta / (ic.iteration + 1) as f64;
-                            // SAFETY: each node is accessed exactly once per iteration.
-                            unsafe {
-                                distances[node]
-                                    .set((distances[node].get() as f64 + new_value) as f32)
-                            };
+                            unsafe { add_f32(&distances[node], delta / (ic.iteration + 1) as f64) };
                         }
                         for (func, distances) in ic
                             .discount_functions
                             .iter()
                             .zip(discounted_centralities.iter())
                         {
-                            let new_value = delta * func(ic.iteration + 1);
-                            // SAFETY: each node is accessed exactly once per iteration.
-                            unsafe {
-                                distances[node]
-                                    .set((distances[node].get() as f64 + new_value) as f32)
-                            };
+                            unsafe { add_f32(&distances[node], delta * func(ic.iteration + 1)) };
                         }
                     }
                 }
@@ -1956,6 +1904,36 @@ where
         let local_batch =
             (broadcast_context.num_threads() * LOCAL_BATCH_PER_THREAD).max(LOCAL_BATCH_MIN);
 
+        // Processes a node, accumulating statistics; a macro, rather than a
+        // closure, because the type of the successors depends on the access
+        // mode.
+        macro_rules! process_node {
+            ($node:expr, $successors:expr) => {{
+                let (va, me, sa) = Self::process_node(
+                    $node,
+                    $successors,
+                    transpose,
+                    curr_state,
+                    next_state,
+                    ic,
+                    curr_modified,
+                    sum_of_dists,
+                    sum_of_inv_dists,
+                    discounted_centralities,
+                    do_centrality,
+                    &mut next_estimator,
+                    &mut helper,
+                    arc_pl,
+                    &mut neighborhood_function_delta,
+                    local_next_must_be_checked,
+                );
+                visited_arcs += va;
+                modified_estimators += me;
+                scanned_arcs += sa;
+                max_node_arcs = max_node_arcs.max(sa);
+            }};
+        }
+
         loop {
             // Get work
             let (start, end) = if ic.local {
@@ -1997,55 +1975,12 @@ where
             // iterations use sequential decoding via iter_from() for
             // much faster access to compressed graphs.
             if ic.local {
-                for i in start..end {
-                    let node = ic.local_checklist[i];
-                    let (va, me, sa) = Self::process_node(
-                        node,
-                        graph.successors(node),
-                        transpose,
-                        curr_state,
-                        next_state,
-                        ic,
-                        curr_modified,
-                        sum_of_dists,
-                        sum_of_inv_dists,
-                        discounted_centralities,
-                        do_centrality,
-                        &mut next_estimator,
-                        &mut helper,
-                        arc_pl,
-                        &mut neighborhood_function_delta,
-                        local_next_must_be_checked,
-                    );
-                    visited_arcs += va;
-                    modified_estimators += me;
-                    scanned_arcs += sa;
-                    max_node_arcs = max_node_arcs.max(sa);
+                for &node in &ic.local_checklist[start..end] {
+                    process_node!(node, graph.successors(node));
                 }
             } else {
                 for_![(node, successors) in graph.iter_from(start).take(end - start) {
-                    let (va, me, sa) = Self::process_node(
-                        node,
-                        successors,
-                        transpose,
-                        curr_state,
-                        next_state,
-                        ic,
-                        curr_modified,
-                        sum_of_dists,
-                        sum_of_inv_dists,
-                        discounted_centralities,
-                        do_centrality,
-                        &mut next_estimator,
-                        &mut helper,
-                        arc_pl,
-                        &mut neighborhood_function_delta,
-                        local_next_must_be_checked,
-                    );
-                    visited_arcs += va;
-                    modified_estimators += me;
-                    scanned_arcs += sa;
-                    max_node_arcs = max_node_arcs.max(sa);
+                    process_node!(node, successors);
                 }]
             }
         }
@@ -2105,22 +2040,14 @@ where
                 .node_granularity(self.graph.num_nodes(), Some(self.graph.num_arcs())),
         );
 
-        pl.debug(format_args!("Initializing distances"));
-        if let Some(distances) = &mut self.sum_of_dists {
-            distances
-                .par_iter_mut()
-                .with_min_len(sux::RAYON_MIN_LEN)
-                .for_each(|d| *d = 0.0);
-        }
-        if let Some(distances) = &mut self.sum_of_inv_dists {
-            distances
-                .par_iter_mut()
-                .with_min_len(sux::RAYON_MIN_LEN)
-                .for_each(|d| *d = 0.0);
-        }
-        pl.debug(format_args!("Initializing centralities"));
-        for centralities in self.discounted_centralities.iter_mut() {
-            centralities
+        pl.debug(format_args!("Initializing distances and centralities"));
+        for values in self
+            .sum_of_dists
+            .iter_mut()
+            .chain(self.sum_of_inv_dists.iter_mut())
+            .chain(self.discounted_centralities.iter_mut())
+        {
+            values
                 .par_iter_mut()
                 .with_min_len(sux::RAYON_MIN_LEN)
                 .for_each(|d| *d = 0.0);
@@ -2160,12 +2087,17 @@ mod test {
         traits::SequentialLabeling,
     };
 
-    /// Generates a parallel-vs-sequential HyperBall comparison test for a
-    /// given estimation logic. The macro is needed because the backend word
-    /// type (`usize` vs `u8`) differs between `HyperLogLog` and
-    /// `HyperLogLog8`, preventing a single generic function.
+    /// Generates a parallel-vs-sequential HyperBall comparison test on
+    /// cnr-2000.
+    ///
+    /// `$make` receives the graph, its transpose, its DCF, and its number of
+    /// nodes, and returns a [`HyperBall`] and a copy of its estimation logic.
+    /// If `next_state` is specified, the next state is compared, too (this is
+    /// not possible with external output stores). The macro is needed because
+    /// the backend word type (`usize` vs `u8`) differs between `HyperLogLog`
+    /// and `HyperLogLog8`, preventing a single generic function.
     macro_rules! cnr_2000_test {
-        ($name:ident, $make_logic:expr) => {
+        ($name:ident, $make:expr $(, $next_state:ident)?) => {
             #[cfg_attr(feature = "slow_tests", test)]
             #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
             fn $name() -> Result<()> {
@@ -2185,36 +2117,14 @@ mod test {
                     unsafe { DCF::load_mmap(basename.to_owned() + ".dcf", Flags::empty()) }?;
                 let num_nodes = graph.num_nodes();
 
-                let logic = ($make_logic)(num_nodes)?;
-
-                let seq_bits = SliceEstimatorArray::new(logic.clone(), num_nodes);
-                let seq_result_bits = SliceEstimatorArray::new(logic.clone(), num_nodes);
-                let par_bits = SliceEstimatorArray::new(logic.clone(), num_nodes);
-                let par_result_bits = SliceEstimatorArray::new(logic, num_nodes);
-
-                let mut hyperball = HyperBallBuilder::with_transpose(
-                    &graph,
-                    &transpose,
-                    deg_cumul_func.uncase(),
-                    par_bits,
-                    par_result_bits,
-                )
-                .build(no_logging![]);
+                let (mut hyperball, logic) =
+                    ($make)(&graph, &transpose, deg_cumul_func.uncase(), num_nodes)?;
 
                 // Sequential reference implementation
-                struct SeqState<A> {
-                    curr: A,
-                    next: A,
-                }
-
-                let mut seq = SeqState {
-                    curr: seq_bits,
-                    next: seq_result_bits,
-                };
-
-                // Init
+                let mut seq_curr = SliceEstimatorArray::new(logic.clone(), num_nodes);
+                let mut seq_next = SliceEstimatorArray::new(logic, num_nodes);
                 for i in 0..num_nodes {
-                    seq.curr.get_estimator_mut(i).add(&i);
+                    seq_curr.get_estimator_mut(i).add(&i);
                 }
 
                 let mut modified_estimators = num_nodes as u64;
@@ -2224,15 +2134,14 @@ mod test {
                 while modified_estimators != 0 {
                     hyperball.iterate(no_logging![])?;
 
-                    // Sequential iterate
                     for i in 0..num_nodes {
-                        let mut estimator = seq.next.get_estimator_mut(i);
-                        estimator.set(seq.curr.get_backend(i));
+                        let mut estimator = seq_next.get_estimator_mut(i);
+                        estimator.set(seq_curr.get_backend(i));
                         for succ in graph.successors(i) {
-                            estimator.merge(seq.curr.get_backend(succ));
+                            estimator.merge(seq_curr.get_backend(succ));
                         }
                     }
-                    std::mem::swap(&mut seq.curr, &mut seq.next);
+                    std::mem::swap(&mut seq_curr, &mut seq_next);
 
                     modified_estimators = hyperball
                         .iteration_context
@@ -2241,14 +2150,16 @@ mod test {
 
                     // Compare per-node backends
                     for i in 0..num_nodes {
-                        assert_eq!(
-                            hyperball.next_state.get_backend(i),
-                            seq.next.get_backend(i),
-                            "next_state mismatch at node {i}"
-                        );
+                        $(
+                            assert_eq!(
+                                hyperball.$next_state.get_backend(i),
+                                seq_next.get_backend(i),
+                                "next_state mismatch at node {i}"
+                            );
+                        )?
                         assert_eq!(
                             hyperball.curr_state.get_backend(i),
-                            seq.curr.get_backend(i),
+                            seq_curr.get_backend(i),
                             "curr_state mismatch at node {i}"
                         );
                     }
@@ -2259,113 +2170,58 @@ mod test {
         };
     }
 
-    #[cfg(not(miri))]
-    cnr_2000_test!(test_cnr_2000, |n| HyperLogLogBuilder::new(n)
-        .log2_num_regs(6)
-        .build());
+    cnr_2000_test!(
+        test_cnr_2000,
+        |graph, transpose, dcf, n| {
+            let logic = HyperLogLogBuilder::new(n)
+                .log2_num_regs(6)
+                .build::<usize>()?;
+            let hb = HyperBallBuilder::with_transpose(
+                graph,
+                transpose,
+                dcf,
+                SliceEstimatorArray::new(logic.clone(), n),
+                SliceEstimatorArray::new(logic.clone(), n),
+            )
+            .build(no_logging![]);
+            Ok::<_, anyhow::Error>((hb, logic))
+        },
+        next_state
+    );
 
-    #[cfg(not(miri))]
-    cnr_2000_test!(test_cnr_2000_hll8, |_| Ok::<_, anyhow::Error>(
-        HyperLogLog8Builder::new().log2_num_regs(6).build::<usize>()
-    ));
+    cnr_2000_test!(
+        test_cnr_2000_hll8,
+        |graph, transpose, dcf, n| {
+            let logic = HyperLogLog8Builder::new().log2_num_regs(6).build::<usize>();
+            let hb = HyperBallBuilder::with_transpose(
+                graph,
+                transpose,
+                dcf,
+                SliceEstimatorArray::new(logic.clone(), n),
+                SliceEstimatorArray::new(logic.clone(), n),
+            )
+            .build(no_logging![]);
+            Ok::<_, anyhow::Error>((hb, logic))
+        },
+        next_state
+    );
 
-    macro_rules! cnr_2000_external_test {
-        ($name:ident, $make_builder:expr) => {
-            #[cfg_attr(feature = "slow_tests", test)]
-            #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
-            fn $name() -> Result<()> {
-                #[cfg(target_pointer_width = "64")]
-                let basename = "../data/cnr-2000";
-                #[cfg(not(target_pointer_width = "64"))]
-                let basename = "../data/cnr-2000_32/cnr-2000";
-
-                #[cfg(target_pointer_width = "64")]
-                let basename_t = "../data/cnr-2000-t";
-                #[cfg(not(target_pointer_width = "64"))]
-                let basename_t = "../data/cnr-2000_32/cnr-2000-t";
-
-                let graph = BvGraph::with_basename(basename).load()?;
-                let transpose = BvGraph::with_basename(basename_t).load()?;
-                let deg_cumul_func =
-                    unsafe { DCF::load_mmap(basename.to_owned() + ".dcf", Flags::empty()) }?;
-                let num_nodes = graph.num_nodes();
-
-                let logic =
-                    ($make_builder)(&graph, &transpose, deg_cumul_func.uncase(), num_nodes)?;
-                let (mut hyperball, seq_logic) = logic;
-
-                let seq_bits = SliceEstimatorArray::new(seq_logic.clone(), num_nodes);
-                let seq_result_bits = SliceEstimatorArray::new(seq_logic, num_nodes);
-
-                struct SeqState<A> {
-                    curr: A,
-                    next: A,
-                }
-
-                let mut seq = SeqState {
-                    curr: seq_bits,
-                    next: seq_result_bits,
-                };
-
-                for i in 0..num_nodes {
-                    seq.curr.get_estimator_mut(i).add(&i);
-                }
-
-                let mut modified_estimators = num_nodes as u64;
-                let mut rng = rand::rngs::SmallRng::seed_from_u64(42);
-                hyperball.init(&mut rng, no_logging![])?;
-
-                while modified_estimators != 0 {
-                    hyperball.iterate(no_logging![])?;
-
-                    for i in 0..num_nodes {
-                        let mut estimator = seq.next.get_estimator_mut(i);
-                        estimator.set(seq.curr.get_backend(i));
-                        for succ in graph.successors(i) {
-                            estimator.merge(seq.curr.get_backend(succ));
-                        }
-                    }
-                    std::mem::swap(&mut seq.curr, &mut seq.next);
-
-                    modified_estimators = hyperball
-                        .iteration_context
-                        .modified_estimators
-                        .load(Ordering::Relaxed);
-
-                    for i in 0..num_nodes {
-                        assert_eq!(
-                            hyperball.curr_state.get_backend(i),
-                            seq.curr.get_backend(i),
-                            "curr_state mismatch at node {i}"
-                        );
-                    }
-                }
-
-                Ok(())
-            }
-        };
-    }
-
-    #[cfg(not(miri))]
-    cnr_2000_external_test!(test_cnr_2000_external, |graph, transpose, dcf, n| {
+    cnr_2000_test!(test_cnr_2000_external, |graph, transpose, dcf, n| {
         let logic = HyperLogLogBuilder::new(n)
             .log2_num_regs(6)
             .build::<usize>()?;
-        let seq_logic = logic.clone();
         let hb =
             HyperBallBuilder::with_hyper_log_log_external(graph, Some(transpose), dcf, 6, None)?
                 .build(no_logging![]);
-        Ok::<_, anyhow::Error>((hb, seq_logic))
+        Ok::<_, anyhow::Error>((hb, logic))
     });
 
-    #[cfg(not(miri))]
-    cnr_2000_external_test!(test_cnr_2000_hll8_external, |graph, transpose, dcf, _n| {
+    cnr_2000_test!(test_cnr_2000_hll8_external, |graph, transpose, dcf, _n| {
         let logic = HyperLogLog8Builder::new().log2_num_regs(6).build::<usize>();
-        let seq_logic = logic.clone();
         let hb =
             HyperBallBuilder::with_hyper_log_log8_external(graph, Some(transpose), dcf, 6, None)?
                 .build(no_logging![]);
-        Ok::<_, anyhow::Error>((hb, seq_logic))
+        Ok::<_, anyhow::Error>((hb, logic))
     });
 
     #[test]
@@ -2501,101 +2357,63 @@ mod test {
         Ok(())
     }
 
-    #[test]
-    #[cfg(not(miri))]
-    fn test_spill_store_vs_in_memory() -> Result<()> {
-        use webgraph::graphs::vec_graph::VecGraph;
-        let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
-        let deg_cumul_func = graph.build_dcf();
+    /// Generates a test comparing the results of HyperBall with an in-memory
+    /// and with an external output store, built by the given constructors.
+    macro_rules! spill_store_test {
+        ($name:ident, $mem:ident, $ext:ident, $seed:expr) => {
+            #[test]
+            fn $name() -> Result<()> {
+                use webgraph::graphs::vec_graph::VecGraph;
+                let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
+                let deg_cumul_func = graph.build_dcf();
 
-        let mut rng_mem = rand::rngs::SmallRng::seed_from_u64(0);
-        let mut rng_ext = rand::rngs::SmallRng::seed_from_u64(0);
+                let mut hb_mem =
+                    HyperBallBuilder::$mem(&graph, None::<&VecGraph>, &deg_cumul_func, 6, None)?
+                        .build(no_logging![]);
+                let mut hb_ext =
+                    HyperBallBuilder::$ext(&graph, None::<&VecGraph>, &deg_cumul_func, 6, None)?
+                        .build(no_logging![]);
 
-        let mut hb_mem = HyperBallBuilder::with_hyper_log_log(
-            &graph,
-            None::<&VecGraph>,
-            &deg_cumul_func,
-            6,
-            None,
-        )?
-        .build(no_logging![]);
+                let mut rng_mem = rand::rngs::SmallRng::seed_from_u64($seed);
+                let mut rng_ext = rand::rngs::SmallRng::seed_from_u64($seed);
+                hb_mem.run_until_done(&mut rng_mem, no_logging![])?;
+                hb_ext.run_until_done(&mut rng_ext, no_logging![])?;
 
-        let mut hb_ext = HyperBallBuilder::with_hyper_log_log_external(
-            &graph,
-            None::<&VecGraph>,
-            &deg_cumul_func,
-            6,
-            None,
-        )?
-        .build(no_logging![]);
+                let nf_mem = hb_mem.neighborhood_function()?;
+                let nf_ext = hb_ext.neighborhood_function()?;
 
-        hb_mem.run_until_done(&mut rng_mem, no_logging![])?;
-        hb_ext.run_until_done(&mut rng_ext, no_logging![])?;
+                assert_eq!(nf_mem.len(), nf_ext.len());
+                for (m, e) in nf_mem.iter().zip(nf_ext.iter()) {
+                    assert!(
+                        (m - e).abs() < 1e-6,
+                        "neighborhood function mismatch: {m} vs {e}"
+                    );
+                }
 
-        let nf_mem = hb_mem.neighborhood_function()?;
-        let nf_ext = hb_ext.neighborhood_function()?;
+                for i in 0..graph.num_nodes() {
+                    assert_eq!(
+                        hb_mem.curr_state.get_backend(i),
+                        hb_ext.curr_state.get_backend(i),
+                        "backend mismatch at node {i}"
+                    );
+                }
 
-        assert_eq!(nf_mem.len(), nf_ext.len());
-        for (m, e) in nf_mem.iter().zip(nf_ext.iter()) {
-            assert!(
-                (m - e).abs() < 1e-6,
-                "neighborhood function mismatch: {m} vs {e}"
-            );
-        }
-
-        for i in 0..graph.num_nodes() {
-            assert_eq!(
-                hb_mem.curr_state.get_backend(i),
-                hb_ext.curr_state.get_backend(i),
-                "backend mismatch at node {i}"
-            );
-        }
-
-        Ok(())
+                Ok(())
+            }
+        };
     }
 
-    #[test]
-    #[cfg(not(miri))]
-    fn test_spill_store_hll8() -> Result<()> {
-        use webgraph::graphs::vec_graph::VecGraph;
-        let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
-        let deg_cumul_func = graph.build_dcf();
+    spill_store_test!(
+        test_spill_store_vs_in_memory,
+        with_hyper_log_log,
+        with_hyper_log_log_external,
+        0
+    );
 
-        let mut rng_mem = rand::rngs::SmallRng::seed_from_u64(42);
-        let mut rng_ext = rand::rngs::SmallRng::seed_from_u64(42);
-
-        let mut hb_mem = HyperBallBuilder::with_hyper_log_log8(
-            &graph,
-            None::<&VecGraph>,
-            &deg_cumul_func,
-            6,
-            None,
-        )?
-        .build(no_logging![]);
-
-        let mut hb_ext = HyperBallBuilder::with_hyper_log_log8_external(
-            &graph,
-            None::<&VecGraph>,
-            &deg_cumul_func,
-            6,
-            None,
-        )?
-        .build(no_logging![]);
-
-        hb_mem.run_until_done(&mut rng_mem, no_logging![])?;
-        hb_ext.run_until_done(&mut rng_ext, no_logging![])?;
-
-        let nf_mem = hb_mem.neighborhood_function()?;
-        let nf_ext = hb_ext.neighborhood_function()?;
-
-        assert_eq!(nf_mem.len(), nf_ext.len());
-        for (m, e) in nf_mem.iter().zip(nf_ext.iter()) {
-            assert!(
-                (m - e).abs() < 1e-6,
-                "neighborhood function mismatch: {m} vs {e}"
-            );
-        }
-
-        Ok(())
-    }
+    spill_store_test!(
+        test_spill_store_hll8,
+        with_hyper_log_log8,
+        with_hyper_log_log8_external,
+        42
+    );
 }

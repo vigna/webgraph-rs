@@ -99,7 +99,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         args.beta
     );
 
-    let graph_endianness = get_endianness(&args.graph)?.clone();
+    let graph_endianness = get_endianness(&args.graph)?;
     let transpose_endianness = get_endianness(&args.transpose)?;
     ensure!(
         graph_endianness == transpose_endianness,
@@ -108,13 +108,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         transpose_endianness
     );
 
-    match graph_endianness.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => birank::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => birank::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.graph, |E| birank::<E>(args))
 }
 
 fn run_and_store<
@@ -186,20 +180,20 @@ where
         predicate = predicate.or(MaxIter::from(max_iter)).boxed();
     }
 
-    // Configure and run BiRank
-    if let Some(pref) = &preference {
-        let mut br = BiRank::new(&graph, &transpose, args.num_sources).preference(pref.as_slice());
-        br.alpha(args.alpha)
-            .beta(args.beta)
-            .granularity(args.granularity.into_granularity());
-        run_and_store(&mut br, predicate, &mut pl, &thread_pool, &args)?;
-    } else {
-        let mut br = BiRank::new(&graph, &transpose, args.num_sources);
-        br.alpha(args.alpha)
-            .beta(args.beta)
-            .granularity(args.granularity.into_granularity());
-        run_and_store(&mut br, predicate, &mut pl, &thread_pool, &args)?;
+    // Configures and runs BiRank
+    macro_rules! configure_and_run {
+        ($br:expr) => {{
+            let mut br = $br;
+            br.alpha(args.alpha)
+                .beta(args.beta)
+                .granularity(args.granularity.into_granularity());
+            run_and_store(&mut br, predicate, &mut pl, &thread_pool, &args)
+        }};
     }
 
-    Ok(())
+    let br = BiRank::new(&graph, &transpose, args.num_sources);
+    match &preference {
+        Some(pref) => configure_and_run!(br.preference(pref.as_slice())),
+        None => configure_and_run!(br),
+    }
 }

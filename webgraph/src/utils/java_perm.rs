@@ -72,21 +72,7 @@ impl<M> BitWidth for JavaPermutation<M> {
     }
 }
 
-impl SliceByValue for JavaPermutation {
-    type Value = usize;
-    #[inline(always)]
-    fn len(&self) -> usize {
-        self.perm.as_ref().len()
-    }
-    #[inline(always)]
-    unsafe fn get_value_unchecked(&self, index: usize) -> usize {
-        // SAFETY: the caller guarantees that index is within bounds.
-        u64::from_be_bytes(unsafe { self.perm.as_ref().get_unchecked(index).to_ne_bytes() })
-            as usize
-    }
-}
-
-impl SliceByValue for JavaPermutation<MmapHelper<u64, MmapMut>> {
+impl<M: AsRef<[u64]>> SliceByValue for JavaPermutation<M> {
     type Value = usize;
     #[inline(always)]
     fn len(&self) -> usize {
@@ -127,13 +113,7 @@ impl SliceByValueMut for JavaPermutation<MmapHelper<u64, MmapMut>> {
     }
 }
 
-impl AsRef<[u64]> for JavaPermutation {
-    fn as_ref(&self) -> &[u64] {
-        self.perm.as_ref()
-    }
-}
-
-impl AsRef<[u64]> for JavaPermutation<MmapHelper<u64, MmapMut>> {
+impl<M: AsRef<[u64]>> AsRef<[u64]> for JavaPermutation<M> {
     fn as_ref(&self) -> &[u64] {
         self.perm.as_ref()
     }

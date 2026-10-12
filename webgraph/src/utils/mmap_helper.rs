@@ -81,7 +81,7 @@ impl<W> TryFrom<Mmap> for MmapHelper<W> {
     }
 }
 
-impl<W> MmapHelper<W> {
+impl<W, M> MmapHelper<W, M> {
     /// Returns the size of the memory mapping in `W`'s.
     #[inline(always)]
     pub const fn len(&self) -> usize {
@@ -94,7 +94,9 @@ impl<W> MmapHelper<W> {
         // make clippy happy
         self.len == 0
     }
+}
 
+impl<W> MmapHelper<W> {
     /// Maps a file into memory (read-only).
     ///
     /// # Arguments
@@ -242,14 +244,7 @@ impl<W> MmapHelper<W, MmapMut> {
     }
 }
 
-impl<W> AsRef<[W]> for MmapHelper<W> {
-    fn as_ref(&self) -> &[W] {
-        // SAFETY: the mmap region is properly aligned and sized for W.
-        unsafe { std::slice::from_raw_parts(self.mmap.as_ptr() as *const W, self.len) }
-    }
-}
-
-impl<W> AsRef<[W]> for MmapHelper<W, MmapMut> {
+impl<W, M: core::ops::Deref<Target = [u8]>> AsRef<[W]> for MmapHelper<W, M> {
     fn as_ref(&self) -> &[W] {
         // SAFETY: the mmap region is properly aligned and sized for W.
         unsafe { std::slice::from_raw_parts(self.mmap.as_ptr() as *const W, self.len) }
@@ -281,7 +276,6 @@ impl<W: Debug> Debug for ArcMmapHelper<W> {
 
 impl<W> AsRef<[W]> for ArcMmapHelper<W> {
     fn as_ref(&self) -> &[W] {
-        // SAFETY: the mmap region is properly aligned and sized for W.
-        unsafe { std::slice::from_raw_parts(self.0.mmap.as_ptr() as *const W, self.0.len) }
+        self.0.as_ref().as_ref()
     }
 }

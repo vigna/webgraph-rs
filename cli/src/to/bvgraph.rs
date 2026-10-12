@@ -12,11 +12,9 @@ use anyhow::Result;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
-use std::time::Duration;
 use value_traits::slices::SliceByValue;
 
 use std::path::PathBuf;
-use tempfile::Builder;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -59,113 +57,60 @@ pub struct CliArgs {
 
 pub fn main(args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
-
-    let target_endianness = args.ca.endianness.clone();
-    match get_endianness(&args.src)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => compress::<BE>(args, target_endianness),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => compress::<LE>(args, target_endianness),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.src, |E| compress::<E>(args))
 }
 
-pub fn compress<E: Endianness>(args: CliArgs, target_endianness: Option<String>) -> Result<()>
+pub fn compress<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Send + Sync + Clone,
 {
-    let dir = Builder::new().prefix("to_bvgraph_").tempdir()?;
-
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
-    let chunk_size = args.ca.chunk_size;
-    let bvgraphz = args.ca.bvgraphz;
-    let sequential = args.sequential;
-    let use_dcf = args.dcf;
-    let src = args.src.clone();
-    let memory_usage = args.memory_usage.memory_usage;
-    let log_interval = args.log_interval.log_interval;
-    let mut builder = BvCompConf::new(&args.dst)
-        .comp_flags(args.ca.into())
-        .tmp_dir(&dir);
-
-    if bvgraphz {
-        builder = builder.chunk_size(chunk_size);
-    }
+    let builder = args.ca.bv_comp_conf(&args.dst);
 
     if let Some(path) = args.permutation.as_ref() {
         let loaded = args.fmt.load(path)?;
-        if sequential {
+        if args.sequential {
             dispatch_int_slice!(loaded, |perm| {
-                compress_seq_with_perm::<E, _>(
-                    thread_pool,
-                    builder,
-                    &src,
-                    target_endianness,
-                    memory_usage,
-                    log_interval,
-                    perm,
-                )
+                compress_seq_with_perm::<E, _>(&args, thread_pool, builder, perm)
             })
         } else {
             dispatch_int_slice!(loaded, |perm| {
-                compress_par_with_perm::<E, _>(
-                    thread_pool,
-                    builder,
-                    &src,
-                    target_endianness,
-                    memory_usage,
-                    use_dcf,
-                    log_interval,
-                    perm,
-                )
+                compress_par_with_perm::<E, _>(&args, thread_pool, builder, perm)
             })
         }
-    } else if sequential {
-        compress_seq_no_perm::<E>(thread_pool, builder, &src, target_endianness, log_interval)
+    } else if args.sequential {
+        compress_seq_no_perm::<E>(&args, thread_pool, builder)
     } else {
-        compress_par_no_perm::<E>(
-            thread_pool,
-            builder,
-            &src,
-            target_endianness,
-            use_dcf,
-            log_interval,
-        )
+        compress_par_no_perm::<E>(&args, thread_pool, builder)
     }
 }
 
 /// Parallel version of [`compress_seq_with_perm`].
-#[allow(clippy::too_many_arguments)]
-pub fn compress_par_with_perm<E: Endianness, P: SliceByValue<Value = usize> + Send + Sync + Clone>(
+fn compress_par_with_perm<E: Endianness, P: SliceByValue<Value = usize> + Send + Sync + Clone>(
+    args: &CliArgs,
     thread_pool: rayon::ThreadPool,
     builder: BvCompConf,
-    src: &std::path::Path,
-    target_endianness: Option<String>,
-    memory_usage: webgraph::utils::MemoryUsage,
-    use_dcf: bool,
-    log_interval: Duration,
     perm: &P,
 ) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Send + Sync + Clone,
 {
-    let te = target_endianness.unwrap_or_else(|| E::NAME.into());
+    let target_endianness = args.ca.target_endianness::<E>();
+    let memory_usage = args.memory_usage.memory_usage;
 
-    let graph = BvGraph::with_basename(src).endianness::<E>().load()?;
+    let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;
     thread_pool.install(|| {
         log::info!("Permuting graph with memory usage {}", memory_usage);
-        let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
+        let mut pl = progress_logger![
+            display_memory = true,
+            log_interval = args.log_interval.log_interval
+        ];
         let start = std::time::Instant::now();
-        let sorted = if use_dcf {
-            use epserde::prelude::*;
-            let dcf_path = src.with_extension(DEG_CUMUL_EXTENSION);
-            let dcf = unsafe { DCF::mmap(&dcf_path, Flags::RANDOM_ACCESS) }?;
-            let num_arcs = graph.num_arcs();
-            let dcf_graph =
-                ParGraph::with_dcf(graph, num_arcs, dcf.uncase(), rayon::current_num_threads());
-            webgraph::transform::permute_par(&dcf_graph, perm, memory_usage, &mut pl)?
+        let sorted = if args.dcf {
+            let par_graph = crate::par_graph(graph, &args.src, true, rayon::current_num_threads())?;
+            webgraph::transform::permute_par(&par_graph, perm, memory_usage, &mut pl)?
         } else {
             webgraph::transform::permute_par(&graph, perm, memory_usage, &mut pl)?
         };
@@ -174,30 +119,33 @@ where
             start.elapsed().as_secs_f64()
         );
         let mut builder = builder.progress_logger(&mut pl);
-        par_comp!(builder, sorted, te)
+        par_comp!(builder, sorted, target_endianness)
     })?;
     Ok(())
 }
 
 /// Sequential version of [`compress_par_with_perm`].
-pub fn compress_seq_with_perm<E: Endianness, P: SliceByValue<Value = usize>>(
+fn compress_seq_with_perm<E: Endianness, P: SliceByValue<Value = usize>>(
+    args: &CliArgs,
     thread_pool: rayon::ThreadPool,
     builder: BvCompConf,
-    src: &std::path::Path,
-    target_endianness: Option<String>,
-    memory_usage: webgraph::utils::MemoryUsage,
-    log_interval: Duration,
     perm: &P,
 ) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
-    let te = target_endianness.unwrap_or_else(|| E::NAME.into());
+    let target_endianness = args.ca.target_endianness::<E>();
+    let memory_usage = args.memory_usage.memory_usage;
 
-    let seq_graph = BvGraphSeq::with_basename(src).endianness::<E>().load()?;
+    let seq_graph = BvGraphSeq::with_basename(&args.src)
+        .endianness::<E>()
+        .load()?;
 
     log::info!("Permuting graph with memory usage {}", memory_usage);
-    let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
+    let mut pl = progress_logger![
+        display_memory = true,
+        log_interval = args.log_interval.log_interval
+    ];
     let start = std::time::Instant::now();
     let permuted = webgraph::transform::permute_seq(&seq_graph, perm, memory_usage, &mut pl)?;
     log::info!(
@@ -206,37 +154,32 @@ where
     );
 
     let mut builder = builder.progress_logger(&mut pl);
-    thread_pool.install(|| par_comp!(builder, permuted, te))?;
+    thread_pool.install(|| par_comp!(builder, permuted, target_endianness))?;
     Ok(())
 }
 
 /// Parallel version of [`compress_seq_no_perm`].
 fn compress_par_no_perm<E: Endianness>(
+    args: &CliArgs,
     thread_pool: rayon::ThreadPool,
     builder: BvCompConf,
-    src: &std::path::Path,
-    target_endianness: Option<String>,
-    use_dcf: bool,
-    log_interval: Duration,
 ) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Send + Sync + Clone,
 {
-    let target_endianness = target_endianness.unwrap_or_else(|| E::NAME.into());
-
-    let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
+    let target_endianness = args.ca.target_endianness::<E>();
+    let mut pl = progress_logger![
+        display_memory = true,
+        log_interval = args.log_interval.log_interval
+    ];
     let mut builder = builder.progress_logger(&mut pl);
 
-    let graph = BvGraph::with_basename(src).endianness::<E>().load()?;
-    if use_dcf {
-        use epserde::prelude::*;
-        let dcf_path = src.with_extension(DEG_CUMUL_EXTENSION);
-        let dcf = unsafe { DCF::mmap(&dcf_path, Flags::RANDOM_ACCESS) }?;
-        let num_arcs = graph.num_arcs();
-        let dcf_graph =
-            ParGraph::with_dcf(graph, num_arcs, dcf.uncase(), rayon::current_num_threads());
-        thread_pool.install(|| par_comp!(builder, &dcf_graph, target_endianness))?;
+    let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;
+    if args.dcf {
+        let par_graph =
+            crate::par_graph(graph, &args.src, true, thread_pool.current_num_threads())?;
+        thread_pool.install(|| par_comp!(builder, &par_graph, target_endianness))?;
     } else {
         thread_pool.install(|| par_comp!(builder, &graph, target_endianness))?;
     }
@@ -245,22 +188,24 @@ where
 
 /// Sequential version of [`compress_par_no_perm`].
 fn compress_seq_no_perm<E: Endianness>(
+    args: &CliArgs,
     thread_pool: rayon::ThreadPool,
     builder: BvCompConf,
-    src: &std::path::Path,
-    target_endianness: Option<String>,
-    log_interval: Duration,
 ) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: Clone + Send + Sync,
 {
-    let target_endianness = target_endianness.unwrap_or_else(|| E::NAME.into());
-
-    let mut pl = progress_logger![display_memory = true, log_interval = log_interval];
+    let target_endianness = args.ca.target_endianness::<E>();
+    let mut pl = progress_logger![
+        display_memory = true,
+        log_interval = args.log_interval.log_interval
+    ];
     let mut builder = builder.progress_logger(&mut pl);
 
-    let seq_graph = BvGraphSeq::with_basename(src).endianness::<E>().load()?;
+    let seq_graph = BvGraphSeq::with_basename(&args.src)
+        .endianness::<E>()
+        .load()?;
     thread_pool.install(|| par_comp!(builder, &seq_graph, target_endianness))?;
     Ok(())
 }

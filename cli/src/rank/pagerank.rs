@@ -13,7 +13,6 @@ use dsi_progress_logger::progress_logger;
 use predicates::prelude::*;
 use std::path::PathBuf;
 use value_traits::slices::SliceByValue;
-use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::prelude::{BvGraph, LoadModeCodesReader, Mmap};
 use webgraph::traits::RandomAccessGraph;
 use webgraph::utils::MmapHelper;
@@ -107,13 +106,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         args.alpha
     );
 
-    match get_endianness(&args.transpose)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => pagerank::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => pagerank::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.transpose, |E| pagerank::<E>(args))
 }
 
 fn run_and_store<G: RandomAccessGraph + Sync + Send, V: SliceByValue<Value = f64> + Sync + Send>(
@@ -168,20 +161,19 @@ where
         predicate = predicate.or(MaxIter::from(max_iter)).boxed();
     }
 
-    // Configure and run PageRank
-    if let Some(pref) = &preference {
-        let mut pr = PageRank::new(&transpose).preference(pref.as_slice());
-        pr.alpha(args.alpha)
-            .mode(args.mode.into())
-            .granularity(args.granularity.into_granularity());
-        run_and_store(&mut pr, predicate, &mut pl, &thread_pool, &args)?;
-    } else {
-        let mut pr = PageRank::new(&transpose);
-        pr.alpha(args.alpha)
-            .mode(args.mode.into())
-            .granularity(args.granularity.into_granularity());
-        run_and_store(&mut pr, predicate, &mut pl, &thread_pool, &args)?;
+    // Configures and runs PageRank
+    macro_rules! configure_and_run {
+        ($pr:expr) => {{
+            let mut pr = $pr;
+            pr.alpha(args.alpha)
+                .mode(args.mode.into())
+                .granularity(args.granularity.into_granularity());
+            run_and_store(&mut pr, predicate, &mut pl, &thread_pool, &args)
+        }};
     }
 
-    Ok(())
+    match &preference {
+        Some(pref) => configure_and_run!(PageRank::new(&transpose).preference(pref.as_slice())),
+        None => configure_and_run!(PageRank::new(&transpose)),
+    }
 }

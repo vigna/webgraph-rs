@@ -19,15 +19,17 @@
 //! [`ParSortPairs`]: crate::utils::par_sort_pairs::ParSortPairs
 //! [`ParSortIters`]: crate::utils::par_sort_iters::ParSortIters
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
-use super::ArcMmapHelper;
+use super::{ArcMmapHelper, MmapHelper};
 use core::fmt::Display;
 use dsi_bitstream::prelude::*;
+use mmap_rs::MmapFlags;
 use rdst::*;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
+use std::sync::Arc;
 
 pub mod gaps;
 pub mod grouped_gaps;
@@ -103,7 +105,12 @@ pub trait BatchCodec: Send + Sync {
         &self,
         path: impl AsRef<Path>,
         batch: &mut [((usize, usize), Self::Label)],
-    ) -> Result<(usize, Self::EncodedBatchStats)>;
+    ) -> Result<(usize, Self::EncodedBatchStats)> {
+        let start = std::time::Instant::now();
+        Triple::cast_batch_mut(batch).radix_sort_unstable();
+        log::debug!("Sorted {} arcs in {:?}", batch.len(), start.elapsed());
+        self.encode_sorted_batch(path, batch)
+    }
 
     /// Decodes a batch of triples from disk.
     ///
@@ -114,6 +121,99 @@ pub trait BatchCodec: Send + Sync {
 /// Convenience alias to extract the iterator type of the decoded batch from a
 /// [`BatchCodec`].
 pub type CodecIter<C> = <<C as BatchCodec>::DecodedBatch as IntoIterator>::IntoIter;
+
+/// Returns the number of distinct pairs in a sorted batch.
+fn num_distinct_pairs<L>(batch: &[((usize, usize), L)]) -> usize {
+    batch.len() - batch.windows(2).filter(|w| w[0].0 == w[1].0).count()
+}
+
+/// Creates a batch file, writing its length as a prefix.
+///
+/// The length is the number of triples in `batch`, or the number of distinct
+/// pairs in `batch` if `dedup` is true.
+fn create_batch<E: Endianness, L>(
+    path: &Path,
+    batch: &[((usize, usize), L)],
+    dedup: bool,
+) -> Result<(BitWriter<E>, usize)>
+where
+    BitWriter<E>: CodesWrite<E>,
+{
+    let mut stream = buf_bit_writer::from_path::<E, usize>(path).with_context(|| {
+        format!(
+            "Could not create BatchIterator temporary file {}",
+            path.display()
+        )
+    })?;
+    let len = if dedup {
+        num_distinct_pairs(batch)
+    } else {
+        batch.len()
+    };
+    // We use a delta code since it'll be a big number most of the time
+    stream
+        .write_delta(len as u64)
+        .context("Could not write length")?;
+    Ok((stream, len))
+}
+
+/// Opens a batch file, returning a reader positioned after the length prefix
+/// and the length of the batch.
+fn open_batch<E: Endianness>(path: &Path) -> Result<(BitReader<E>, usize)>
+where
+    BitReader<E>: CodesRead<E>,
+{
+    let mut stream = <BufBitReader<E, _>>::new(MemWordReader::new(ArcMmapHelper(Arc::new(
+        MmapHelper::mmap(
+            path,
+            MmapFlags::TRANSPARENT_HUGE_PAGES | MmapFlags::SEQUENTIAL,
+        )
+        .with_context(|| format!("Could not mmap {}", path.display()))?,
+    ))));
+    let len = stream.read_delta().context("Could not read length")? as usize;
+    Ok((stream, len))
+}
+
+/// Implements [`SortedIterator`], [`ExactSizeIterator`], and
+/// [`FusedIterator`] for an iterator over a batch with fields `len` and
+/// `current`, and with the parameters and the bounds of [`GapsIter`].
+///
+/// [`SortedIterator`]: crate::traits::SortedIterator
+/// [`FusedIterator`]: core::iter::FusedIterator
+/// [`GapsIter`]: gaps::GapsIter
+macro_rules! impl_batch_iter {
+    ($ty:ident<$($code:ident),*>) => {
+        // SAFETY: batches are decoded in non-decreasing (src, dst) order.
+        unsafe impl<E: Endianness, D: BitDeserializer<E, BitReader<E>>, $(const $code: usize),*>
+            $crate::traits::SortedIterator for $ty<E, D, $($code),*>
+        where
+            BitReader<E>: BitRead<E> + CodesRead<E>,
+            BitWriter<E>: BitWrite<E> + CodesWrite<E>,
+        {
+        }
+
+        impl<E: Endianness, D: BitDeserializer<E, BitReader<E>>, $(const $code: usize),*>
+            ExactSizeIterator for $ty<E, D, $($code),*>
+        where
+            BitReader<E>: BitRead<E> + CodesRead<E>,
+            BitWriter<E>: BitWrite<E> + CodesWrite<E>,
+        {
+            fn len(&self) -> usize {
+                self.len - self.current
+            }
+        }
+
+        impl<E: Endianness, D: BitDeserializer<E, BitReader<E>>, $(const $code: usize),*>
+            core::iter::FusedIterator for $ty<E, D, $($code),*>
+        where
+            BitReader<E>: BitRead<E> + CodesRead<E>,
+            BitWriter<E>: BitWrite<E> + CodesWrite<E>,
+        {
+        }
+    };
+}
+
+use impl_batch_iter;
 
 /// An arc expressed as a pair of nodes and the associated label.
 ///

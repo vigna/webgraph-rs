@@ -6,9 +6,19 @@
 
 #![cfg(not(miri))]
 
+mod common;
+
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use webgraph::prelude::*;
+
+/// Compresses the test graph into a temporary directory.
+fn compressed_test_graph() -> Result<(tempfile::TempDir, std::path::PathBuf)> {
+    let graph = common::test_graph();
+    common::roundtrip::<BE>(&graph, |basename| {
+        BvComp::with_basename(basename).comp_graph::<BE>(&graph)
+    })
+}
 
 #[test]
 fn test_memory_flags_to_mmap_flags() {
@@ -64,11 +74,7 @@ fn test_file_factory_creation() -> Result<()> {
     use dsi_bitstream::prelude::CodesReaderFactory;
     use webgraph::graphs::bvgraph::FileFactory;
 
-    // Compress a graph to create a .graph file
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("graph");
-    BvComp::with_basename(&basename).comp_graph::<BE>(&graph)?;
+    let (_dir, basename) = compressed_test_graph()?;
 
     // Create a FileFactory for the .graph file
     let graph_path = basename.with_extension("graph");
@@ -100,10 +106,7 @@ fn test_memory_factory_new_mem() -> Result<()> {
     use dsi_bitstream::prelude::CodesReaderFactory;
     use webgraph::graphs::bvgraph::MemoryFactory;
 
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1)]);
-    let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("graph");
-    BvComp::with_basename(&basename).comp_graph::<BE>(&graph)?;
+    let (_dir, basename) = compressed_test_graph()?;
 
     let graph_path = basename.with_extension("graph");
     let factory = MemoryFactory::<BE, _>::new_mem(&graph_path)?;
@@ -116,10 +119,7 @@ fn test_memory_factory_new_mmap() -> Result<()> {
     use dsi_bitstream::prelude::CodesReaderFactory;
     use webgraph::graphs::bvgraph::{MemoryFactory, MemoryFlags};
 
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1)]);
-    let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("graph");
-    BvComp::with_basename(&basename).comp_graph::<BE>(&graph)?;
+    let (_dir, basename) = compressed_test_graph()?;
 
     let graph_path = basename.with_extension("graph");
     let factory = MemoryFactory::<BE, _>::new_mmap(&graph_path, MemoryFlags::empty())?;

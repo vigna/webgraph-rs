@@ -172,20 +172,22 @@ fn test_debug_decoder_all_methods() {
     assert_eq!(dbg_dec.read_residual(), 7);
 }
 
+/// The estimator for the default codes.
+type DefaultEstimator = webgraph::graphs::bvgraph::ConstCodesEstimator<
+    { dsi_bitstream::dispatch::code_consts::GAMMA },
+    { dsi_bitstream::dispatch::code_consts::UNARY },
+    { dsi_bitstream::dispatch::code_consts::GAMMA },
+    { dsi_bitstream::dispatch::code_consts::GAMMA },
+    { dsi_bitstream::dispatch::code_consts::ZETA3 },
+>;
+
 #[test]
 fn test_const_codes_estimator_all_methods() {
-    use dsi_bitstream::dispatch::code_consts;
-    use webgraph::graphs::bvgraph::{ConstCodesEstimator, Encode};
+    use webgraph::graphs::bvgraph::Encode;
 
-    let mut est: ConstCodesEstimator<
-        { code_consts::GAMMA },
-        { code_consts::UNARY },
-        { code_consts::GAMMA },
-        { code_consts::GAMMA },
-        { code_consts::ZETA3 },
-    > = ConstCodesEstimator::new();
-
+    let mut est = DefaultEstimator::new();
     // gamma(n) = 2*floor(log2(n+1))+1 bits; unary(n) = n+1 bits; zeta3 from regression
+    assert_eq!(est.write_outdegree(0).unwrap(), 1); // gamma(0) = 2*0+1
     assert_eq!(est.write_outdegree(5).unwrap(), 5); // gamma(5) = 2*2+1
     assert_eq!(est.write_reference_offset(3).unwrap(), 4); // unary(3) = 4
     assert_eq!(est.write_block_count(2).unwrap(), 3); // gamma(2) = 2*1+1
@@ -195,8 +197,7 @@ fn test_const_codes_estimator_all_methods() {
     assert_eq!(est.write_interval_len(3).unwrap(), 5); // gamma(3) = 2*2+1
     assert_eq!(est.write_first_residual(7).unwrap(), 7); // zeta3(7)
     assert_eq!(est.write_residual(15).unwrap(), 8); // zeta3(15)
-    let f = est.flush().unwrap();
-    assert_eq!(f, 0);
+    assert_eq!(est.flush().unwrap(), 0);
 
     // start_node and end_node return 0
     assert_eq!(est.start_node(0).unwrap(), 0);
@@ -204,49 +205,19 @@ fn test_const_codes_estimator_all_methods() {
 }
 
 #[test]
-fn test_const_codes_estimator_zero_values() {
-    use dsi_bitstream::dispatch::code_consts;
-    use webgraph::graphs::bvgraph::{ConstCodesEstimator, Encode};
-
-    let mut est: ConstCodesEstimator<
-        { code_consts::GAMMA },
-        { code_consts::UNARY },
-        { code_consts::GAMMA },
-        { code_consts::GAMMA },
-        { code_consts::ZETA3 },
-    > = ConstCodesEstimator::new();
-    // gamma(0) = 2*floor(log2(1))+1 = 1 bit
-    assert_eq!(est.write_outdegree(0).unwrap(), 1);
-}
-
-#[test]
 fn test_converter_decode_all_methods() {
-    use dsi_bitstream::dispatch::code_consts;
-    use webgraph::graphs::bvgraph::{ConstCodesEstimator, Decode};
+    use webgraph::graphs::bvgraph::{Decode, Encode};
     use webgraph::utils::Converter;
 
-    let decoder = MockDecoder::new(3);
-    let encoder: ConstCodesEstimator<
-        { code_consts::GAMMA },
-        { code_consts::UNARY },
-        { code_consts::GAMMA },
-        { code_consts::GAMMA },
-        { code_consts::ZETA3 },
-    > = ConstCodesEstimator::new();
     let mut conv = Converter {
-        decoder,
-        encoder,
+        decoder: MockDecoder::new(3),
+        encoder: DefaultEstimator::new(),
         offset: 0,
     };
 
-    // Exercise all Decode methods — each reads from decoder, writes to encoder
+    // Each method reads from the decoder and writes to the encoder
     assert_eq!(conv.read_outdegree(), 3);
-    assert!(conv.offset > 0);
-
-    let prev_offset = conv.offset;
     assert_eq!(conv.read_reference_offset(), 3);
-    assert!(conv.offset > prev_offset);
-
     assert_eq!(conv.read_block_count(), 3);
     assert_eq!(conv.read_block(), 3);
     assert_eq!(conv.read_interval_count(), 3);
@@ -254,4 +225,17 @@ fn test_converter_decode_all_methods() {
     assert_eq!(conv.read_interval_len(), 3);
     assert_eq!(conv.read_first_residual(), 3);
     assert_eq!(conv.read_residual(), 3);
+
+    // The offset is the number of bits written
+    let mut est = DefaultEstimator::new();
+    let expected = est.write_outdegree(3).unwrap()
+        + est.write_reference_offset(3).unwrap()
+        + est.write_block_count(3).unwrap()
+        + est.write_block(3).unwrap()
+        + est.write_interval_count(3).unwrap()
+        + est.write_interval_start(3).unwrap()
+        + est.write_interval_len(3).unwrap()
+        + est.write_first_residual(3).unwrap()
+        + est.write_residual(3).unwrap();
+    assert_eq!(conv.offset, expected);
 }

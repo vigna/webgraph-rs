@@ -254,16 +254,11 @@ impl<'a, G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync> BiRank<'a, G,
     ///
     /// # Panics
     ///
-    /// Panics if `graph` and `transpose` have different numbers of nodes, or
-    /// if `num_sources` exceeds the number of nodes.
+    /// Panics if `graph` and `transpose` have different numbers of nodes or
+    /// arcs, or if `num_sources` exceeds the number of nodes.
     pub fn new(graph: &'a G, transpose: &'a H, num_sources: usize) -> Self {
         let n = graph.num_nodes();
-        assert_eq!(
-            n,
-            transpose.num_nodes(),
-            "Graph and transpose must have the same number of nodes ({n} vs {})",
-            transpose.num_nodes()
-        );
+        crate::utils::assert_transpose(graph, transpose);
         assert!(
             num_sources <= n,
             "num_sources ({num_sources}) exceeds the number of nodes ({n})"

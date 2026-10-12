@@ -6,1077 +6,232 @@
 
 mod common;
 
-use anyhow::Result;
-use common::build_ef;
+use anyhow::{Context, Result};
+use common::{Roundtrip, roundtrip, test_graph, tmp_basename};
 use dsi_bitstream::dispatch::Codes;
 use dsi_bitstream::prelude::*;
-#[cfg(not(miri))]
-use webgraph::graphs::vec_graph::LabeledVecGraph;
-#[cfg(not(miri))]
-use webgraph::labels::BitStreamLabeling;
-#[cfg(not(miri))]
-use webgraph::labels::bitstream::BitStreamStoreLabelsConf;
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
+use webgraph::graphs::bvgraph::check_offsets;
+use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::prelude::*;
-#[cfg(not(miri))]
-use webgraph::traits::FixedWidth;
 
-#[test]
-fn test_bvcomp_default_codes_be() -> Result<()> {
-    let graph =
-        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3), (3, 0)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 4);
-    assert_eq!(seq.get_num_arcs(), Some(5));
-    labels::eq_sorted(&graph, &seq)?;
-    assert!(webgraph::graphs::bvgraph::check_offsets(&seq, path)?);
+/// Graphs exercising intervals, references, gaps, and residuals.
+fn graphs() -> Vec<(&'static str, VecGraph)> {
+    let mut graphs = vec![
+        ("test", test_graph()),
+        ("empty", VecGraph::empty(5)),
+        (
+            "gaps",
+            VecGraph::from_arcs([(0, 1), (0, 5), (0, 10), (1, 2), (2, 3), (3, 0), (2, 7)]),
+        ),
+        (
+            "intervals",
+            VecGraph::from_arcs((10..30).map(|i| (0, i)).chain([(1, 5)])),
+        ),
+        (
+            "similar lists",
+            VecGraph::from_arcs((0..50).flat_map(|i| (0..10).map(move |j| (i, (i + j + 1) % 55)))),
+        ),
+        (
+            "dense",
+            VecGraph::from_arcs(
+                (0..10).flat_map(|i| (0..10).filter(move |&j| j != i).map(move |j| (i, j))),
+            ),
+        ),
+        (
+            "upper triangle",
+            VecGraph::from_arcs((0..20).flat_map(|i| (i + 1..20).map(move |j| (i, j)))),
+        ),
+        ("chain", VecGraph::from_arcs((0..100).map(|i| (i, i + 1)))),
+        ("star", VecGraph::from_arcs((1..50).map(|i| (0, i)))),
+    ];
+    if cfg!(miri) {
+        graphs.truncate(1);
+    }
+    graphs
+}
+
+/// Compression flags exercising all codes and the main parameters.
+fn comp_flags() -> Vec<(&'static str, CompFlags)> {
+    let all = |code| CompFlags {
+        outdegrees: code,
+        references: code,
+        blocks: code,
+        intervals: code,
+        residuals: code,
+        ..CompFlags::default()
+    };
+    let mut flags = vec![
+        ("default", CompFlags::default()),
+        (
+            "delta",
+            CompFlags {
+                references: Codes::Gamma,
+                ..all(Codes::Delta)
+            },
+        ),
+        // All ζ codes must use the same k
+        ("zeta(3)", all(Codes::Zeta(3))),
+        (
+            "zeta(5)",
+            CompFlags {
+                outdegrees: Codes::Zeta(5),
+                residuals: Codes::Zeta(5),
+                ..CompFlags::default()
+            },
+        ),
+        (
+            "pi",
+            CompFlags {
+                outdegrees: Codes::Pi(2),
+                references: Codes::Pi(1),
+                blocks: Codes::Pi(3),
+                intervals: Codes::Pi(4),
+                residuals: Codes::Pi(2),
+                ..CompFlags::default()
+            },
+        ),
+        ("unary", all(Codes::Unary)),
+        (
+            "custom delta",
+            CompFlags {
+                min_interval_length: 2,
+                compression_window: 7,
+                max_ref_count: 3,
+                ..all(Codes::Delta)
+            },
+        ),
+        (
+            "no intervals",
+            CompFlags {
+                min_interval_length: 0,
+                compression_window: 7,
+                max_ref_count: 3,
+                ..CompFlags::default()
+            },
+        ),
+        (
+            "no references",
+            CompFlags {
+                compression_window: 0,
+                min_interval_length: 4,
+                ..CompFlags::default()
+            },
+        ),
+        (
+            "large window",
+            CompFlags {
+                compression_window: 15,
+                max_ref_count: 10,
+                ..CompFlags::default()
+            },
+        ),
+        (
+            "window 10",
+            CompFlags {
+                compression_window: 10,
+                max_ref_count: 5,
+                min_interval_length: 3,
+                ..CompFlags::default()
+            },
+        ),
+    ];
+    if cfg!(miri) {
+        flags.truncate(3);
+    }
+    flags
+}
+
+/// Checks the roundtrip of all graphs with all compression flags, using
+/// sequential and parallel compression with both compressors.
+fn test_roundtrip<E: Roundtrip>() -> Result<()>
+where
+    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
+    BufBitReader<E, WordAdapter<u32, BufReader<File>>>: BitRead<E>,
+{
+    for (graph_name, graph) in graphs() {
+        for (flags_name, flags) in comp_flags() {
+            let context = || format!("graph {graph_name}, flags {flags_name}, {}", E::NAME);
+            roundtrip::<E>(&graph, |basename| {
+                BvComp::with_basename(basename)
+                    .comp_flags(flags)
+                    .comp_graph::<E>(&graph)
+            })
+            .with_context(|| format!("comp_graph: {}", context()))?;
+            roundtrip::<E>(&graph, |basename| {
+                BvComp::with_basename(basename)
+                    .comp_flags(flags)
+                    .par_comp::<E, _>(&graph)
+            })
+            .with_context(|| format!("par_comp: {}", context()))?;
+            roundtrip::<E>(&graph, |basename| {
+                BvCompZ::with_basename(basename)
+                    .comp_flags(flags)
+                    .chunk_size(1)
+                    .comp_graph::<E>(&graph)
+            })
+            .with_context(|| format!("BvCompZ comp_graph: {}", context()))?;
+            roundtrip::<E>(&graph, |basename| {
+                BvCompZ::with_basename(basename)
+                    .comp_flags(flags)
+                    .chunk_size(3)
+                    .par_comp::<E, _>(&graph)
+            })
+            .with_context(|| format!("BvCompZ par_comp: {}", context()))?;
+        }
+    }
     Ok(())
 }
 
 #[test]
-fn test_bvcomp_default_codes_le() -> Result<()> {
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).comp_graph::<LE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<LE>()
+fn test_roundtrip_be() -> Result<()> {
+    test_roundtrip::<BE>()
+}
+
+#[test]
+fn test_roundtrip_le() -> Result<()> {
+    test_roundtrip::<LE>()
+}
+
+#[test]
+fn test_static_dispatch() -> Result<()> {
+    let graph = test_graph();
+    let (_dir, basename) = roundtrip::<BE>(&graph, |basename| {
+        BvComp::with_basename(basename).comp_graph::<BE>(&graph)
+    })?;
+    let seq = BvGraphSeq::with_basename(&basename)
+        .endianness::<BE>()
+        .dispatch::<Static>()
         .mode::<LoadMem>()
         .load()?;
-    assert_eq!(seq.num_nodes(), 3);
     labels::eq_sorted(&graph, &seq)?;
-    assert!(webgraph::graphs::bvgraph::check_offsets(&seq, path)?);
+    let random = BvGraph::with_basename(&basename)
+        .endianness::<BE>()
+        .dispatch::<Static>()
+        .mode::<LoadMem>()
+        .load()?;
+    labels::eq_sorted(&graph, &random)?;
+    labels::check_impl(&random)?;
     Ok(())
 }
 
 #[test]
 fn test_check_offsets_mismatch() -> Result<()> {
-    let graph =
-        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3), (3, 0)]);
-    let other = webgraph::graphs::vec_graph::VecGraph::from_arcs([(3, 0)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    let tmp_other = tempfile::NamedTempFile::new()?;
-    let other_path = tmp_other.path();
-    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    BvComp::with_basename(other_path).comp_graph::<BE>(&other)?;
-    let seq = BvGraphSeq::with_basename(path)
+    let graph = test_graph();
+    let other = VecGraph::from_arcs([(3, 0)]);
+    let (_dir, basename) = roundtrip::<BE>(&graph, |basename| {
+        BvComp::with_basename(basename).comp_graph::<BE>(&graph)
+    })?;
+    let (_other_dir, other_basename) = roundtrip::<BE>(&other, |basename| {
+        BvComp::with_basename(basename).comp_graph::<BE>(&other)
+    })?;
+    let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .mode::<LoadMem>()
         .load()?;
-    assert!(webgraph::graphs::bvgraph::check_offsets(&seq, path)?);
     // The offsets of a different graph are a valid γ stream, but wrong
-    assert!(!webgraph::graphs::bvgraph::check_offsets(&seq, other_path)?);
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_delta_codes() -> Result<()> {
-    use dsi_bitstream::dispatch::Codes;
-    let graph =
-        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 5), (0, 10), (1, 2), (2, 3)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    let flags = CompFlags {
-        outdegrees: Codes::Delta,
-        references: Codes::Gamma,
-        blocks: Codes::Delta,
-        intervals: Codes::Delta,
-        residuals: Codes::Delta,
-        ..CompFlags::default()
-    };
-    BvComp::with_basename(path)
-        .comp_flags(flags)
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 11);
-    assert_eq!(seq.get_num_arcs(), Some(5));
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_zeta_codes() -> Result<()> {
-    use dsi_bitstream::dispatch::Codes;
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 5), (1, 2), (2, 3)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    // All zeta codes must use the same k value
-    let flags = CompFlags {
-        outdegrees: Codes::Zeta(3),
-        references: Codes::Zeta(3),
-        blocks: Codes::Zeta(3),
-        intervals: Codes::Zeta(3),
-        residuals: Codes::Zeta(3),
-        ..CompFlags::default()
-    };
-    BvComp::with_basename(path)
-        .comp_flags(flags)
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 6);
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_empty_graph() -> Result<()> {
-    let graph = webgraph::graphs::vec_graph::VecGraph::empty(5);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 5);
-    assert_eq!(seq.get_num_arcs(), Some(0));
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_no_reference_compression() -> Result<()> {
-    let graph =
-        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    let flags = CompFlags {
-        compression_window: 0,
-        ..CompFlags::default()
-    };
-    BvComp::with_basename(path)
-        .comp_flags(flags)
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 4);
-    assert_eq!(seq.get_num_arcs(), Some(5));
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_no_intervals() -> Result<()> {
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 0)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    let flags = CompFlags {
-        min_interval_length: 0,
-        ..CompFlags::default()
-    };
-    BvComp::with_basename(path)
-        .comp_flags(flags)
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 3);
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_interval_encoding() -> Result<()> {
-    // Long consecutive ranges trigger interval encoding
-    let mut arcs = Vec::new();
-    for i in 10..30 {
-        arcs.push((0_usize, i));
-    }
-    arcs.push((1, 5));
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs(arcs);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path)
-        .comp_flags(CompFlags {
-            min_interval_length: 4,
-            ..CompFlags::default()
-        })
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 30);
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_large_window() -> Result<()> {
-    // Exercise reference compression with large window and shared successors
-    let mut arcs = Vec::new();
-    for i in 0..20 {
-        for j in 0..5 {
-            arcs.push((i, (i + j + 1) % 25));
-        }
-    }
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs(arcs);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path)
-        .comp_flags(CompFlags {
-            compression_window: 15,
-            max_ref_count: 10,
-            ..CompFlags::default()
-        })
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 25);
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_par_comp() -> Result<()> {
-    let graph =
-        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3), (3, 0)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).par_comp::<BE, _>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 4);
-    assert_eq!(seq.get_num_arcs(), Some(5));
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_bvcompz() -> Result<()> {
-    let graph =
-        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3), (3, 0)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvCompZ::with_basename(path)
-        .chunk_size(2)
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 4);
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_config_with_tmp_dir() -> Result<()> {
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("test_graph");
-    let custom_tmp = tempfile::tempdir()?;
-    BvComp::with_basename(&basename)
-        .tmp_dir(custom_tmp.path())
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 3);
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_recompress_with_different_flags() -> Result<()> {
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3)]);
-    let tmp = tempfile::tempdir()?;
-    let basename1 = tmp.path().join("test_orig");
-    BvComp::with_basename(&basename1).comp_graph::<BE>(&graph)?;
-
-    // Load and recompress with different flags
-    let seq = BvGraphSeq::with_basename(&basename1)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    let basename2 = tmp.path().join("test_recomp");
-    BvComp::with_basename(&basename2)
-        .comp_flags(CompFlags {
-            outdegrees: Codes::Delta,
-            residuals: Codes::Delta,
-            ..CompFlags::default()
-        })
-        .comp_graph::<BE>(&seq)?;
-
-    let seq2 = BvGraphSeq::with_basename(&basename2)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq2.num_nodes(), 4);
-    assert_eq!(seq2.get_num_arcs(), Some(3));
-    labels::eq_sorted(&graph, &seq2)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_par_comp_lenders() -> Result<()> {
-    // Test parallel compression with multiple lenders via SplitLabeling
-    let graph =
-        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3), (3, 0)]);
-    let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("test_par");
-    // First compress to get a splittable graph
-    BvComp::with_basename(&basename).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    // Now use par_comp which calls par_comp_lenders internally
-    let basename2 = tmp.path().join("test_par2");
-    BvComp::with_basename(&basename2).par_comp::<BE, _>(&seq)?;
-    let seq2 = BvGraphSeq::with_basename(&basename2)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq2.num_nodes(), 4);
-    assert_eq!(seq2.get_num_arcs(), Some(5));
-    labels::eq_sorted(&graph, &seq2)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_with_chunk_size() -> Result<()> {
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("test_chunk");
-    BvComp::with_basename(&basename)
-        .chunk_size(1)
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 3);
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_large_graph_with_reference_compression() -> Result<()> {
-    // Build a graph with similar successor lists to trigger reference compression
-    let mut arcs = Vec::new();
-    for i in 0..50 {
-        for j in 0..10 {
-            arcs.push((i, (i + j + 1) % 55));
-        }
-    }
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs(arcs);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path)
-        .comp_flags(CompFlags {
-            compression_window: 10,
-            max_ref_count: 5,
-            min_interval_length: 3,
-            ..CompFlags::default()
-        })
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 55);
-    labels::eq_sorted(&graph, &seq)?;
-    assert!(webgraph::graphs::bvgraph::check_offsets(&seq, path)?);
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_pi_codes() -> Result<()> {
-    use dsi_bitstream::dispatch::Codes;
-    let mut arcs = Vec::new();
-    for i in 0..20 {
-        arcs.push((i, (i + 1) % 20));
-    }
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs(arcs);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    let flags = CompFlags {
-        outdegrees: Codes::Pi(2),
-        references: Codes::Pi(1),
-        blocks: Codes::Pi(3),
-        intervals: Codes::Pi(4),
-        residuals: Codes::Pi(2),
-        ..CompFlags::default()
-    };
-    BvComp::with_basename(path)
-        .comp_flags(flags)
-        .comp_graph::<LE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<LE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 20);
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_unary_codes() -> Result<()> {
-    use dsi_bitstream::dispatch::Codes;
-    // Small values work well with unary codes
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    let flags = CompFlags {
-        outdegrees: Codes::Unary,
-        references: Codes::Unary,
-        blocks: Codes::Unary,
-        intervals: Codes::Unary,
-        residuals: Codes::Unary,
-        ..CompFlags::default()
-    };
-    BvComp::with_basename(path)
-        .comp_flags(flags)
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 4);
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_dense_graph() -> Result<()> {
-    // Dense graph: every node connects to every other node
-    let mut arcs = Vec::new();
-    for i in 0..10_usize {
-        for j in 0..10_usize {
-            if i != j {
-                arcs.push((i, j));
-            }
-        }
-    }
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs(arcs);
-    let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("graph");
-    BvComp::with_basename(&basename).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 10);
-    assert_eq!(seq.get_num_arcs(), Some(90));
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_chain_graph() -> Result<()> {
-    // Long chain 0->1->2->...->99
-    let arcs: Vec<_> = (0..100_usize).map(|i| (i, i + 1)).collect();
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs(arcs);
-    let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("graph");
-    BvComp::with_basename(&basename).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 101);
-    assert_eq!(seq.get_num_arcs(), Some(100));
-    labels::eq_sorted(&graph, &seq)?;
-    // Also test with static dispatch
-    let seq_static = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .dispatch::<webgraph::graphs::bvgraph::Static>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq_static.num_nodes(), 101);
-    labels::eq_sorted(&graph, &seq_static)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_star_graph() -> Result<()> {
-    // Star graph: node 0 connects to all others
-    let arcs: Vec<_> = (1..50_usize).map(|i| (0, i)).collect();
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs(arcs);
-    let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("graph");
-    BvComp::with_basename(&basename)
-        .comp_flags(CompFlags {
-            min_interval_length: 4,
-            ..CompFlags::default()
-        })
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 50);
-    assert_eq!(seq.get_num_arcs(), Some(49));
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_with_delta_codes() -> Result<()> {
-    let graph =
-        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3), (3, 0)]);
-    let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("graph");
-    BvComp::with_basename(&basename)
-        .comp_flags(CompFlags {
-            outdegrees: dsi_bitstream::dispatch::Codes::Delta,
-            references: dsi_bitstream::dispatch::Codes::Delta,
-            blocks: dsi_bitstream::dispatch::Codes::Delta,
-            intervals: dsi_bitstream::dispatch::Codes::Delta,
-            residuals: dsi_bitstream::dispatch::Codes::Delta,
-            ..CompFlags::default()
-        })
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 4);
-    assert_eq!(seq.get_num_arcs(), Some(5));
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_with_zeta_codes() -> Result<()> {
-    let graph =
-        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 5), (1, 3), (2, 7), (3, 0)]);
-    let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("graph");
-    BvComp::with_basename(&basename)
-        .comp_flags(CompFlags {
-            outdegrees: dsi_bitstream::dispatch::Codes::Zeta(5),
-            residuals: dsi_bitstream::dispatch::Codes::Zeta(5),
-            ..CompFlags::default()
-        })
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 8);
-    assert_eq!(seq.get_num_arcs(), Some(5));
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_with_no_intervals() -> Result<()> {
-    let mut arcs = Vec::new();
-    for i in 0..20 {
-        for j in i + 1..20 {
-            arcs.push((i, j));
-        }
-    }
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs(arcs);
-    let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("graph");
-    BvComp::with_basename(&basename)
-        .comp_flags(CompFlags {
-            min_interval_length: 0, // disable intervals
-            compression_window: 7,
-            max_ref_count: 3,
-            ..CompFlags::default()
-        })
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 20);
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_with_no_references() -> Result<()> {
-    let mut arcs = Vec::new();
-    for i in 0..10 {
-        for j in i + 1..i + 5 {
-            arcs.push((i, j));
-        }
-    }
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs(arcs);
-    let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("graph");
-    BvComp::with_basename(&basename)
-        .comp_flags(CompFlags {
-            compression_window: 0, // disable references
-            min_interval_length: 4,
-            ..CompFlags::default()
-        })
-        .comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 14);
-    labels::eq_sorted(&graph, &seq)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_config_basic() -> Result<()> {
-    let dir = tempfile::tempdir()?;
-    let basename = dir.path().join("test_config");
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
-
-    let bits_written = BvCompConf::new(&basename).comp_graph::<BE>(&graph)?;
-    assert!(bits_written > 0);
-
-    // Verify the graph was written correctly (use sequential access, no EF needed)
-    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename)
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(loaded.num_nodes(), 4);
-    labels::eq_sorted(&graph, &loaded)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_config_with_flags() -> Result<()> {
-    let dir = tempfile::tempdir()?;
-    let basename = dir.path().join("test_flags");
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2)]);
-
-    let flags = CompFlags {
-        min_interval_length: 0,
-        ..CompFlags::default()
-    };
-
-    let bits_written = BvCompConf::new(&basename)
-        .comp_flags(flags)
-        .comp_graph::<BE>(&graph)?;
-    assert!(bits_written > 0);
-    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename)
-        .mode::<LoadMem>()
-        .load()?;
-    labels::eq_sorted(&graph, &loaded)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_config_with_explicit_tmp_dir() -> Result<()> {
-    let dir = tempfile::tempdir()?;
-    let tmp = tempfile::tempdir()?;
-    let basename = dir.path().join("test_tmpdir");
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-
-    let bits_written = BvCompConf::new(&basename)
-        .tmp_dir(tmp.path())
-        .comp_graph::<BE>(&graph)?;
-    assert!(bits_written > 0);
-    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename)
-        .mode::<LoadMem>()
-        .load()?;
-    labels::eq_sorted(&graph, &loaded)?;
-    Ok(())
-}
-
-#[test]
-fn test_par_comp() -> Result<()> {
-    let dir = tempfile::tempdir()?;
-    let basename = dir.path().join("test_par");
-    let graph =
-        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3), (3, 4)]);
-
-    let bits_written = BvCompConf::new(&basename).par_comp::<BE, _>(&graph)?;
-    assert!(bits_written > 0);
-
-    // Build EF for loaded graph
-    build_ef(&basename)?;
-    let loaded = BvGraph::with_basename(&basename).mode::<LoadMem>().load()?;
-    assert_eq!(loaded.num_nodes(), 5);
-    assert_eq!(loaded.num_arcs(), 5);
-    labels::eq_sorted(&graph, &loaded)?;
-    Ok(())
-}
-
-#[test]
-#[cfg(not(miri))]
-fn test_par_comp_from_parts() -> Result<()> {
-    use webgraph::graphs::par_sorted_graph::ParSortedGraph;
-    use webgraph::traits::SequentialLabeling;
-    use webgraph::utils::{MemoryUsage, ParSortPairs};
-
-    let graph =
-        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0), (0, 3)]);
-    let num_nodes = graph.num_nodes();
-
-    // Sort pairs in parallel
-    let pairs: Vec<(usize, usize)> = vec![(0, 1), (1, 2), (2, 3), (3, 0), (0, 3)];
-    let sorter = ParSortPairs::new(num_nodes)?
-        .num_partitions(2)
-        .memory_usage(MemoryUsage::BatchSize(100));
-    use rayon::prelude::*;
-    let split = sorter.sort(pairs.into_par_iter(), dsi_progress_logger::no_logging![])?;
-
-    // Wrap in SortedGraph and compress with par_comp
-    let sorted = ParSortedGraph::from_parts(split.boundaries, split.iters);
-    let dir = tempfile::tempdir()?;
-    let basename = dir.path().join("par_lenders");
-    let bits = BvCompConf::new(&basename).par_comp::<BE, _>(&sorted)?;
-    assert!(bits > 0);
-
-    // Build EF and load
-    build_ef(&basename)?;
-    let loaded = BvGraph::with_basename(&basename).mode::<LoadMem>().load()?;
-    assert_eq!(loaded.num_nodes(), num_nodes);
-    assert_eq!(loaded.num_arcs(), 5);
-    labels::eq_sorted(&graph, &loaded)?;
-    Ok(())
-}
-
-#[test]
-fn test_comp_lender() -> Result<()> {
-    let dir = tempfile::tempdir()?;
-    let basename = dir.path().join("test_lender");
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-
-    let bits_written = BvCompConf::new(&basename).comp_lender::<BE, _>(graph.iter(), Some(3))?;
-    assert!(bits_written > 0);
-
-    // Verify with sequential access (no EF needed)
-    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename)
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(loaded.num_nodes(), 3);
-    labels::eq_sorted(&graph, &loaded)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_le_endianness() -> Result<()> {
-    let dir = tempfile::tempdir()?;
-    let basename = dir.path().join("test_le");
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
-
-    // Compress with LE endianness
-    let bits_written = BvCompConf::new(&basename).comp_graph::<LE>(&graph)?;
-    assert!(bits_written > 0);
-
-    // Load with sequential access (no EF needed)
-    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename)
-        .endianness::<LE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(loaded.num_nodes(), 4);
-    labels::eq_sorted(&graph, &loaded)?;
-    Ok(())
-}
-
-#[test]
-fn test_bvcomp_with_custom_comp_flags() -> Result<()> {
-    use dsi_bitstream::dispatch::Codes;
-    let dir = tempfile::tempdir()?;
-    let basename = dir.path().join("custom_flags");
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (0, 2)]);
-
-    let flags = CompFlags {
-        outdegrees: Codes::Delta,
-        references: Codes::Delta,
-        blocks: Codes::Delta,
-        intervals: Codes::Delta,
-        residuals: Codes::Delta,
-        min_interval_length: 2,
-        compression_window: 7,
-        max_ref_count: 3,
-    };
-
-    let bits = BvCompConf::new(&basename)
-        .comp_flags(flags)
-        .comp_graph::<BE>(&graph)?;
-    assert!(bits > 0);
-
-    // Load and verify
-    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename)
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(loaded.num_nodes(), 3);
-    labels::eq_sorted(&graph, &loaded)?;
-    Ok(())
-}
-
-#[test]
-#[cfg(not(miri))]
-fn test_bvcomp_labeled_roundtrip() -> Result<()> {
-    use webgraph::graphs::vec_graph::LabeledVecGraph;
-    use webgraph::labels::BitStreamLabeling;
-    use webgraph::traits::FixedWidth;
-
-    let graph = LabeledVecGraph::from_arcs([
-        ((0, 1), 10u32),
-        ((0, 2), 20),
-        ((1, 3), 30),
-        ((2, 3), 40),
-        ((3, 0), 50),
-    ]);
-
-    let tmp = tempfile::TempDir::new()?;
-    let basename = tmp.path().join("labeled");
-
-    let label_config = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
-
-    BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, label_config)?;
-
-    let labels_basename = BvCompConf::default_labels_basename(&basename);
-
-    // Verify the label properties file
-    let label_props = webgraph::graphs::bvgraph::parse_label_properties::<BE>(&labels_basename)?;
-    assert_eq!(label_props.num_nodes, 4);
-    assert_eq!(label_props.num_arcs, 5);
-    assert_eq!(label_props.serializer, "FixedWidth<u32>");
-
-    common::build_ef_from_offsets(
-        graph.num_nodes(),
-        &labels_basename.with_extension("labels"),
-        &labels_basename.with_extension("offsets"),
-        &labels_basename.with_extension("ef"),
-    )?;
-
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-
-    let labeling =
-        BitStreamLabeling::<BE, _, _, _>::load(&labels_basename, FixedWidth::<u32>::new())?;
-
-    graph::eq_labeled(&graph, &Zip(seq, labeling))?;
-
-    Ok(())
-}
-
-#[test]
-#[cfg(not(miri))]
-fn test_par_comp_labeled_roundtrip() -> Result<()> {
-    let graph = LabeledVecGraph::from_arcs([
-        ((0, 1), 10u32),
-        ((0, 2), 20),
-        ((1, 3), 30),
-        ((2, 3), 40),
-        ((3, 0), 50),
-    ]);
-
-    let tmp = tempfile::TempDir::new()?;
-    let basename = tmp.path().join("parlabeled");
-
-    let label_config = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
-
-    BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
-
-    let labels_basename = BvCompConf::default_labels_basename(&basename);
-    common::build_ef_from_offsets(
-        graph.num_nodes(),
-        &labels_basename.with_extension("labels"),
-        &labels_basename.with_extension("offsets"),
-        &labels_basename.with_extension("ef"),
-    )?;
-
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-
-    let labeling =
-        BitStreamLabeling::<BE, _, _, _>::load(&labels_basename, FixedWidth::<u32>::new())?;
-
-    graph::eq_labeled(&graph, &Zip(seq, labeling))?;
-
-    Ok(())
-}
-
-#[test]
-#[cfg(not(miri))]
-fn test_par_comp_labeled_seq_roundtrip() -> Result<()> {
-    let graph = LabeledVecGraph::from_arcs([
-        ((0, 1), 10u32),
-        ((0, 2), 20),
-        ((1, 3), 30),
-        ((2, 3), 40),
-        ((3, 0), 50),
-    ]);
-
-    let tmp = tempfile::TempDir::new()?;
-    let basename = tmp.path().join("parlabeled_seq");
-
-    let label_config = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
-
-    BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
-
-    let labels_basename = BvCompConf::default_labels_basename(&basename);
-
-    // No EF needed — BitStreamLabelingSeq reads offsets from the .offsets file
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-
-    let labeling =
-        BitStreamLabelingSeq::<BE, _, _>::load(&labels_basename, FixedWidth::<u32>::new())?;
-
-    graph::eq_labeled(&graph, &Zip(seq, labeling))?;
-
-    Ok(())
-}
-
-#[test]
-#[cfg(not(miri))]
-fn test_par_comp_labeled_roundtrip_zstd() -> Result<()> {
-    let graph = LabeledVecGraph::from_arcs([
-        ((0, 1), 10u32),
-        ((0, 2), 20),
-        ((1, 3), 30),
-        ((2, 3), 40),
-        ((3, 0), 50),
-    ]);
-
-    let tmp = tempfile::TempDir::new()?;
-    let basename = tmp.path().join("parlabeled_zstd");
-
-    let label_config = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new()).zstd();
-
-    BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
-
-    let labels_basename = BvCompConf::default_labels_basename(&basename);
-    common::build_ef_from_offsets(
-        graph.num_nodes(),
-        &labels_basename.with_extension("labels"),
-        &labels_basename.with_extension("offsets"),
-        &labels_basename.with_extension("ef"),
-    )?;
-
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-
-    let labeling =
-        BitStreamLabeling::<BE, _, _, _>::load(&labels_basename, FixedWidth::<u32>::new())?;
-
-    graph::eq_labeled(&graph, &Zip(seq, labeling))?;
-
-    Ok(())
-}
-
-#[cfg(not(miri))]
-fn build_labeled_cnr2000() -> Result<webgraph::graphs::vec_graph::LabeledVecGraph<u32>> {
-    use lender::prelude::*;
-
-    let cnr = BvGraphSeq::with_basename(common::cnr_2000_basename())
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-
-    let mut arcs = Vec::new();
-    for_!((node, succ) in &cnr {
-        for s in succ {
-            arcs.push(((node, s), s as u32));
-        }
-    });
-    Ok(webgraph::graphs::vec_graph::LabeledVecGraph::from_arcs(
-        arcs,
-    ))
-}
-
-#[cfg(not(miri))]
-#[cfg_attr(feature = "slow_tests", test)]
-#[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
-fn test_comp_labeled_cnr2000() -> Result<()> {
-    env_logger::builder()
-        .is_test(true)
-        .filter_level(log::LevelFilter::Info)
-        .try_init()
-        .ok();
-
-    let graph = build_labeled_cnr2000()?;
-
-    let tmp = tempfile::TempDir::new()?;
-    let basename = tmp.path().join("cnr_labeled_seq");
-
-    let label_config = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
-
-    BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, label_config)?;
-
-    let labels_basename = BvCompConf::default_labels_basename(&basename);
-    common::build_ef_from_offsets(
-        graph.num_nodes(),
-        &labels_basename.with_extension("labels"),
-        &labels_basename.with_extension("offsets"),
-        &labels_basename.with_extension("ef"),
-    )?;
-
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-
-    let labeling =
-        BitStreamLabeling::<BE, _, _, _>::load(&labels_basename, FixedWidth::<u32>::new())?;
-
-    graph::eq_labeled(&graph, &Zip(seq, labeling))?;
-
-    Ok(())
-}
-
-#[cfg(not(miri))]
-#[cfg_attr(feature = "slow_tests", test)]
-#[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
-fn test_par_comp_labeled_cnr2000() -> Result<()> {
-    env_logger::builder()
-        .is_test(true)
-        .filter_level(log::LevelFilter::Info)
-        .try_init()
-        .ok();
-
-    let graph = build_labeled_cnr2000()?;
-
-    let tmp = tempfile::TempDir::new()?;
-    let basename = tmp.path().join("cnr_labeled_par");
-
-    let label_config = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
-
-    BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, label_config)?;
-
-    let labels_basename = BvCompConf::default_labels_basename(&basename);
-    common::build_ef_from_offsets(
-        graph.num_nodes(),
-        &labels_basename.with_extension("labels"),
-        &labels_basename.with_extension("offsets"),
-        &labels_basename.with_extension("ef"),
-    )?;
-
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-
-    let labeling =
-        BitStreamLabeling::<BE, _, _, _>::load(&labels_basename, FixedWidth::<u32>::new())?;
-
-    graph::eq_labeled(&graph, &Zip(seq, labeling))?;
-
+    assert!(!check_offsets(&seq, &other_basename)?);
     Ok(())
 }
 
@@ -1085,16 +240,14 @@ fn test_check_offsets_final_entry() -> Result<()> {
     // Regression: check_offsets never verified the final entry of the
     // offsets file (the total bitstream length), so a corrupted or stale
     // final offset passed the check.
-    let graph =
-        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3), (3, 0)]);
-    let tmp = tempfile::tempdir()?;
-    let basename = tmp.path().join("final_entry");
-    BvComp::with_basename(&basename).comp_graph::<BE>(&graph)?;
+    let graph = test_graph();
+    let (_dir, basename) = roundtrip::<BE>(&graph, |basename| {
+        BvComp::with_basename(basename).comp_graph::<BE>(&graph)
+    })?;
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .mode::<LoadMem>()
         .load()?;
-    assert!(webgraph::graphs::bvgraph::check_offsets(&seq, &basename)?);
 
     // Rewrite the offsets with the correct per-node entries but a corrupted
     // final length entry.
@@ -1112,6 +265,166 @@ fn test_check_offsets_final_entry() -> Result<()> {
     }
     writer.write_gamma(end - prev + 1)?; // off by one
     writer.flush()?;
-    assert!(!webgraph::graphs::bvgraph::check_offsets(&seq, &basename)?);
+    assert!(!check_offsets(&seq, &basename)?);
     Ok(())
+}
+
+#[test]
+fn test_comp_tmp_dir() -> Result<()> {
+    let graph = test_graph();
+    let tmp = tempfile::tempdir()?;
+    roundtrip::<BE>(&graph, |basename| {
+        BvComp::with_basename(basename)
+            .tmp_dir(tmp.path())
+            .par_comp::<BE, _>(&graph)
+    })?;
+    Ok(())
+}
+
+#[test]
+fn test_recompress_with_different_flags() -> Result<()> {
+    let graph = test_graph();
+    let (_dir, basename) = roundtrip::<BE>(&graph, |basename| {
+        BvComp::with_basename(basename).comp_graph::<BE>(&graph)
+    })?;
+    let seq = BvGraphSeq::with_basename(&basename)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
+    let flags = CompFlags {
+        outdegrees: Codes::Delta,
+        residuals: Codes::Delta,
+        ..CompFlags::default()
+    };
+    // Sequential recompression of a compressed graph
+    roundtrip::<BE>(&graph, |basename| {
+        BvComp::with_basename(basename)
+            .comp_flags(flags)
+            .comp_graph::<BE>(&seq)
+    })?;
+    // Parallel recompression, splitting the iterator of a compressed graph
+    roundtrip::<BE>(&graph, |basename| {
+        BvComp::with_basename(basename)
+            .comp_flags(flags)
+            .par_comp::<BE, _>(&seq)
+    })?;
+    Ok(())
+}
+
+#[test]
+#[cfg(not(miri))]
+fn test_par_comp_from_parts() -> Result<()> {
+    use rayon::prelude::*;
+    use webgraph::graphs::par_sorted_graph::ParSortedGraph;
+    use webgraph::utils::{MemoryUsage, ParSortPairs};
+
+    let graph = test_graph();
+    let pairs: Vec<(usize, usize)> = common::TEST_GRAPH_ARCS.into();
+    let split = ParSortPairs::new(graph.num_nodes())?
+        .num_partitions(2)
+        .memory_usage(MemoryUsage::BatchSize(3))
+        .sort(pairs.into_par_iter(), dsi_progress_logger::no_logging![])?;
+    let sorted = ParSortedGraph::from_parts(split.boundaries, split.iters);
+    roundtrip::<BE>(&graph, |basename| {
+        BvComp::with_basename(basename).par_comp::<BE, _>(&sorted)
+    })?;
+    Ok(())
+}
+
+#[test]
+fn test_comp_lender() -> Result<()> {
+    let graph = test_graph();
+    roundtrip::<BE>(&graph, |basename| {
+        BvComp::with_basename(basename).comp_lender::<BE, _>(graph.iter(), Some(graph.num_nodes()))
+    })?;
+    Ok(())
+}
+
+#[cfg(not(miri))]
+mod labeled {
+    use super::*;
+    use webgraph::graphs::bvgraph::parse_label_properties;
+    use webgraph::graphs::vec_graph::LabeledVecGraph;
+    use webgraph::labels::BitStreamLabeling;
+    use webgraph::labels::bitstream::BitStreamStoreLabelsConf;
+    use webgraph::traits::FixedWidth;
+
+    /// Compresses a labeled graph (sequentially or in parallel, possibly
+    /// compressing the temporary label files with Zstandard) and checks that
+    /// it can be read back both with sequential and random-access labelings.
+    fn labeled_roundtrip(graph: &LabeledVecGraph<u32>, par: bool, zstd: bool) -> Result<()> {
+        let (_dir, basename) = tmp_basename()?;
+        let conf = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
+        let mut comp = BvComp::with_basename(&basename);
+        match (par, zstd) {
+            (false, false) => comp.comp_labeled_graph::<BE, _, _>(graph, conf)?,
+            (false, true) => comp.comp_labeled_graph::<BE, _, _>(graph, conf.zstd())?,
+            (true, false) => comp.par_comp_labeled::<BE, _, _>(graph, conf)?,
+            (true, true) => comp.par_comp_labeled::<BE, _, _>(graph, conf.zstd())?,
+        };
+
+        let labels_basename = BvCompConf::default_labels_basename(&basename);
+        let label_props = parse_label_properties::<BE>(&labels_basename)?;
+        assert_eq!(label_props.num_nodes, graph.num_nodes());
+        assert_eq!(label_props.num_arcs, graph.num_arcs());
+        assert_eq!(label_props.serializer, "FixedWidth<u32>");
+
+        let seq = || {
+            BvGraphSeq::with_basename(&basename)
+                .endianness::<BE>()
+                .mode::<LoadMem>()
+                .load()
+        };
+        // BitStreamLabelingSeq reads the offsets from the .offsets file
+        let labeling =
+            BitStreamLabelingSeq::<BE, _, _>::load(&labels_basename, FixedWidth::<u32>::new())?;
+        graph::eq_labeled(graph, &Zip(seq()?, labeling))?;
+
+        common::build_ef_from_offsets(
+            graph.num_nodes(),
+            &labels_basename.with_extension("labels"),
+            &labels_basename.with_extension("offsets"),
+            &labels_basename.with_extension("ef"),
+        )?;
+        let labeling =
+            BitStreamLabeling::<BE, _, _, _>::load(&labels_basename, FixedWidth::<u32>::new())?;
+        graph::eq_labeled(graph, &Zip(seq()?, labeling))?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_labeled_roundtrip() -> Result<()> {
+        let graph = LabeledVecGraph::from_arcs(
+            common::TEST_GRAPH_ARCS.map(|(src, dst)| ((src, dst), (10 * src + dst) as u32)),
+        );
+        // Zstandard compression applies to the temporary files of parallel
+        // compression only
+        for (par, zstd) in [(false, false), (true, false), (true, true)] {
+            labeled_roundtrip(&graph, par, zstd)
+                .with_context(|| format!("par: {par}, zstd: {zstd}"))?;
+        }
+        Ok(())
+    }
+
+    #[cfg_attr(feature = "slow_tests", test)]
+    #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
+    fn test_labeled_roundtrip_cnr2000() -> Result<()> {
+        use lender::prelude::*;
+        common::init_logger();
+
+        let cnr = BvGraphSeq::with_basename(common::cnr_2000_basename())
+            .endianness::<BE>()
+            .mode::<LoadMem>()
+            .load()?;
+        let mut arcs = Vec::new();
+        for_!((node, succ) in &cnr {
+            for s in succ {
+                arcs.push(((node, s), s as u32));
+            }
+        });
+        let graph = LabeledVecGraph::from_arcs(arcs);
+        labeled_roundtrip(&graph, false, false)?;
+        labeled_roundtrip(&graph, true, false)?;
+        Ok(())
+    }
 }

@@ -49,13 +49,14 @@
 
 use std::sync::Arc;
 
-use anyhow::{Context, Result, ensure};
+use anyhow::Result;
 use dsi_progress_logger::ProgressLog;
 use rayon::prelude::*;
 use tempfile::TempDir;
 
 use super::MemoryUsage;
 use super::kmerge_iters::KMergeIters;
+use super::par_sort_common::{Sorter, impl_sorter_conf, merge_partitions, strip_labels};
 use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec};
 use crate::utils::{SortedPairIter, SplitIters};
 
@@ -145,25 +146,14 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         >,
         pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
-        let split = self.sort_labeled::<DefaultBatchCodec<DEDUP>, _>(
-            <DefaultBatchCodec<DEDUP>>::default(),
-            pairs
-                .into_iter()
-                .map(|iter| iter.into_iter().map(|pair| (pair, ()))),
-            pl,
-        )?;
-
-        let strip: fn(((usize, usize), ())) -> (usize, usize) = |(pair, _)| pair;
-        let iters_without_labels: Vec<_> = split
-            .iters
-            .into_vec()
-            .into_iter()
-            .map(|iter| iter.map(strip))
-            .collect();
-
-        Ok(SplitIters::new(
-            split.boundaries,
-            iters_without_labels.into_boxed_slice(),
+        Ok(strip_labels(
+            self.sort_labeled::<DefaultBatchCodec<DEDUP>, _>(
+                <DefaultBatchCodec<DEDUP>>::default(),
+                pairs
+                    .into_iter()
+                    .map(|iter| iter.into_iter().map(|pair| (pair, ()))),
+                pl,
+            )?,
         ))
     }
 
@@ -193,97 +183,19 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
         pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
-        let split = <ParSortIters<DEDUP>>::try_sort_labeled_seq::<DefaultBatchCodec<DEDUP>, E, _>(
-            self,
-            <DefaultBatchCodec<DEDUP>>::default(),
-            pairs.into_iter().map(|r| r.map(|pair| (pair, ()))),
-            pl,
-        )?;
-
-        let strip: fn(((usize, usize), ())) -> (usize, usize) = |(pair, _)| pair;
-        let iters_without_labels: Vec<_> = split
-            .iters
-            .into_vec()
-            .into_iter()
-            .map(|iter| iter.map(strip))
-            .collect();
-
-        Ok(SplitIters::new(
-            split.boundaries,
-            iters_without_labels.into_boxed_slice(),
+        Ok(strip_labels(
+            self.try_sort_labeled_seq::<DefaultBatchCodec<DEDUP>, E, _>(
+                <DefaultBatchCodec<DEDUP>>::default(),
+                pairs.into_iter().map(|r| r.map(|pair| (pair, ()))),
+                pl,
+            )?,
         ))
     }
 }
 
-impl<const DEDUP: bool> ParSortIters<DEDUP> {
-    /// Creates a new [`ParSortIters`] instance.
-    pub(crate) fn create(num_nodes: usize) -> Result<Self> {
-        Ok(Self {
-            num_nodes,
-            num_partitions: rayon::current_num_threads(),
-            memory_usage: None,
-        })
-    }
-}
-
-impl ParSortIters {
-    /// Creates a new [`ParSortIters`] instance.
-    ///
-    /// The methods [`num_partitions`] (which sets the number of iterators in
-    /// the resulting [`SplitIters`]) and [`memory_usage`] can be used to
-    /// customize the instance.
-    ///
-    /// [`num_partitions`]: ParSortIters::num_partitions
-    /// [`memory_usage`]: ParSortIters::memory_usage
-    pub fn new(num_nodes: usize) -> Result<Self> {
-        Self::create(num_nodes)
-    }
-
-    /// Creates a new [`ParSortIters`] instance with deduplication enabled.
-    ///
-    /// When enabled, each partition iterator in the resulting [`SplitIters`]
-    /// will skip consecutive elements sharing the same pair of nodes, keeping
-    /// only the first occurrence.
-    ///
-    /// See [`new`] for details.
-    ///
-    /// [`new`]: ParSortIters::new
-    pub fn new_dedup(num_nodes: usize) -> Result<ParSortIters<true>> {
-        ParSortIters::create(num_nodes)
-    }
-}
+impl_sorter_conf!(ParSortIters);
 
 impl<const DEDUP: bool> ParSortIters<DEDUP> {
-    /// How many partitions to split the nodes into.
-    ///
-    /// This is the number of iterators in the resulting [`SplitIters`].
-    ///
-    /// Defaults to [`rayon::current_num_threads`].
-    ///
-    /// # Panics
-    ///
-    /// This method will panic if `num_partitions` is zero.
-    pub const fn num_partitions(self, num_partitions: usize) -> Self {
-        assert!(num_partitions > 0, "num_partitions must be positive");
-        Self {
-            num_partitions,
-            ..self
-        }
-    }
-
-    /// How much memory to use for in-memory sorts.
-    ///
-    /// Larger values yield faster merges (by reducing logarithmically the
-    /// number of batches to merge) but consume linearly more memory. We suggest
-    /// to set this parameter as large as possible, depending on the available
-    /// memory. The default is the default of [`MemoryUsage`].
-    pub const fn memory_usage(self, memory_usage: MemoryUsage) -> Self {
-        Self {
-            memory_usage: Some(memory_usage),
-            ..self
-        }
-    }
-
     /// Sorts the output of the provided sequence of iterators of (labeled)
     /// pairs, returning a [`SplitIters`] structure.
     ///
@@ -309,149 +221,38 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         pairs: P,
         pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>>> {
-        let unsorted_pairs = pairs;
-
-        let num_partitions = self.num_partitions;
-        let num_buffers = rayon::current_num_threads() * num_partitions;
-        // max(1): see the same computation in ParSortPairs::sort_labeled.
-        let batch_size = self
-            .memory_usage
-            .unwrap_or_default()
-            .batch_size::<((usize, usize), C::Label)>()
-            .div_ceil(num_buffers)
-            .max(1);
-        let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
-
+        let sorter = Sorter::new(
+            &batch_codec,
+            self.num_nodes,
+            self.num_partitions,
+            self.memory_usage,
+            Some(rayon::current_num_threads()),
+        )?;
         let mut pl = pl.concurrent();
-        pl.item_name("pair");
-        pl.start("Reading and sorting pairs...");
-        let total_memory =
-            batch_size * num_buffers * std::mem::size_of::<((usize, usize), C::Label)>();
-        pl.info(format_args!(
-            "Threads: {}; partitions: {}; batch size: {}; memory: {}B",
-            rayon::current_num_threads(),
-            num_partitions,
-            batch_size,
-            super::humanize(total_memory as f64),
-        ));
+        sorter.start(&mut pl);
 
-        let presort_tmp_dir =
-            Arc::new(tempfile::tempdir().context("Could not create temporary directory")?);
-
-        let partitioned_presorted_pairs = unsorted_pairs
+        // Each iterator is sorted by a thread in its own partitioned batches;
+        // then, we merge the {partition_id -> [iterators]} maps of each thread
+        let partitions = pairs
             .into_iter()
             .enumerate()
             .par_bridge()
             .map_init(
                 || pl.clone(),
-                |pl, (block_id, pair)| {
-                    let mut unsorted_buffers = (0..num_partitions)
-                        .map(|_| Vec::with_capacity(batch_size))
-                        .collect::<Vec<_>>();
-                    let mut sorted_pairs =
-                        (0..num_partitions).map(|_| Vec::new()).collect::<Vec<_>>();
-
-                    for ((src, dst), label) in pair {
-                        ensure!(
-                            src < self.num_nodes,
-                            "Source node {src} is out of bounds (num_nodes = {})",
-                            self.num_nodes
-                        );
-                        ensure!(
-                            dst < self.num_nodes,
-                            "Destination node {dst} is out of bounds (num_nodes = {})",
-                            self.num_nodes
-                        );
-                        let partition_id = src / num_nodes_per_partition;
-
-                        let sorted_pairs = &mut sorted_pairs[partition_id];
-                        let buf = &mut unsorted_buffers[partition_id];
-                        if buf.len() >= buf.capacity() {
-                            let buf_len = buf.len();
-                            super::par_sort_pairs::flush_buffer(
-                                presort_tmp_dir.path(),
-                                &batch_codec,
-                                block_id,
-                                partition_id,
-                                sorted_pairs,
-                                buf,
-                            )
-                            .context("Could not flush buffer")?;
-                            assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
-                            pl.update_with_count(buf_len);
-                        }
-
-                        buf.push(((src, dst), label));
+                |pl, (block_id, pairs)| {
+                    let mut buffers = sorter.buffers(block_id);
+                    for pair in pairs {
+                        sorter.push(&mut buffers, pair, pl)?;
                     }
-
-                    for (partition_id, (pairs, mut buf)) in
-                        sorted_pairs.iter_mut().zip(unsorted_buffers).enumerate()
-                    {
-                        let buf_len = buf.len();
-                        super::par_sort_pairs::flush_buffer(
-                            presort_tmp_dir.path(),
-                            &batch_codec,
-                            block_id,
-                            partition_id,
-                            pairs,
-                            &mut buf,
-                        )
-                        .context("Could not flush buffer at the end")?;
-                        assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
-                        pl.update_with_count(buf_len);
-                    }
-
-                    Ok(sorted_pairs)
+                    sorter.finish(&mut buffers, pl)
                 },
             )
-            .collect::<Result<Vec<_>>>()?;
-
-        // At this point, the iterator could be collected into {worker_id ->
-        // {partition_id -> [iterators]}}, i.e., Vec<Vec<Vec<BatchIterator>>>>.
-        //
-        // Let's merge the {partition_id -> [iterators]} maps of each worker
-        let partitioned_presorted_pairs = partitioned_presorted_pairs.into_par_iter().reduce(
-            || (0..num_partitions).map(|_| Vec::new()).collect(),
-            |mut pair_partitions1: Vec<Vec<CodecIter<C>>>,
-             pair_partitions2: Vec<Vec<CodecIter<C>>>|
-             -> Vec<Vec<CodecIter<C>>> {
-                assert_eq!(pair_partitions1.len(), num_partitions);
-                assert_eq!(pair_partitions2.len(), num_partitions);
-                for (partition1, partition2) in pair_partitions1.iter_mut().zip(pair_partitions2) {
-                    partition1.extend(partition2);
-                }
-                pair_partitions1
-            },
-        );
-        // At this point, the iterator was turned into {partition_id ->
-        // [iterators]}, i.e., Vec<Vec<BatchIterator>>>.
+            .collect::<Result<Vec<_>>>()?
+            .into_par_iter()
+            .reduce(|| sorter.no_batches(), merge_partitions);
         pl.done();
 
-        // Build boundaries array: [0, nodes_per_partition,
-        // 2*nodes_per_partition, ..., num_nodes]
-        let boundaries: Vec<usize> = (0..=num_partitions)
-            .map(|i| {
-                i.saturating_mul(num_nodes_per_partition)
-                    .min(self.num_nodes)
-            })
-            .collect();
-
-        // Build iterators array
-        let iters: Vec<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>> =
-            partitioned_presorted_pairs
-                .into_iter()
-                .map(|partition| {
-                    // 'partition' contains N iterators that are not sorted with
-                    // respect to each other. We merge them and turn them into a
-                    // single sorted iterator.
-                    KMergeIters::with_anchor(partition, Arc::clone(&presort_tmp_dir))
-                })
-                .collect();
-
-        Ok(SplitIters::new(
-            boundaries.into_boxed_slice(),
-            iters.into_boxed_slice(),
-        ))
+        Ok(sorter.into_split_iters(partitions))
     }
 
     /// See [`try_sort_labeled_seq`].
@@ -495,104 +296,22 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         pairs: P,
         pl: &mut impl ProgressLog,
     ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>>> {
-        let num_partitions = self.num_partitions;
-        // max(1): see the same computation in ParSortPairs::sort_labeled.
-        let batch_size = self
-            .memory_usage
-            .unwrap_or_default()
-            .batch_size::<((usize, usize), C::Label)>()
-            .div_ceil(num_partitions)
-            .max(1);
-        let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
+        let sorter = Sorter::new(
+            &batch_codec,
+            self.num_nodes,
+            self.num_partitions,
+            self.memory_usage,
+            None,
+        )?;
+        sorter.start(pl);
 
-        pl.item_name("pair");
-        pl.start("Reading and sorting pairs (sequential)...");
-        let total_memory =
-            batch_size * num_partitions * std::mem::size_of::<((usize, usize), C::Label)>();
-        pl.info(format_args!(
-            "Partitions: {}; batch size: {}; memory: {}B",
-            num_partitions,
-            batch_size,
-            super::humanize(total_memory as f64),
-        ));
-
-        let presort_tmp_dir =
-            Arc::new(tempfile::tempdir().context("Could not create temporary directory")?);
-
-        let mut unsorted_buffers: Vec<_> = (0..num_partitions)
-            .map(|_| Vec::with_capacity(batch_size))
-            .collect();
-        let mut sorted_pairs: Vec<Vec<CodecIter<C>>> =
-            (0..num_partitions).map(|_| Vec::new()).collect();
-
+        let mut buffers = sorter.buffers(0);
         for pair in pairs {
-            let ((src, dst), label) = pair.map_err(Into::into)?;
-            ensure!(
-                src < self.num_nodes,
-                "Source node {src} is out of bounds (num_nodes = {})",
-                self.num_nodes
-            );
-            ensure!(
-                dst < self.num_nodes,
-                "Destination node {dst} is out of bounds (num_nodes = {})",
-                self.num_nodes
-            );
-            let partition_id = src / num_nodes_per_partition;
-
-            let buf = &mut unsorted_buffers[partition_id];
-            if buf.len() >= buf.capacity() {
-                let buf_len = buf.len();
-                super::par_sort_pairs::flush_buffer(
-                    presort_tmp_dir.path(),
-                    &batch_codec,
-                    0,
-                    partition_id,
-                    &mut sorted_pairs[partition_id],
-                    buf,
-                )
-                .context("Could not flush buffer")?;
-                assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
-                pl.update_with_count(buf_len);
-            }
-
-            buf.push(((src, dst), label));
+            sorter.push(&mut buffers, pair.map_err(Into::into)?, pl)?;
         }
-
-        // Flush remaining buffers
-        for (partition_id, mut buf) in unsorted_buffers.into_iter().enumerate() {
-            let buf_len = buf.len();
-            super::par_sort_pairs::flush_buffer(
-                presort_tmp_dir.path(),
-                &batch_codec,
-                0,
-                partition_id,
-                &mut sorted_pairs[partition_id],
-                &mut buf,
-            )
-            .context("Could not flush buffer at the end")?;
-            assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
-            pl.update_with_count(buf_len);
-        }
-
+        let partitions = sorter.finish(&mut buffers, pl)?;
         pl.done();
 
-        // Build boundaries array
-        let boundaries: Vec<usize> = (0..=num_partitions)
-            .map(|i| {
-                i.saturating_mul(num_nodes_per_partition)
-                    .min(self.num_nodes)
-            })
-            .collect();
-
-        // Build iterators array
-        let iters: Vec<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>> = sorted_pairs
-            .into_iter()
-            .map(|partition| KMergeIters::with_anchor(partition, Arc::clone(&presort_tmp_dir)))
-            .collect();
-
-        Ok(SplitIters::new(
-            boundaries.into_boxed_slice(),
-            iters.into_boxed_slice(),
-        ))
+        Ok(sorter.into_split_iters(partitions))
     }
 }

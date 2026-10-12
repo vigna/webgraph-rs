@@ -30,50 +30,5 @@ pub struct All {
     pub iterations: usize,
 }
 
-/// The result returned by [`run_symm`] on [`RadiusDiameter`].
-///
-/// [`run_symm`]: super::Level::run_symm
-/// [`RadiusDiameter`]: super::RadiusDiameter
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct RadiusDiameter {
-    /// The diameter.
-    pub diameter: usize,
-    /// The radius.
-    pub radius: usize,
-    /// A vertex whose eccentricity equals the diameter.
-    pub diametral_vertex: usize,
-    /// A vertex whose eccentricity equals the radius.
-    pub radial_vertex: usize,
-    /// Number of iterations before the radius was found.
-    pub radius_iterations: usize,
-    /// Number of iterations before the diameter was found.
-    pub diameter_iterations: usize,
-}
-
-/// The result returned by [`run_symm`] on [`Diameter`].
-///
-/// [`run_symm`]: super::Level::run_symm
-/// [`Diameter`]: super::Diameter
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Diameter {
-    /// The diameter.
-    pub diameter: usize,
-    /// A vertex whose eccentricity equals the diameter.
-    pub diametral_vertex: usize,
-    /// Number of iterations before the diameter was found.
-    pub diameter_iterations: usize,
-}
-
-/// The result returned by [`run_symm`] on [`Radius`].
-///
-/// [`run_symm`]: super::Level::run_symm
-/// [`Radius`]: super::Radius
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Radius {
-    /// The radius.
-    pub radius: usize,
-    /// A vertex whose eccentricity equals the radius.
-    pub radial_vertex: usize,
-    /// Number of iterations before the radius was found.
-    pub radius_iterations: usize,
-}
+// The results of the other levels are the same as in the directed case.
+pub use super::output::{Diameter, Radius, RadiusDiameter};

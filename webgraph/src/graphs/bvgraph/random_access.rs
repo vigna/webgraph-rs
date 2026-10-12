@@ -5,15 +5,13 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
-use crate::{impl_parallel_from_split, prelude::*};
-use bitflags::Flags;
+use crate::graphs::{impl_into_lender, impl_split};
+use crate::prelude::*;
 use dsi_bitstream::codes::ToInt;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::traits::{BE, Endianness};
 use epserde::deser::Owned;
-use lender::IntoLender;
 use std::iter::FusedIterator;
-use std::path::PathBuf;
 
 use self::sequential::NodeLabels;
 
@@ -51,11 +49,19 @@ impl BvGraph<()> {
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
     ) -> LoadConf<BE, Random, Dynamic, Mmap, Mmap> {
-        LoadConf {
-            basename: PathBuf::from(basename.as_ref()),
-            graph_load_flags: Flags::empty(),
-            offsets_load_flags: Flags::empty(),
-            _marker: std::marker::PhantomData,
+        LoadConf::new(basename)
+    }
+}
+
+impl<F> BvGraph<F> {
+    /// Replaces the factory with the result of `map_func`.
+    fn map_factory<F2>(self, map_func: impl FnOnce(F) -> F2) -> BvGraph<F2> {
+        BvGraph {
+            factory: map_func(self.factory),
+            number_of_nodes: self.number_of_nodes,
+            number_of_arcs: self.number_of_arcs,
+            compression_window: self.compression_window,
+            min_interval_length: self.min_interval_length,
         }
     }
 }
@@ -65,8 +71,6 @@ impl BvGraph<()> {
 
 impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
     BvGraph<DynCodesDecoderFactory<E, F, OFF>>
-where
-    for<'a> &'a OFF::DeserType<'a>: IntoIterator<Item = u64>,
 {
     /// Remaps the offsets in a slice of `u64`.
     ///
@@ -75,13 +79,7 @@ where
     /// memory footprint. It just replaces the current decoder factory with
     /// the result of [`DynCodesDecoderFactory::offsets_to_slice`].
     pub fn offsets_to_slice(self) -> BvGraph<DynCodesDecoderFactory<E, F, Owned<Box<[u64]>>>> {
-        BvGraph {
-            factory: self.factory.offsets_to_slice(),
-            number_of_nodes: self.number_of_nodes,
-            number_of_arcs: self.number_of_arcs,
-            compression_window: self.compression_window,
-            min_interval_length: self.min_interval_length,
-        }
+        self.map_factory(DynCodesDecoderFactory::offsets_to_slice)
     }
 }
 
@@ -119,37 +117,14 @@ impl<
             RESIDUALS,
         >,
     > {
-        BvGraph {
-            factory: self.factory.offsets_to_slice(),
-            number_of_nodes: self.number_of_nodes,
-            number_of_arcs: self.number_of_arcs,
-            compression_window: self.compression_window,
-            min_interval_length: self.min_interval_length,
-        }
+        self.map_factory(ConstCodesDecoderFactory::offsets_to_slice)
     }
 }
 
-impl<F: RandomAccessDecoderFactory> SplitLabeling for BvGraph<F>
-where
-    for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Send + Sync,
-{
-    type SplitLender<'a>
-        = split::ra::Lender<'a, BvGraph<F>>
-    where
-        Self: 'a;
-    type IntoIterator<'a>
-        = split::ra::IntoIterator<'a, BvGraph<F>>
-    where
-        Self: 'a;
-
-    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
-        split::ra::Iter::new(self, cutpoints)
-    }
-}
-
-impl_parallel_from_split!(
-    [F: RandomAccessDecoderFactory]
+impl_split!(
+    ra [F: RandomAccessDecoderFactory]
     BvGraph<F>
+    [for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Send + Sync]
     [for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Send + Sync]
 );
 
@@ -529,16 +504,4 @@ impl<D: Decode> Iterator for Succ<D> {
     }
 }
 
-/// Convenience implementation that makes it possible to iterate over a
-/// [`BvGraph`] using the [`for_`] macro (see the [crate documentation]).
-///
-/// [`for_`]: lender::for_
-/// [crate documentation]: crate
-impl<'a, F: RandomAccessDecoderFactory> IntoLender for &'a BvGraph<F> {
-    type Lender = <BvGraph<F> as SequentialLabeling>::Lender<'a>;
-
-    #[inline(always)]
-    fn into_lender(self) -> Self::Lender {
-        self.iter()
-    }
-}
+impl_into_lender!([F: RandomAccessDecoderFactory] BvGraph<F>);

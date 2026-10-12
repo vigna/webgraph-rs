@@ -9,16 +9,19 @@
 use std::marker::PhantomData;
 
 use super::super::*;
+use super::offsets_to_boxed_slice;
 use dsi_bitstream::dispatch::CodesReaderFactory;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 
 use epserde::deser::{MemCase, Owned};
+use impl_tools::autoimpl;
 use value_traits::slices::SliceByValue;
 
 /// A decoder that reads the codes of a graph from a bitstream using
 /// dynamically-dispatched functions.
 #[derive(Debug)]
+#[autoimpl(Clone where CR: trait)]
 pub struct DynCodesDecoder<E: Endianness, CR: CodesRead<E>> {
     pub(crate) code_reader: CR,
     pub(crate) read_outdegree: FuncCodeReader<E, CR>,
@@ -31,25 +34,6 @@ pub struct DynCodesDecoder<E: Endianness, CR: CodesRead<E>> {
     pub(crate) read_first_residual: FuncCodeReader<E, CR>,
     pub(crate) read_residual: FuncCodeReader<E, CR>,
     pub(crate) _marker: core::marker::PhantomData<E>,
-}
-
-/// manual implementation to avoid the `E: Clone` bound
-impl<E: Endianness, CR: CodesRead<E> + Clone> Clone for DynCodesDecoder<E, CR> {
-    fn clone(&self) -> Self {
-        Self {
-            code_reader: self.code_reader.clone(),
-            read_outdegree: self.read_outdegree.clone(),
-            read_reference_offset: self.read_reference_offset.clone(),
-            read_block_count: self.read_block_count.clone(),
-            read_block: self.read_block.clone(),
-            read_interval_count: self.read_interval_count.clone(),
-            read_interval_start: self.read_interval_start.clone(),
-            read_interval_len: self.read_interval_len.clone(),
-            read_first_residual: self.read_first_residual.clone(),
-            read_residual: self.read_residual.clone(),
-            _marker: PhantomData,
-        }
-    }
 }
 
 impl<E: Endianness, CR: CodesRead<E>> DynCodesDecoder<E, CR> {
@@ -158,9 +142,8 @@ pub struct DynCodesDecoderFactory<E: Endianness, F: CodesReaderFactoryHelper<E>,
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> DynCodesDecoderFactory<E, F, OFF>
-where
-    for<'a> &'a OFF::DeserType<'a>: IntoIterator<Item = u64>,
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
+    DynCodesDecoderFactory<E, F, OFF>
 {
     /// Remaps the offsets in a slice of `u64`.
     ///
@@ -172,13 +155,7 @@ where
     pub fn offsets_to_slice(self) -> DynCodesDecoderFactory<E, F, Owned<Box<[u64]>>> {
         DynCodesDecoderFactory {
             factory: self.factory,
-            offsets: self
-                .offsets
-                .uncase()
-                .into_iter()
-                .collect::<Vec<_>>()
-                .into_boxed_slice()
-                .into(),
+            offsets: offsets_to_boxed_slice(self.offsets),
             compression_flags: self.compression_flags,
             read_outdegree: self.read_outdegree,
             read_reference_offset: self.read_reference_offset,
@@ -192,11 +169,7 @@ where
             _marker: PhantomData,
         }
     }
-}
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
-    DynCodesDecoderFactory<E, F, OFF>
-{
     #[inline(always)]
     /// Returns a clone of the compression flags.
     pub const fn get_compression_flags(&self) -> CompFlags {
@@ -221,6 +194,27 @@ impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
             _marker: core::marker::PhantomData,
         })
     }
+
+    /// Returns a decoder reading from the given codes reader.
+    #[inline(always)]
+    fn decoder<'a>(
+        &self,
+        code_reader: <F as CodesReaderFactory<E>>::CodesReader<'a>,
+    ) -> DynCodesDecoder<E, <F as CodesReaderFactory<E>>::CodesReader<'a>> {
+        DynCodesDecoder {
+            code_reader,
+            read_outdegree: self.read_outdegree.get(),
+            read_reference_offset: self.read_reference_offset.get(),
+            read_block_count: self.read_block_count.get(),
+            read_block: self.read_blocks.get(),
+            read_interval_count: self.read_interval_count.get(),
+            read_interval_start: self.read_interval_start.get(),
+            read_interval_len: self.read_interval_len.get(),
+            read_first_residual: self.read_first_residual.get(),
+            read_residual: self.read_residual.get(),
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> RandomAccessDecoderFactory
@@ -237,20 +231,7 @@ where
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(unsafe { self.offsets.uncase().get_value_unchecked(node) })?;
-
-        Ok(DynCodesDecoder {
-            code_reader,
-            read_outdegree: self.read_outdegree.get(),
-            read_reference_offset: self.read_reference_offset.get(),
-            read_block_count: self.read_block_count.get(),
-            read_block: self.read_blocks.get(),
-            read_interval_count: self.read_interval_count.get(),
-            read_interval_start: self.read_interval_start.get(),
-            read_interval_len: self.read_interval_len.get(),
-            read_first_residual: self.read_first_residual.get(),
-            read_residual: self.read_residual.get(),
-            _marker: PhantomData,
-        })
+        Ok(self.decoder(code_reader))
     }
 }
 
@@ -264,18 +245,6 @@ impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> SequentialDeco
 
     #[inline(always)]
     fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
-        Ok(DynCodesDecoder {
-            code_reader: self.factory.new_reader(),
-            read_outdegree: self.read_outdegree.get(),
-            read_reference_offset: self.read_reference_offset.get(),
-            read_block_count: self.read_block_count.get(),
-            read_block: self.read_blocks.get(),
-            read_interval_count: self.read_interval_count.get(),
-            read_interval_start: self.read_interval_start.get(),
-            read_interval_len: self.read_interval_len.get(),
-            read_first_residual: self.read_first_residual.get(),
-            read_residual: self.read_residual.get(),
-            _marker: PhantomData,
-        })
+        Ok(self.decoder(self.factory.new_reader()))
     }
 }

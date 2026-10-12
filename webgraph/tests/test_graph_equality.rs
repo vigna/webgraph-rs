@@ -11,8 +11,6 @@ mod common;
 use anyhow::Result;
 use webgraph::graphs::vec_graph::{LabeledVecGraph, VecGraph};
 use webgraph::labels::Zip;
-#[cfg(not(miri))]
-use webgraph::prelude::*;
 use webgraph::traits::{
     graph,
     labels::{self, EqError},
@@ -207,32 +205,9 @@ fn test_zip_verify_different_outdegrees() {
 // ── labels::check_impl ──
 
 #[test]
-fn test_check_impl_ok() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (1, 2)]);
-    labels::check_impl(&g)?;
-    Ok(())
-}
-
-#[test]
-fn test_check_impl_empty_graph() -> Result<()> {
-    let g = VecGraph::empty(3);
-    labels::check_impl(&g)?;
-    Ok(())
-}
-
-#[test]
-fn test_check_impl_larger_graph() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3), (3, 0)]);
-    labels::check_impl(&g)?;
-    Ok(())
-}
-
-#[test]
-#[cfg(not(miri))]
-fn test_check_impl_bvgraph() -> Result<()> {
-    let basename = common::cnr_2000_basename();
-    let graph = BvGraph::with_basename(&basename).load()?;
-    labels::check_impl(&graph)?;
+fn test_check_impl() -> Result<()> {
+    labels::check_impl(common::test_graph())?;
+    labels::check_impl(VecGraph::empty(3))?;
     Ok(())
 }
 

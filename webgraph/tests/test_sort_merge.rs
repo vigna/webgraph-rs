@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
-#![allow(clippy::type_complexity)]
-
 //! Tests for KMergeIters, ParSortPairs, ParSortIters, and Matrix.
 
 #[cfg(not(miri))]
@@ -15,64 +13,149 @@ use dsi_bitstream::prelude::*;
 #[cfg(not(miri))]
 use dsi_progress_logger::no_logging;
 #[cfg(not(miri))]
-use webgraph::prelude::*;
+use rayon::prelude::*;
+use webgraph::utils::Matrix;
+use webgraph::utils::kmerge_iters::KMergeIters;
+#[cfg(not(miri))]
+use webgraph::utils::{MemoryUsage, ParSortIters, ParSortPairs, SplitIters};
 
-#[test]
-fn test_kmerge_iters_sum() {
-    use webgraph::utils::kmerge_iters::KMergeIters;
-    let a = KMergeIters::new(vec![vec![((0, 1), ()), ((2, 3), ())].into_iter()]);
-    let b = KMergeIters::new(vec![vec![((1, 2), ()), ((3, 4), ())].into_iter()]);
-    let merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> =
-        vec![a, b].into_iter().sum::<KMergeIters<_>>();
-    let result: Vec<_> = merged.collect();
-    assert_eq!(
-        result,
-        vec![((0, 1), ()), ((1, 2), ()), ((2, 3), ()), ((3, 4), ())]
-    );
+/// A [`KMergeIters`] on vectors of unlabeled pairs.
+type KMerge = KMergeIters<std::vec::IntoIter<((usize, usize), ())>, (), false>;
+
+/// A deduplicating [`KMergeIters`] on vectors of unlabeled pairs.
+type KMergeDedup = KMergeIters<std::vec::IntoIter<((usize, usize), ())>, (), true>;
+
+/// Returns an iterator on unlabeled versions of the given pairs.
+fn unlabeled(pairs: &[(usize, usize)]) -> std::vec::IntoIter<((usize, usize), ())> {
+    pairs
+        .iter()
+        .map(|&pair| (pair, ()))
+        .collect::<Vec<_>>()
+        .into_iter()
 }
 
+/// Returns the pairs of a merge, without labels.
+fn keys<L>(merged: impl Iterator<Item = ((usize, usize), L)>) -> Vec<(usize, usize)> {
+    merged.map(|(pair, _)| pair).collect()
+}
+
+/// Checks that the split has `num_partitions` partitions, that its
+/// boundaries start at zero and end at `num_nodes`, that each partition
+/// contains only pairs whose source is within its boundaries, and that the
+/// concatenation of the partitions is sorted; returns the concatenation.
+#[cfg(not(miri))]
+fn collect_split<I: IntoIterator>(
+    split: SplitIters<I>,
+    num_partitions: usize,
+    num_nodes: usize,
+    pair: impl Fn(&I::Item) -> (usize, usize),
+) -> Vec<I::Item> {
+    let boundaries = split.boundaries;
+    assert_eq!(boundaries.len(), num_partitions + 1);
+    assert_eq!(boundaries[0], 0);
+    assert_eq!(*boundaries.last().unwrap(), num_nodes);
+    assert!(boundaries.is_sorted());
+    assert_eq!(split.iters.len(), boundaries.len() - 1);
+    let mut all = vec![];
+    for (i, iter) in split.iters.into_vec().into_iter().enumerate() {
+        for item in iter {
+            let src = pair(&item).0;
+            assert!(
+                (boundaries[i]..boundaries[i + 1]).contains(&src),
+                "source {src} out of partition {i}"
+            );
+            all.push(item);
+        }
+    }
+    assert!(all.is_sorted_by_key(&pair), "partitions are not sorted");
+    all
+}
+
+// ── KMergeIters ──
+
 #[test]
-fn test_kmerge_iters_collect() {
-    use webgraph::utils::kmerge_iters::KMergeIters;
-    let iters: Vec<Vec<((usize, usize), ())>> = vec![
-        vec![((0, 0), ()), ((1, 1), ())],
-        vec![((0, 1), ()), ((2, 0), ())],
+fn test_kmerge_iters_sum_and_collect() {
+    let a = KMerge::new(vec![unlabeled(&[(0, 1), (2, 3)])]);
+    let b = KMerge::new(vec![unlabeled(&[(1, 2), (3, 4)])]);
+    let merged: KMerge = vec![a, b].into_iter().sum();
+    assert_eq!(keys(merged), [(0, 1), (1, 2), (2, 3), (3, 4)]);
+
+    let a = KMerge::new(vec![unlabeled(&[(0, 0)])]);
+    let b = KMerge::new(vec![unlabeled(&[(1, 0)])]);
+    let merged: KMerge = vec![a, b].into_iter().collect();
+    assert_eq!(keys(merged), [(0, 0), (1, 0)]);
+
+    // Sum and collect of labeled into-iterators
+    let iters = vec![
+        vec![((0, 1), 10), ((2, 3), 30)],
+        vec![((1, 2), 20), ((3, 4), 40)],
     ];
-    let merged: KMergeIters<_, ()> = iters.into_iter().collect();
-    let result: Vec<_> = merged.collect();
-    assert_eq!(
-        result,
-        vec![((0, 0), ()), ((0, 1), ()), ((1, 1), ()), ((2, 0), ())]
-    );
+    let merged: KMergeIters<_, usize> = iters.clone().into_iter().sum();
+    let expected = [((0, 1), 10), ((1, 2), 20), ((2, 3), 30), ((3, 4), 40)];
+    assert_eq!(merged.collect::<Vec<_>>(), expected);
+    let merged: KMergeIters<_, usize> = iters.into_iter().collect();
+    assert_eq!(merged.collect::<Vec<_>>(), expected);
 }
 
 #[test]
-fn test_kmerge_iters_default_and_extend() {
-    use webgraph::utils::kmerge_iters::KMergeIters;
-    let mut merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> = KMergeIters::default();
-    // Extend with new iterators
+fn test_kmerge_iters_default_extend_and_add_assign() {
+    let merged = KMerge::default();
+    assert_eq!(merged.count(), 0);
+
+    let mut merged = KMerge::default();
+    merged.extend(vec![unlabeled(&[(0, 1), (2, 3)]), unlabeled(&[(1, 0)])]);
+    assert_eq!(keys(merged), [(0, 1), (1, 0), (2, 3)]);
+
+    let mut merged = KMerge::new(vec![unlabeled(&[(0, 0)])]);
     merged.extend(vec![
-        vec![((0, 1), ()), ((2, 3), ())].into_iter(),
-        vec![((1, 0), ())].into_iter(),
+        KMerge::new(vec![unlabeled(&[(1, 0)])]),
+        KMerge::new(vec![unlabeled(&[(2, 0)])]),
     ]);
-    let result: Vec<_> = merged.collect();
-    assert_eq!(result, vec![((0, 1), ()), ((1, 0), ()), ((2, 3), ())]);
+    assert_eq!(keys(merged), [(0, 0), (1, 0), (2, 0)]);
+
+    let mut merged = KMerge::default();
+    merged.extend(vec![vec![((0, 0), ()), ((2, 0), ())], vec![((1, 0), ())]]);
+    assert_eq!(keys(merged), [(0, 0), (1, 0), (2, 0)]);
+
+    let mut merged = KMerge::new(vec![unlabeled(&[(0, 0), (2, 2)])]);
+    merged += KMerge::new(vec![unlabeled(&[(1, 1)])]);
+    assert_eq!(keys(merged), [(0, 0), (1, 1), (2, 2)]);
+
+    let mut merged = KMerge::default();
+    merged += vec![((0, 1), ()), ((2, 3), ())];
+    assert_eq!(keys(merged), [(0, 1), (2, 3)]);
 }
 
 #[test]
-fn test_kmerge_iters_add_assign() {
-    use webgraph::utils::kmerge_iters::KMergeIters;
-    let mut a: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> =
-        KMergeIters::new(vec![vec![((0, 0), ()), ((2, 2), ())].into_iter()]);
-    let b = KMergeIters::new(vec![vec![((1, 1), ())].into_iter()]);
-    a += b;
-    let result: Vec<_> = a.collect();
-    assert_eq!(result, vec![((0, 0), ()), ((1, 1), ()), ((2, 2), ())]);
+fn test_kmerge_iters_exact_size_iterator() {
+    let merged = KMerge::new(vec![
+        unlabeled(&[(0, 0), (1, 0)]),
+        unlabeled(&[(2, 0), (3, 0), (4, 0)]),
+    ]);
+    assert_eq!(merged.len(), 5);
 }
+
+#[test]
+fn test_kmerge_iters_dedup() {
+    let iters = || {
+        vec![
+            unlabeled(&[(0, 1), (0, 1), (2, 3)]),
+            unlabeled(&[(0, 1), (1, 2), (2, 3)]),
+        ]
+    };
+    assert_eq!(keys(KMergeDedup::new(iters())), [(0, 1), (1, 2), (2, 3)]);
+    assert_eq!(KMergeDedup::new(iters()).count(), 3);
+
+    let a = KMergeDedup::new(vec![unlabeled(&[(0, 1), (0, 1)])]);
+    let b = KMergeDedup::new(vec![unlabeled(&[(0, 1), (1, 2)])]);
+    let merged: KMergeDedup = vec![a, b].into_iter().sum();
+    assert_eq!(keys(merged), [(0, 1), (1, 2)]);
+}
+
+// ── Matrix ──
 
 #[test]
 fn test_matrix_basic() {
-    use webgraph::utils::Matrix;
     let mut m = Matrix::<i32>::new(3, 4);
     assert_eq!(m[(0, 0)], 0);
     m[(1, 2)] = 42;
@@ -84,440 +167,163 @@ fn test_matrix_basic() {
     assert_eq!(m[(2, 0)], 0);
 }
 
+// ── ParSortPairs ──
+
 #[test]
 #[cfg(not(miri))]
-fn test_par_sort_pairs_basic() -> Result<()> {
-    use rayon::prelude::*;
-    use webgraph::utils::par_sort_pairs::ParSortPairs;
-
-    let pairs = vec![(1, 3), (3, 2), (2, 1), (1, 0), (0, 4)];
-    let sorter = ParSortPairs::new(5)?.num_partitions(2);
-
-    let split = sorter.sort(pairs.par_iter().copied(), no_logging![])?;
-    assert_eq!(split.boundaries[0], 0);
-    assert_eq!(*split.boundaries.last().unwrap(), 5);
-
-    // Collect all pairs across all partitions
-    let mut all_pairs = Vec::new();
-    for iter in split.iters.into_vec() {
-        let partition_pairs: Vec<_> = iter.into_iter().collect();
-        // Sorted within each partition
-        for w in partition_pairs.windows(2) {
-            assert!(w[0] <= w[1]);
+fn test_par_sort_pairs() -> Result<()> {
+    let pairs = [(1, 3), (3, 2), (2, 1), (1, 0), (0, 4)];
+    let expected = [(0, 4), (1, 0), (1, 3), (2, 1), (3, 2)];
+    for num_partitions in [1, 2, 3] {
+        // Exercises also the degenerate BatchSize(0) configuration, which is
+        // clamped to one element per buffer instead of allocating
+        // zero-capacity buffers (whose effective batch size would depend on
+        // Vec's growth policy).
+        for batch_size in [0, 2, 100] {
+            let split = ParSortPairs::new(5)?
+                .num_partitions(num_partitions)
+                .memory_usage(MemoryUsage::BatchSize(batch_size))
+                .sort(pairs.par_iter().copied(), no_logging![])?;
+            assert_eq!(collect_split(split, num_partitions, 5, |&p| p), expected);
         }
-        all_pairs.extend(partition_pairs);
     }
-    all_pairs.sort();
-    assert_eq!(all_pairs, vec![(0, 4), (1, 0), (1, 3), (2, 1), (3, 2)]);
-    Ok(())
-}
 
-#[test]
-#[cfg(not(miri))]
-fn test_par_sort_pairs_single_partition() -> Result<()> {
-    use rayon::prelude::*;
-    use webgraph::utils::par_sort_pairs::ParSortPairs;
-
-    let pairs = vec![(2, 0), (0, 1), (1, 2)];
-    let sorter = ParSortPairs::new(3)?.num_partitions(1);
-
-    let split = sorter.sort(pairs.par_iter().copied(), no_logging![])?;
-    assert_eq!(split.boundaries.len(), 2); // [0, 3]
-    assert_eq!(split.iters.len(), 1);
-    let result: Vec<_> = split.iters.into_vec().pop().unwrap().collect();
-    assert_eq!(result, vec![(0, 1), (1, 2), (2, 0)]);
-    Ok(())
-}
-
-#[test]
-#[cfg(not(miri))]
-fn test_par_sort_pairs_zero_batch_size() -> Result<()> {
-    // Exercises the degenerate BatchSize(0) configuration, which is clamped
-    // to one element per buffer instead of allocating zero-capacity buffers
-    // (whose effective batch size would depend on Vec's growth policy).
-    use rayon::prelude::*;
-    use webgraph::utils::MemoryUsage;
-    use webgraph::utils::par_sort_pairs::ParSortPairs;
-
-    let pairs = vec![(1, 3), (3, 2), (2, 1), (1, 0), (0, 4)];
+    // Many duplicates, without deduplication
+    let pairs: Vec<_> = (0..100).map(|i| (i % 10, (i + 1) % 10)).collect();
     let mut expected = pairs.clone();
     expected.sort();
-    let sorter = ParSortPairs::new(5)?
-        .num_partitions(2)
-        .memory_usage(MemoryUsage::BatchSize(0));
-
-    let split = sorter.sort(pairs.par_iter().copied(), no_logging![])?;
-    let mut all_pairs = Vec::new();
-    for iter in split.iters.into_vec() {
-        all_pairs.extend(iter);
-    }
-    all_pairs.sort();
-    assert_eq!(all_pairs, expected);
-    Ok(())
-}
-
-#[test]
-#[cfg(not(miri))]
-fn test_par_sort_pairs_with_memory_usage() -> Result<()> {
-    use rayon::prelude::*;
-    use webgraph::utils::MemoryUsage;
-    use webgraph::utils::par_sort_pairs::ParSortPairs;
-
-    let pairs: Vec<_> = (0..100).map(|i| (i % 10, (i + 1) % 10)).collect();
-    let mut expected: Vec<_> = pairs.clone();
-    expected.sort();
-    expected.dedup();
-    let sorter = ParSortPairs::new(10)?
+    let split = ParSortPairs::new(10)?
         .num_partitions(3)
-        .memory_usage(MemoryUsage::BatchSize(20));
-
-    let split = sorter.sort(pairs.par_iter().copied(), no_logging![])?;
-    assert_eq!(split.boundaries[0], 0);
-    assert_eq!(*split.boundaries.last().unwrap(), 10);
-
-    let mut all_pairs = Vec::new();
-    for iter in split.iters.into_vec() {
-        let partition_pairs: Vec<_> = iter.into_iter().collect();
-        for w in partition_pairs.windows(2) {
-            assert!(w[0] <= w[1]);
-        }
-        all_pairs.extend(partition_pairs);
-    }
-    all_pairs.sort();
-    all_pairs.dedup();
-    assert_eq!(all_pairs, expected);
-    Ok(())
-}
-
-#[test]
-#[cfg(not(miri))]
-fn test_par_sort_iters_basic() -> Result<()> {
-    use webgraph::utils::par_sort_iters::ParSortIters;
-
-    let iter1 = vec![(1, 3), (0, 2)];
-    let iter2 = vec![(2, 0), (3, 1)];
-    let sorter = ParSortIters::new(4)?
-        .num_partitions(2)
-        .memory_usage(webgraph::utils::MemoryUsage::BatchSize(10));
-
-    let split = sorter.sort(vec![iter1, iter2], no_logging![])?;
-    assert_eq!(split.boundaries[0], 0);
-    assert_eq!(*split.boundaries.last().unwrap(), 4);
-
-    // Collect and verify all pairs are present and sorted within partitions
-    let mut all: Vec<_> = Vec::new();
-    for iter in split.iters.into_vec() {
-        let partition: Vec<_> = iter.into_iter().collect();
-        for w in partition.windows(2) {
-            assert!(w[0] <= w[1]);
-        }
-        all.extend(partition);
-    }
-    all.sort();
-    assert_eq!(all, vec![(0, 2), (1, 3), (2, 0), (3, 1)]);
-    Ok(())
-}
-
-#[test]
-#[cfg(not(miri))]
-fn test_par_sort_iters_single_partition() -> Result<()> {
-    use webgraph::utils::par_sort_iters::ParSortIters;
-
-    let iter1 = vec![(2, 0), (0, 1)];
-    let iter2 = vec![(1, 2)];
-    let sorter = ParSortIters::new(3)?.num_partitions(1);
-
-    let split = sorter.sort(vec![iter1, iter2], no_logging![])?;
-    assert_eq!(split.boundaries.len(), 2);
-    let result: Vec<_> = split.iters.into_vec().pop().unwrap().collect();
-    assert_eq!(result, vec![(0, 1), (1, 2), (2, 0)]);
+        .memory_usage(MemoryUsage::BatchSize(20))
+        .sort(pairs.par_iter().copied(), no_logging![])?;
+    assert_eq!(collect_split(split, 3, 10, |&p| p), expected);
     Ok(())
 }
 
 #[test]
 #[cfg(not(miri))]
 fn test_par_sort_pairs_labeled() -> Result<()> {
-    use rayon::prelude::*;
-    use webgraph::utils::MemoryUsage;
-    use webgraph::utils::par_sort_pairs::ParSortPairs;
-
-    let pairs = vec![((1, 3), ()), ((0, 2), ()), ((2, 1), ())];
-    let sorter = ParSortPairs::new(4)?
-        .num_partitions(2)
-        .memory_usage(MemoryUsage::BatchSize(20));
-
-    let split = sorter.sort_labeled(
-        &<webgraph::utils::DefaultBatchCodec>::default(),
-        pairs.par_iter().copied(),
-        no_logging![],
-    )?;
-    assert_eq!(split.boundaries[0], 0);
-    assert_eq!(*split.boundaries.last().unwrap(), 4);
-
-    let mut all_pairs = Vec::new();
-    for iter in split.iters.into_vec() {
-        let partition: Vec<_> = iter.into_iter().collect();
-        for w in partition.windows(2) {
-            assert!(w[0].0 <= w[1].0);
-        }
-        all_pairs.extend(partition.into_iter().map(|(k, _)| k));
-    }
-    all_pairs.sort();
-    assert_eq!(all_pairs, vec![(0, 2), (1, 3), (2, 1)]);
-    Ok(())
-}
-
-#[test]
-fn test_kmerge_iters_default() {
-    use webgraph::utils::kmerge_iters::KMergeIters;
-    let kmerge: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> = KMergeIters::default();
-    assert_eq!(kmerge.count(), 0);
-}
-
-#[test]
-fn test_kmerge_iters_sum_of_into_iterators() {
-    use webgraph::utils::kmerge_iters::KMergeIters;
-    let iters: Vec<Vec<((usize, usize), usize)>> = vec![
-        vec![((0, 1), 10), ((2, 3), 30)],
-        vec![((1, 2), 20), ((3, 4), 40)],
-    ];
-    let merged: KMergeIters<_, usize> = iters.into_iter().sum();
-    let result: Vec<_> = merged.collect();
-    assert_eq!(
-        result,
-        vec![((0, 1), 10), ((1, 2), 20), ((2, 3), 30), ((3, 4), 40)]
-    );
-}
-
-#[test]
-fn test_kmerge_iters_from_iterator_of_self() {
-    use webgraph::utils::kmerge_iters::KMergeIters;
-    let km1: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> =
-        KMergeIters::new(vec![vec![((0, 0), ())].into_iter()]);
-    let km2 = KMergeIters::new(vec![vec![((1, 0), ())].into_iter()]);
-    let merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> =
-        vec![km1, km2].into_iter().collect();
-    let keys: Vec<(usize, usize)> = merged.map(|(k, _)| k).collect();
-    assert_eq!(keys, vec![(0, 0), (1, 0)]);
-}
-
-#[test]
-fn test_kmerge_iters_add_assign_into_iter() {
-    use webgraph::utils::kmerge_iters::KMergeIters;
-    let mut merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> = KMergeIters::default();
-    let items = vec![((0, 1), ()), ((2, 3), ())];
-    merged += items;
-    let result: Vec<_> = merged.map(|(k, _)| k).collect();
-    assert_eq!(result, vec![(0, 1), (2, 3)]);
-}
-
-#[test]
-fn test_kmerge_iters_extend_with_kmerge() {
-    use webgraph::utils::kmerge_iters::KMergeIters;
-    let mut merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> =
-        KMergeIters::new(vec![vec![((0, 0), ())].into_iter()]);
-    let other1 = KMergeIters::new(vec![vec![((1, 0), ())].into_iter()]);
-    let other2 = KMergeIters::new(vec![vec![((2, 0), ())].into_iter()]);
-    merged.extend(vec![other1, other2]);
-    let keys: Vec<(usize, usize)> = merged.map(|(k, _)| k).collect();
-    assert_eq!(keys, vec![(0, 0), (1, 0), (2, 0)]);
-}
-
-#[test]
-fn test_kmerge_iters_extend_with_into_iters() {
-    use webgraph::utils::kmerge_iters::KMergeIters;
-    let mut merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> = KMergeIters::default();
-    let iters: Vec<Vec<((usize, usize), ())>> =
-        vec![vec![((0, 0), ()), ((2, 0), ())], vec![((1, 0), ())]];
-    merged.extend(iters);
-    let keys: Vec<(usize, usize)> = merged.map(|(k, _)| k).collect();
-    assert_eq!(keys, vec![(0, 0), (1, 0), (2, 0)]);
-}
-
-#[test]
-fn test_kmerge_iters_exact_size_iterator() {
-    use webgraph::utils::kmerge_iters::KMergeIters;
-    let iter1 = vec![((0, 0), ()), ((1, 0), ())].into_iter();
-    let iter2 = vec![((2, 0), ()), ((3, 0), ()), ((4, 0), ())].into_iter();
-    let merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> =
-        KMergeIters::new(vec![iter1, iter2]);
-    assert_eq!(merged.len(), 5);
-}
-
-#[test]
-#[cfg(not(miri))]
-fn test_par_sort_pairs_sort_labeled() -> Result<()> {
+    use webgraph::utils::DefaultBatchCodec;
     use webgraph::utils::grouped_gaps::GroupedGapsCodec;
-    use webgraph::utils::{MemoryUsage, ParSortPairs};
 
-    let num_nodes = 5;
-    let pairs: Vec<((usize, usize), ())> = vec![
+    let pairs = [
         ((3, 2), ()),
         ((1, 0), ()),
         ((0, 4), ()),
         ((2, 1), ()),
         ((1, 3), ()),
     ];
+    let expected = [(0, 4), (1, 0), (1, 3), (2, 1), (3, 2)];
+    let sorter = || -> Result<_> {
+        Ok(ParSortPairs::new(5)?
+            .num_partitions(2)
+            .memory_usage(MemoryUsage::BatchSize(20)))
+    };
 
-    let sorter = ParSortPairs::new(num_nodes)?
-        .num_partitions(2)
-        .memory_usage(MemoryUsage::BatchSize(100));
-    let codec = GroupedGapsCodec::<BE, ()>::default();
-    use rayon::prelude::*;
-    let split = sorter.sort_labeled(&codec, pairs.into_par_iter(), no_logging![])?;
+    let split = sorter()?.sort_labeled(
+        &<DefaultBatchCodec>::default(),
+        pairs.par_iter().copied(),
+        no_logging![],
+    )?;
+    assert_eq!(
+        keys(collect_split(split, 2, 5, |p| p.0).into_iter()),
+        expected
+    );
 
-    assert_eq!(*split.boundaries.first().unwrap(), 0);
-    assert_eq!(*split.boundaries.last().unwrap(), num_nodes);
-
-    let mut all_pairs = Vec::new();
-    for iter in split.iters.into_vec() {
-        let partition: Vec<_> = iter.into_iter().collect();
-        for w in partition.windows(2) {
-            assert!(w[0].0 <= w[1].0);
-        }
-        all_pairs.extend(partition.into_iter().map(|(k, _)| k));
-    }
-    all_pairs.sort();
-    assert_eq!(all_pairs, vec![(0, 4), (1, 0), (1, 3), (2, 1), (3, 2)]);
+    let split = sorter()?.sort_labeled(
+        &GroupedGapsCodec::<BE, ()>::default(),
+        pairs.par_iter().copied(),
+        no_logging![],
+    )?;
+    assert_eq!(
+        keys(collect_split(split, 2, 5, |p| p.0).into_iter()),
+        expected
+    );
     Ok(())
-}
-
-#[test]
-#[cfg(not(miri))]
-fn test_par_sort_iters() -> Result<()> {
-    use webgraph::traits::{SequentialLabeling, SplitLabeling};
-    use webgraph::utils::{MemoryUsage, ParSortIters};
-
-    let g =
-        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 4), (1, 0), (1, 3), (2, 1), (3, 2)]);
-
-    let num_nodes = g.num_nodes();
-    let pairs: Vec<_> = g
-        .split_iter(2)
-        .map(|lender| lender.into_pairs().map(|(src, dst)| (dst, src)))
-        .collect();
-
-    let sorter = ParSortIters::new(num_nodes)?
-        .num_partitions(2)
-        .memory_usage(MemoryUsage::BatchSize(100));
-    let split = sorter.sort(pairs, no_logging![])?;
-
-    assert_eq!(*split.boundaries.first().unwrap(), 0);
-    assert_eq!(*split.boundaries.last().unwrap(), num_nodes);
-
-    // Verify the transpose was sorted correctly
-    let mut all_pairs = Vec::new();
-    for iter in split.iters.into_vec() {
-        let partition: Vec<_> = iter.into_iter().collect();
-        for w in partition.windows(2) {
-            assert!(w[0] <= w[1]);
-        }
-        all_pairs.extend(partition);
-    }
-    all_pairs.sort();
-    // Original arcs: (0,4),(1,0),(1,3),(2,1),(3,2) transposed: (4,0),(0,1),(3,1),(1,2),(2,3)
-    assert_eq!(all_pairs, vec![(0, 1), (1, 2), (2, 3), (3, 1), (4, 0)]);
-    Ok(())
-}
-
-#[test]
-fn test_kmerge_iters_dedup() {
-    use webgraph::utils::kmerge_iters::KMergeIters;
-    let merged = KMergeIters::<_, _, true, _>::new(vec![
-        vec![((0, 1), ()), ((0, 1), ()), ((2, 3), ())].into_iter(),
-        vec![((0, 1), ()), ((1, 2), ()), ((2, 3), ())].into_iter(),
-    ]);
-    let result: Vec<_> = merged.map(|(k, _)| k).collect();
-    assert_eq!(result, vec![(0, 1), (1, 2), (2, 3)]);
-}
-
-#[test]
-fn test_kmerge_iters_dedup_count() {
-    use webgraph::utils::kmerge_iters::KMergeIters;
-    let merged = KMergeIters::<_, _, true, _>::new(vec![
-        vec![((0, 1), ()), ((0, 1), ()), ((2, 3), ())].into_iter(),
-        vec![((0, 1), ()), ((1, 2), ()), ((2, 3), ())].into_iter(),
-    ]);
-    assert_eq!(merged.count(), 3);
-}
-
-#[test]
-fn test_kmerge_iters_dedup_sum() {
-    use webgraph::utils::kmerge_iters::KMergeIters;
-    let a: KMergeIters<std::vec::IntoIter<((usize, usize), ())>, (), true> =
-        KMergeIters::<_, _, true, _>::new(vec![vec![((0, 1), ()), ((0, 1), ())].into_iter()]);
-    let b: KMergeIters<std::vec::IntoIter<((usize, usize), ())>, (), true> =
-        KMergeIters::<_, _, true, _>::new(vec![vec![((0, 1), ()), ((1, 2), ())].into_iter()]);
-    let merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>, (), true> =
-        vec![a, b].into_iter().sum();
-    let result: Vec<_> = merged.map(|(k, _)| k).collect();
-    assert_eq!(result, vec![(0, 1), (1, 2)]);
 }
 
 #[test]
 #[cfg(not(miri))]
 fn test_par_sort_pairs_dedup() -> Result<()> {
-    use rayon::prelude::*;
-    use webgraph::utils::par_sort_pairs::ParSortPairs;
-
-    let pairs = vec![(0, 1), (0, 1), (1, 2), (1, 2), (2, 3), (0, 1)];
-    let sorter = ParSortPairs::new_dedup(4)?.num_partitions(2);
-
-    let split = sorter.sort(pairs.par_iter().copied(), no_logging![])?;
-
-    let mut all_pairs = Vec::new();
-    for iter in split.iters.into_vec() {
-        all_pairs.extend(iter);
-    }
-    all_pairs.sort();
-    assert_eq!(all_pairs, vec![(0, 1), (1, 2), (2, 3)]);
-    Ok(())
-}
-
-#[test]
-#[cfg(not(miri))]
-fn test_par_sort_iters_dedup() -> Result<()> {
-    use webgraph::utils::par_sort_iters::ParSortIters;
-
-    // Two iterators with overlapping pairs
-    let iter1 = vec![((0usize, 1usize), ()), ((1, 2), ()), ((0, 1), ())];
-    let iter2 = vec![((1usize, 2usize), ()), ((2, 3), ()), ((2, 3), ())];
-    let sorter = ParSortIters::new_dedup(4)?.num_partitions(2);
-
-    let split = sorter.sort_labeled(
-        <webgraph::utils::DefaultBatchCodec<true>>::default(),
-        vec![iter1, iter2],
-        no_logging![],
-    )?;
-
-    let mut all_pairs = Vec::new();
-    for iter in split.iters.into_vec() {
-        all_pairs.extend(iter.into_iter().map(|(k, _)| k));
-    }
-    all_pairs.sort();
-    assert_eq!(all_pairs, vec![(0, 1), (1, 2), (2, 3)]);
+    let pairs = [(0, 1), (0, 1), (1, 2), (1, 2), (2, 3), (0, 1)];
+    let split = ParSortPairs::new_dedup(4)?
+        .num_partitions(2)
+        .sort(pairs.par_iter().copied(), no_logging![])?;
+    assert_eq!(collect_split(split, 2, 4, |&p| p), [(0, 1), (1, 2), (2, 3)]);
     Ok(())
 }
 
 #[test]
 #[should_panic(expected = "num_partitions must be positive")]
 fn test_par_sort_pairs_zero_partitions() {
-    use webgraph::utils::par_sort_pairs::ParSortPairs;
-    let _ = ParSortPairs::new(5).unwrap().num_partitions(0);
+    let _ = webgraph::utils::ParSortPairs::new(5)
+        .unwrap()
+        .num_partitions(0);
 }
 
 #[test]
 #[cfg(not(miri))]
 fn test_partition_boundaries_huge_num_nodes() -> Result<()> {
-    use webgraph::utils::par_sort_pairs::ParSortPairs;
     // Regression: partition boundaries were computed as
     // (i * partition_size).min(num_nodes), which overflows for node counts
     // near usize::MAX; the multiplication now saturates. No pairs are
     // needed: the boundaries are derived from num_nodes alone.
-    let sorter = ParSortPairs::new(usize::MAX)?.num_partitions(2);
-    let split = sorter.sort(rayon::iter::empty::<(usize, usize)>(), no_logging![])?;
-    assert_eq!(*split.boundaries.first().unwrap(), 0);
-    assert_eq!(*split.boundaries.last().unwrap(), usize::MAX);
-    assert!(split.boundaries.windows(2).all(|w| w[0] <= w[1]));
+    let split = ParSortPairs::new(usize::MAX)?
+        .num_partitions(2)
+        .sort(rayon::iter::empty::<(usize, usize)>(), no_logging![])?;
+    assert!(collect_split(split, 2, usize::MAX, |&p| p).is_empty());
+    Ok(())
+}
+
+// ── ParSortIters ──
+
+#[test]
+#[cfg(not(miri))]
+fn test_par_sort_iters() -> Result<()> {
+    let iters = || vec![vec![(1, 3), (0, 2)], vec![(2, 0), (3, 1)]];
+    let expected = [(0, 2), (1, 3), (2, 0), (3, 1)];
+    for num_partitions in [1, 2] {
+        let split = ParSortIters::new(4)?
+            .num_partitions(num_partitions)
+            .memory_usage(MemoryUsage::BatchSize(10))
+            .sort(iters(), no_logging![])?;
+        assert_eq!(collect_split(split, num_partitions, 4, |&p| p), expected);
+    }
+
+    // Transposing the arcs of the iterators of a split graph
+    use webgraph::prelude::*;
+    let g =
+        webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 4), (1, 0), (1, 3), (2, 1), (3, 2)]);
+    let pairs: Vec<_> = g
+        .split_iter(2)
+        .map(|lender| lender.into_pairs().map(|(src, dst)| (dst, src)))
+        .collect();
+    let split = ParSortIters::new(g.num_nodes())?
+        .num_partitions(2)
+        .memory_usage(MemoryUsage::BatchSize(100))
+        .sort(pairs, no_logging![])?;
+    assert_eq!(
+        collect_split(split, 2, g.num_nodes(), |&p| p),
+        [(0, 1), (1, 2), (2, 3), (3, 1), (4, 0)]
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(not(miri))]
+fn test_par_sort_iters_dedup() -> Result<()> {
+    use webgraph::utils::DefaultBatchCodec;
+    // Two iterators with overlapping pairs
+    let iter1 = vec![((0usize, 1usize), ()), ((1, 2), ()), ((0, 1), ())];
+    let iter2 = vec![((1usize, 2usize), ()), ((2, 3), ()), ((2, 3), ())];
+    let split = ParSortIters::new_dedup(4)?.num_partitions(2).sort_labeled(
+        <DefaultBatchCodec<true>>::default(),
+        vec![iter1, iter2],
+        no_logging![],
+    )?;
+    assert_eq!(
+        keys(collect_split(split, 2, 4, |p| p.0).into_iter()),
+        [(0, 1), (1, 2), (2, 3)]
+    );
     Ok(())
 }

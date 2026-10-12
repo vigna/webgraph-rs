@@ -7,18 +7,15 @@
  */
 
 use crate::LogIntervalArg;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 use log::info;
-use std::fs::File;
-use std::io::BufReader;
 use std::path::PathBuf;
 use value_traits::slices::SliceByValue;
-use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::graphs::bvgraph::{EF, EF_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_EXTENSION};
 use webgraph::prelude::*;
 
@@ -33,13 +30,7 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => check_ef::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => check_ef::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.basename, |E| check_ef::<E>(args))
 }
 
 pub fn check_ef<E: Endianness + 'static>(args: CliArgs) -> Result<()>
@@ -47,18 +38,8 @@ where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
-    let properties_path = args.basename.with_extension(PROPERTIES_EXTENSION);
-    let f = File::open(&properties_path).with_context(|| {
-        format!(
-            "Could not load properties file: {}",
-            properties_path.display()
-        )
-    })?;
-    let map = java_properties::read(BufReader::new(f))?;
-    let num_nodes = map
-        .get("nodes")
-        .with_context(|| format!("Missing 'nodes' in {}", properties_path.display()))?
-        .parse::<usize>()?;
+    let (num_nodes, _, _) =
+        parse_properties::<E>(args.basename.with_extension(PROPERTIES_EXTENSION))?;
 
     // Creates the offsets file
     let of_file_path = args.basename.with_extension(OFFSETS_EXTENSION);

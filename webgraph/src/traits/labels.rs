@@ -26,12 +26,7 @@
 //! [an iterator on the labels associated with a node]: RandomAccessLabeling::labels
 //! [zipped together]: crate::labels::Zip
 
-use crate::{
-    graphs::bvgraph::DCF,
-    prelude::{LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY},
-    traits::LenderIntoIter,
-    utils::Granularity,
-};
+use crate::{graphs::bvgraph::DCF, traits::LenderIntoIter, utils::Granularity};
 
 use super::{LenderLabel, NodeLabelsLender, ParMapFold};
 
@@ -42,8 +37,7 @@ use lender::*;
 use std::rc::Rc;
 use sux::{
     dict::EliasFanoBuilder,
-    rank_sel::{SelectAdaptConst, SelectZeroAdaptConst},
-    traits::{IndexedSeq, Succ, TryIntoUnaligned},
+    traits::{IndexedSeq, Succ},
     utils::FairChunks,
 };
 use thiserror::Error;
@@ -141,19 +135,7 @@ pub trait SequentialLabeling {
             cumul += succs.into_iter().count() as u64;
             efb.push(cumul);
         }
-        // SAFETY: the values are pushed in non-decreasing order.
-        unsafe {
-            efb.build().map_high_bits(|high_bits| {
-                SelectZeroAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new(SelectAdaptConst::<
-                    _,
-                    _,
-                    LOG2_ONES_PER_INVENTORY,
-                    LOG2_WORDS_PER_SUBINVENTORY,
-                >::new(
-                    high_bits
-                ))
-            }).try_into_unaligned().unwrap()
-        }
+        crate::graphs::bvgraph::dcf_from_builder(efb).unwrap()
     }
 
     /// Applies `func` to each chunk of nodes of size `node_granularity` in
@@ -288,6 +270,52 @@ pub enum EqError {
     },
 }
 
+/// The first difference between two sequences.
+enum Mismatch<T> {
+    /// The sequences have different elements at position `index`.
+    Element { index: usize, first: T, second: T },
+    /// The sequences have different lengths.
+    Length { first: usize, second: usize },
+}
+
+/// Compares two sequences, returning their length if they are equal, or
+/// their first difference.
+fn compare<T: PartialEq>(
+    first: impl IntoIterator<Item = T>,
+    second: impl IntoIterator<Item = T>,
+) -> Result<usize, Mismatch<T>> {
+    let mut first = first.into_iter();
+    let mut second = second.into_iter();
+    let mut index = 0;
+    loop {
+        match (first.next(), second.next()) {
+            (None, None) => return Ok(index),
+            (Some(x), Some(y)) => {
+                if x != y {
+                    return Err(Mismatch::Element {
+                        index,
+                        first: x,
+                        second: y,
+                    });
+                }
+            }
+            (None, Some(_)) => {
+                return Err(Mismatch::Length {
+                    first: index,
+                    second: index + 1 + second.count(),
+                });
+            }
+            (Some(_), None) => {
+                return Err(Mismatch::Length {
+                    first: index + 1 + first.count(),
+                    second: index,
+                });
+            }
+        }
+        index += 1;
+    }
+}
+
 #[doc(hidden)]
 /// Checks whether two sorted successors lists are identical,
 /// returning an appropriate error.
@@ -296,38 +324,23 @@ pub fn eq_succs<L: PartialEq + std::fmt::Debug>(
     succ0: impl IntoIterator<Item = L>,
     succ1: impl IntoIterator<Item = L>,
 ) -> Result<(), EqError> {
-    let mut succ0 = succ0.into_iter();
-    let mut succ1 = succ1.into_iter();
-    let mut index = 0;
-    loop {
-        match (succ0.next(), succ1.next()) {
-            (None, None) => return Ok(()),
-            (Some(s0), Some(s1)) => {
-                if s0 != s1 {
-                    return Err(EqError::Successors {
-                        node,
-                        index,
-                        first: format!("{s0:?}"),
-                        second: format!("{s1:?}"),
-                    });
-                }
-            }
-            (None, Some(_)) => {
-                return Err(EqError::Outdegree {
-                    node,
-                    first: index,
-                    second: index + 1 + succ1.count(),
-                });
-            }
-            (Some(_), None) => {
-                return Err(EqError::Outdegree {
-                    node,
-                    first: index + 1 + succ0.count(),
-                    second: index,
-                });
-            }
-        }
-        index += 1;
+    match compare(succ0, succ1) {
+        Ok(_) => Ok(()),
+        Err(Mismatch::Element {
+            index,
+            first,
+            second,
+        }) => Err(EqError::Successors {
+            node,
+            index,
+            first: format!("{first:?}"),
+            second: format!("{second:?}"),
+        }),
+        Err(Mismatch::Length { first, second }) => Err(EqError::Outdegree {
+            node,
+            first,
+            second,
+        }),
     }
 }
 
@@ -529,6 +542,11 @@ impl<I: Iterator> Iterator for AssumeSortedIterator<I> {
     }
 
     #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+
+    #[inline(always)]
     fn count(self) -> usize {
         self.iter.count()
     }
@@ -662,13 +680,12 @@ macro_rules! impl_parallel_from_split {
 
             fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
                 use $crate::traits::{SequentialLabeling, SplitLabeling};
-                let n = rayon::current_num_threads();
-                let step = self.num_nodes().div_ceil(n);
-                let num_nodes = self.num_nodes();
-                let boundaries: Box<[usize]> =
-                    (0..=n).map(|i| i.saturating_mul(step).min(num_nodes)).collect();
-                let lenders: Box<[_]> = self.split_iter(n).into_iter().collect();
-                (lenders, boundaries)
+                let cutpoints = $crate::traits::split::uniform_cutpoints(
+                    self.num_nodes(),
+                    rayon::current_num_threads(),
+                );
+                let lenders: Box<[_]> = self.split_iter_at(cutpoints.clone()).into_iter().collect();
+                (lenders, cutpoints.collect())
             }
         }
     };
@@ -733,40 +750,23 @@ where
     let mut num_arcs: u64 = 0;
     for_!((node, succ_iter) in l.iter() {
         num_nodes += 1;
-        let mut succ_iter = succ_iter.into_iter();
-        let mut succ = l.labels(node).into_iter();
-        let mut index = 0;
-        loop {
-            match (succ_iter.next(), succ.next()) {
-                (None, None) => break,
-                (Some(s0), Some(s1)) => {
-                    if s0 != s1 {
-                        return Err(CheckImplError::Successors {
-                            node,
-                            index,
-                            sequential: format!("{s0:?}"),
-                            random_access: format!("{s1:?}"),
-                        });
-                    }
-                }
-                (None, Some(_)) => {
-                    return Err(CheckImplError::Outdegree {
-                        node,
-                        sequential: index,
-                        random_access: index + 1 + succ.count(),
-                    });
-                }
-                (Some(_), None) => {
-                    return Err(CheckImplError::Outdegree {
-                        node,
-                        sequential: index + 1 + succ_iter.count(),
-                        random_access: index,
-                    });
-                }
-            }
-            index += 1;
-        }
-        num_arcs += index as u64;
+        num_arcs += compare(succ_iter, l.labels(node)).map_err(|mismatch| match mismatch {
+            Mismatch::Element {
+                index,
+                first,
+                second,
+            } => CheckImplError::Successors {
+                node,
+                index,
+                sequential: format!("{first:?}"),
+                random_access: format!("{second:?}"),
+            },
+            Mismatch::Length { first, second } => CheckImplError::Outdegree {
+                node,
+                sequential: first,
+                random_access: second,
+            },
+        })? as u64;
     });
 
     if num_nodes != l.num_nodes() {

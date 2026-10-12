@@ -9,7 +9,6 @@ use anyhow::Result;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use dsi_progress_logger::prelude::*;
 use std::path::PathBuf;
-use tempfile::Builder;
 use value_traits::slices::SliceByValue;
 use webgraph::prelude::*;
 
@@ -59,25 +58,13 @@ pub struct CliArgs {
 pub fn main(args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
-    match get_endianness(&args.src)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => {
-            if args.sequential {
-                map_seq::<BE>(args)
-            } else {
-                map_par::<BE>(args)
-            }
+    dispatch_endianness!(&args.src, |E| {
+        if args.sequential {
+            map_seq::<E>(args)
+        } else {
+            map_par::<E>(args)
         }
-        #[cfg(feature = "le_bins")]
-        LE::NAME => {
-            if args.sequential {
-                map_seq::<LE>(args)
-            } else {
-                map_par::<LE>(args)
-            }
-        }
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    })
 }
 
 /// Computes the number of nodes of the mapped graph.
@@ -110,22 +97,9 @@ where
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,
 {
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
-    let use_dcf = args.dcf;
-    let src = args.src.clone();
     let log_interval = args.log_interval.log_interval;
-
-    let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
-
-    let dir = Builder::new().prefix("transform_map_").tempdir()?;
-    let chunk_size = args.ca.chunk_size;
-    let bvgraphz = args.ca.bvgraphz;
-    let mut builder = BvCompConf::new(&args.dst)
-        .comp_flags(args.ca.into())
-        .tmp_dir(&dir);
-
-    if bvgraphz {
-        builder = builder.chunk_size(chunk_size);
-    }
+    let target_endianness = args.ca.target_endianness::<E>();
+    let builder = args.ca.bv_comp_conf(&args.dst);
 
     let loaded = args.fmt.load(&args.map)?;
     let cli_num_nodes = args.num_nodes;
@@ -138,10 +112,12 @@ where
             .endianness::<E>()
             .load()?;
 
-        let graph_num_nodes = graph.num_nodes();
-        let graph_get_num_arcs = graph.get_num_arcs();
-        let cp = crate::cutpoints(&src, graph_num_nodes, graph_get_num_arcs, use_dcf)?;
-        let par_graph = webgraph::graphs::par_graphs::ParGraph::with_cutpoints(graph, cp);
+        let par_graph = crate::par_graph(
+            graph,
+            &args.src,
+            args.dcf,
+            thread_pool.current_num_threads(),
+        )?;
 
         thread_pool.install(|| {
             log::info!("Mapping graph with memory usage {}", memory_usage);
@@ -174,19 +150,8 @@ where
 {
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
     let log_interval = args.log_interval.log_interval;
-
-    let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
-
-    let dir = Builder::new().prefix("transform_map_").tempdir()?;
-    let chunk_size = args.ca.chunk_size;
-    let bvgraphz = args.ca.bvgraphz;
-    let mut builder = BvCompConf::new(&args.dst)
-        .comp_flags(args.ca.into())
-        .tmp_dir(&dir);
-
-    if bvgraphz {
-        builder = builder.chunk_size(chunk_size);
-    }
+    let target_endianness = args.ca.target_endianness::<E>();
+    let builder = args.ca.bv_comp_conf(&args.dst);
 
     let loaded = args.fmt.load(&args.map)?;
     let cli_num_nodes = args.num_nodes;

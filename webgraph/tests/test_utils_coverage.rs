@@ -8,11 +8,10 @@
 //! RaggedArray, MaskedIter, JavaPermutation, ArcListGraph, par_node_apply,
 //! par_map_fold, par_map_fold_ord, and temp_dir.
 
+mod common;
+
 use anyhow::Result;
-use lender::*;
-use webgraph::{
-    graphs::vec_graph::VecGraph, prelude::*, traits::SequentialLabeling, utils::Granularity,
-};
+use webgraph::{graphs::vec_graph::VecGraph, prelude::*, utils::Granularity};
 
 // ── Granularity ──
 
@@ -23,40 +22,25 @@ fn test_granularity_default() {
 }
 
 #[test]
-fn test_granularity_node_to_node() {
-    let g = Granularity::Nodes(500);
-    assert_eq!(g.node_granularity(1000, Some(5000)), 500);
-}
-
-#[test]
-fn test_granularity_arc_to_node() {
-    let g = Granularity::Arcs(1000);
+fn test_granularity_conversions() {
+    assert_eq!(
+        Granularity::Nodes(500).node_granularity(1000, Some(5000)),
+        500
+    );
     // 100 nodes, 500 arcs => avg degree 5, 1000/5 = 200 nodes
-    assert_eq!(g.node_granularity(100, Some(500)), 200);
-}
-
-#[test]
-fn test_granularity_node_to_arc() {
-    let g = Granularity::Nodes(100);
+    assert_eq!(
+        Granularity::Arcs(1000).node_granularity(100, Some(500)),
+        200
+    );
     // 1000 nodes, 5000 arcs => avg degree 5, 100*5 = 500 arcs
-    assert_eq!(g.arc_granularity(1000, Some(5000)), 500);
-}
-
-#[test]
-fn test_granularity_arc_to_arc() {
-    let g = Granularity::Arcs(1000);
-    assert_eq!(g.arc_granularity(100, Some(500)), 1000);
-}
-
-#[test]
-fn test_granularity_node_granularity() {
-    let g = Granularity::Nodes(100);
-    assert_eq!(g.node_granularity(1000, Some(5000u64)), 100);
-
-    let g2 = Granularity::Arcs(500u64);
-    let ng = g2.node_granularity(1000, Some(5000u64));
-    // Arcs(500) with 5000 arcs / 1000 nodes = avg 5 arcs/node, so 100 nodes
-    assert_eq!(ng, 100);
+    assert_eq!(
+        Granularity::Nodes(100).arc_granularity(1000, Some(5000)),
+        500
+    );
+    assert_eq!(
+        Granularity::Arcs(1000).arc_granularity(100, Some(500)),
+        1000
+    );
 }
 
 #[test]
@@ -199,96 +183,37 @@ fn test_temp_dir() -> Result<()> {
     Ok(())
 }
 
-// ── ArcListGraph ──
-
-#[test]
-fn test_arc_list_graph_unlabeled() -> Result<()> {
-    use webgraph::graphs::arc_list_graph::ArcListGraph;
-    let arcs = vec![(0, 1), (0, 2), (1, 0), (2, 1)];
-    let g = ArcListGraph::new(3, arcs);
-    assert_eq!(g.num_nodes(), 3);
-    let mut iter = g.iter();
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 0);
-    assert_eq!(succ.into_iter().collect::<Vec<_>>(), vec![1, 2]);
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 1);
-    assert_eq!(succ.into_iter().collect::<Vec<_>>(), vec![0]);
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 2);
-    assert_eq!(succ.into_iter().collect::<Vec<_>>(), vec![1]);
-    Ok(())
-}
-
-#[test]
-fn test_arc_list_graph_labeled() -> Result<()> {
-    use webgraph::graphs::arc_list_graph::ArcListGraph;
-    let arcs = vec![((0, 1), 10u32), ((0, 2), 20), ((1, 0), 30)];
-    let g = ArcListGraph::new_labeled(3, arcs);
-    assert_eq!(g.num_nodes(), 3);
-    let mut iter = g.iter();
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 0);
-    assert_eq!(succ.collect::<Vec<_>>(), vec![(1, 10), (2, 20)]);
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 1);
-    assert_eq!(succ.collect::<Vec<_>>(), vec![(0, 30)]);
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 2);
-    assert_eq!(succ.collect::<Vec<_>>(), Vec::<(usize, u32)>::new());
-    Ok(())
-}
-
 // ── JavaPermutation ──
 //
 #[cfg(all(target_pointer_width = "64", not(miri)))]
 mod java_permutation {
     use super::*;
 
+    use common::write_be_u64s;
+    use mmap_rs::MmapFlags;
+    use value_traits::slices::{SliceByValue, SliceByValueMut};
+    use webgraph::utils::JavaPermutation;
+
     #[test]
     fn test_java_permutation_round_trip() -> Result<()> {
-        use mmap_rs::MmapFlags;
-        use std::io::Write;
-        use value_traits::slices::SliceByValue;
-        use webgraph::utils::JavaPermutation;
-
         let dir = tempfile::tempdir()?;
         let path = dir.path().join("perm.bin");
-        let perm_data: Vec<usize> = vec![3, 1, 4, 0, 2];
-
-        // Write as big-endian u64
-        {
-            let mut file = std::fs::File::create(&path)?;
-            for &v in &perm_data {
-                file.write_all(&(v as u64).to_be_bytes())?;
-            }
-        }
-
-        // Read back via mmap
+        let perm_data = [3, 1, 4, 0, 2];
+        write_be_u64s(&path, &perm_data)?;
         let jp = JavaPermutation::mmap(&path, MmapFlags::empty())?;
         assert_eq!(jp.perm.as_ref().len(), perm_data.len());
-        for (i, &expected) in perm_data.iter().enumerate() {
-            assert_eq!(jp.index_value(i), expected);
-        }
+        let values: Vec<_> = (0..perm_data.len())
+            .map(|i| jp.index_value(i) as u64)
+            .collect();
+        assert_eq!(values, perm_data);
         Ok(())
     }
 
     #[test]
     fn test_java_permutation_mmap_mut() -> Result<()> {
-        use mmap_rs::MmapFlags;
-        use value_traits::slices::{SliceByValue, SliceByValueMut};
-        use webgraph::utils::JavaPermutation;
         let dir = tempfile::tempdir()?;
         let path = dir.path().join("perm_mm.bin");
-
-        {
-            use std::io::Write;
-            let mut f = std::fs::File::create(&path)?;
-            for v in [0u64, 0, 0] {
-                f.write_all(&v.to_be_bytes())?;
-            }
-        }
-
+        write_be_u64s(&path, &[0, 0, 0])?;
         let mut perm = JavaPermutation::mmap_mut(&path, MmapFlags::empty())?;
         assert_eq!(perm.len(), 3);
         unsafe {
@@ -305,19 +230,10 @@ mod java_permutation {
 
     #[test]
     fn test_java_permutation_bit_width() -> Result<()> {
-        use mmap_rs::MmapFlags;
         use sux::traits::BitWidth;
-        use webgraph::utils::JavaPermutation;
         let dir = tempfile::tempdir()?;
         let path = dir.path().join("perm_bw.bin");
-
-        {
-            use std::io::Write;
-            let mut f = std::fs::File::create(&path)?;
-            for v in [0u64, 0] {
-                f.write_all(&v.to_be_bytes())?;
-            }
-        }
+        write_be_u64s(&path, &[0, 0])?;
 
         let perm_ro = JavaPermutation::mmap(&path, MmapFlags::empty())?;
         assert_eq!(BitWidth::bit_width(&perm_ro), 64);
@@ -334,32 +250,20 @@ mod java_permutation {
 // ── MaskedIter ──
 
 #[test]
-fn test_masked_iter_copy_skip_copy() {
+fn test_masked_iter() {
     use webgraph::graphs::bvgraph::MaskedIter;
-    // blocks: [2, 1, 2] -> copy 2, skip 1, copy 2
-    let parent = vec![10_usize, 20, 30, 40, 50];
-    let iter = MaskedIter::new(parent.into_iter(), vec![2, 1, 2]);
-    assert_eq!(iter.len(), 4);
-    let result: Vec<_> = iter.collect();
-    assert_eq!(result, vec![10, 20, 40, 50]);
-}
-
-#[test]
-fn test_masked_iter_empty_blocks() {
-    use webgraph::graphs::bvgraph::MaskedIter;
-    let parent = vec![1_usize, 2, 3, 4];
-    let iter = MaskedIter::new(parent.into_iter(), vec![]);
-    assert_eq!(iter.len(), 4);
-    assert_eq!(iter.collect::<Vec<_>>(), vec![1, 2, 3, 4]);
-}
-
-#[test]
-fn test_masked_iter_single_copy() {
-    use webgraph::graphs::bvgraph::MaskedIter;
-    let parent = vec![5_usize, 6, 7];
-    let iter = MaskedIter::new(parent.into_iter(), vec![2]);
-    assert_eq!(iter.len(), 2);
-    assert_eq!(iter.collect::<Vec<_>>(), vec![5, 6]);
+    for (blocks, expected) in [
+        // Copy 2, skip 1, copy 2
+        (vec![2, 1, 2], vec![10, 20, 40, 50]),
+        // No blocks: copy everything
+        (vec![], vec![10, 20, 30, 40, 50]),
+        // A single copy block
+        (vec![2], vec![10, 20]),
+    ] {
+        let iter = MaskedIter::new(vec![10_usize, 20, 30, 40, 50].into_iter(), blocks);
+        assert_eq!(iter.len(), expected.len());
+        assert_eq!(iter.collect::<Vec<_>>(), expected);
+    }
 }
 
 // ── ParMapFold ──

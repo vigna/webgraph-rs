@@ -9,38 +9,18 @@
 mod common;
 
 use anyhow::Result;
-use common::build_ef;
+use common::test_graph;
 use dsi_bitstream::prelude::BE;
 use webgraph::graphs::bvgraph::BvComp;
-#[cfg(not(miri))]
-use webgraph::graphs::bvgraph::BvGraphSeq;
 use webgraph::graphs::par_graphs::ParGraph;
 #[cfg(not(miri))]
 use webgraph::graphs::par_sorted_graph::ParSortedGraph;
 #[cfg(not(miri))]
 use webgraph::graphs::permuted_graph::PermutedGraph;
-use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::prelude::*;
 use webgraph::traits::graph;
 #[cfg(not(miri))]
 use webgraph::utils::par_sort_iters::ParSortIters;
-
-/// Builds the canonical test graph (5 nodes, 7 arcs).
-///
-/// ```text
-/// 0 -> 1, 2, 3   (outdegree 3, indegree 1 from node 2)
-/// 1 -> 2          (outdegree 1, indegree 1 from node 0)
-/// 2 -> 0          (outdegree 1, indegree 2 from nodes 0, 1)
-/// 3 ->            (outdegree 0, indegree 1 from node 0)
-/// 4 -> 0, 2       (outdegree 2, indegree 0)
-/// ```
-///
-/// Contains: a cycle (0 -> 1 -> 2 -> 0), outdegree 0 (node 3), 1 (nodes 1, 2),
-/// 2 (node 4), 3 (node 0); indegree 0 (node 4), 1 (nodes 1, 3),
-/// 2 (node 2), 3 (node 0).
-fn test_graph() -> VecGraph {
-    VecGraph::from_arcs([(0, 1), (0, 2), (0, 3), (1, 2), (2, 0), (4, 0), (4, 2)])
-}
 
 // ── SortedGraph ──
 
@@ -60,7 +40,7 @@ fn test_sorted_graph_from_permuted() -> Result<()> {
     // same result as the reference (permuted) VecGraph. We collect
     // permuted pairs via iteration and sort them with ParSortIters.
     let g = test_graph();
-    let perm = [0, 1, 2, 3, 4]; // identity permutation
+    let perm: Vec<_> = (0..g.num_nodes()).collect(); // identity permutation
     let pg = PermutedGraph::new(&g, &perm);
 
     let num_nodes = pg.num_nodes();
@@ -80,13 +60,10 @@ fn test_sorted_graph_par_iters_boundaries() -> Result<()> {
     let g = test_graph();
     let sorted = ParSortedGraph::par_from_graph(&g)?;
     let (_lenders, boundaries) = sorted.into_par_lenders();
-    // Boundaries must start at 0 and end at num_nodes
+    // Boundaries must start at 0, end at num_nodes, and be non-decreasing
     assert_eq!(*boundaries.first().unwrap(), 0);
     assert_eq!(*boundaries.last().unwrap(), g.num_nodes());
-    // Boundaries must be non-decreasing
-    for w in boundaries.windows(2) {
-        assert!(w[0] <= w[1]);
-    }
+    assert!(boundaries.is_sorted());
     Ok(())
 }
 
@@ -129,22 +106,19 @@ fn test_parallel_graph_custom_partitions() -> Result<()> {
     let pg = ParGraph::new(g, 3);
     let (lenders, boundaries) = pg.into_par_lenders();
     assert_eq!(lenders.len(), 3);
-    assert_eq!(boundaries.len(), 4);
-    assert_eq!(boundaries[0], 0);
-    assert_eq!(*boundaries.last().unwrap(), 5);
+    assert_eq!(*boundaries, [0, 3, 6, 8]);
     Ok(())
 }
 
 #[test]
 fn test_parallel_graph_delegates_random_access() -> Result<()> {
     let g = test_graph();
-    let pg = ParGraph::new(g, 2);
-    assert_eq!(pg.num_arcs(), 7);
-    assert_eq!(pg.outdegree(0), 3);
-    assert_eq!(pg.outdegree(1), 1);
-    assert_eq!(pg.outdegree(2), 1);
-    assert_eq!(pg.outdegree(3), 0);
-    assert_eq!(pg.outdegree(4), 2);
+    let pg = ParGraph::new(g.clone(), 2);
+    assert_eq!(pg.num_arcs(), 11);
+    for node in 0..g.num_nodes() {
+        assert_eq!(pg.outdegree(node), g.outdegree(node));
+    }
+    labels::check_impl(&pg)?;
     Ok(())
 }
 
@@ -159,39 +133,12 @@ fn test_parallel_graph_graph_equality() -> Result<()> {
 // ── Integration: par_comp roundtrips ──
 
 #[test]
-#[cfg(not(miri))]
-fn test_par_comp_with_sorted_graph() -> Result<()> {
-    let g = test_graph();
-    let sorted = ParSortedGraph::par_from_graph(&g)?;
-
-    let dir = tempfile::tempdir()?;
-    let basename = dir.path().join("sorted");
-    BvComp::with_basename(&basename).par_comp::<BE, _>(&sorted)?;
-
-    let seq = BvGraphSeq::with_basename(&basename)
-        .endianness::<BE>()
-        .mode::<LoadMem>()
-        .load()?;
-    assert_eq!(seq.num_nodes(), 5);
-    assert_eq!(seq.get_num_arcs(), Some(7));
-    labels::eq_sorted(&g, &seq)?;
-    Ok(())
-}
-
-#[test]
 fn test_par_comp_with_parallel_graph() -> Result<()> {
     let g = test_graph();
     let pg = ParGraph::new(g.clone(), 2);
-
-    let dir = tempfile::tempdir()?;
-    let basename = dir.path().join("parallel");
-    BvComp::with_basename(&basename).par_comp::<BE, _>(&pg)?;
-
-    build_ef(&basename)?;
-    let loaded = BvGraph::with_basename(&basename).mode::<LoadMem>().load()?;
-    assert_eq!(loaded.num_nodes(), 5);
-    assert_eq!(loaded.num_arcs(), 7);
-    labels::eq_sorted(&g, &loaded)?;
+    common::roundtrip::<BE>(&g, |basename| {
+        BvComp::with_basename(basename).par_comp::<BE, _>(&pg)
+    })?;
     Ok(())
 }
 
@@ -225,12 +172,11 @@ fn test_par_graph_with_dcf_zero_arcs() -> Result<()> {
         let (lenders, boundaries) = (&pg).into_par_lenders();
         assert_eq!(*boundaries.first().unwrap(), 0);
         assert_eq!(*boundaries.last().unwrap(), n);
-        let mut nodes = 0;
-        for mut lender in lenders.into_vec() {
-            while let Some((_node, _)) = lender.next() {
-                nodes += 1;
-            }
-        }
+        let nodes: usize = lenders
+            .into_vec()
+            .into_iter()
+            .map(|lender| lender.count())
+            .sum();
         assert_eq!(nodes, n);
     }
     Ok(())

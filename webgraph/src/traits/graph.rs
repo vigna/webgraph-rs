@@ -211,8 +211,14 @@ where
             second: g1.num_nodes(),
         });
     }
-    for_!(((node0, succ0), (node1, succ1)) in g0.iter().zip(g1.iter()) {
-        debug_assert_eq!(node0, node1);
+    for_!((index, ((node0, succ0), (node1, succ1))) in g0.iter().zip(g1.iter()).enumerate() {
+        if node0 != node1 {
+            return Err(EqError::Node {
+                index,
+                first: node0,
+                second: node1,
+            });
+        }
         super::labels::eq_succs(node0, succ0, succ1)?;
     });
     Ok(())
@@ -298,6 +304,23 @@ impl<I: Iterator<Item = usize>> Iterator for UnitLabelSucc<I> {
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         Some((self.0.next()?, ()))
+    }
+
+    #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
+
+    #[inline(always)]
+    fn count(self) -> usize {
+        self.0.count()
+    }
+}
+
+impl<I: ExactSizeIterator<Item = usize>> ExactSizeIterator for UnitLabelSucc<I> {
+    #[inline(always)]
+    fn len(&self) -> usize {
+        self.0.len()
     }
 }
 

@@ -55,13 +55,7 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => stats::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => stats::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.basename, |E| stats::<E>(args))
 }
 
 pub fn stats<E: Endianness + 'static>(args: CliArgs) -> Result<()>

@@ -14,7 +14,6 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::path::PathBuf;
-use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::traits::SequentialLabeling;
 use webgraph::utils::MmapHelper;
 
@@ -29,13 +28,7 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => ascii_convert::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => ascii_convert::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.basename, |E| ascii_convert::<E>(args))
 }
 
 pub fn ascii_convert<E: Endianness + 'static>(args: CliArgs) -> Result<()>

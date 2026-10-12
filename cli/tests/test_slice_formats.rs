@@ -11,22 +11,36 @@ fn assert_int_slice_eq(loaded: &IntSlice, expected: &[usize]) {
     }
 }
 
+/// The integer formats that do not need a bit width, with a file extension.
 #[allow(unused_mut)]
-#[test]
-fn test_int_roundtrip_all_formats() {
-    let dir = tempfile::tempdir().unwrap();
-    let data: Vec<usize> = vec![10, 20, 30, 0, 42];
-    let mut formats: Vec<(IntSliceFormat, &str)> = vec![
+fn int_formats() -> Vec<(IntSliceFormat, &'static str)> {
+    let mut formats = vec![
         (IntSliceFormat::Ascii, "txt"),
         (IntSliceFormat::Json, "json"),
         (IntSliceFormat::Epserde, "eps"),
     ];
     #[cfg(target_pointer_width = "64")]
     formats.push((IntSliceFormat::Java, "bin"));
-    for (fmt, ext) in formats {
-        let path = dir.path().join(format!("test.{ext}"));
-        fmt.store(&path, &data, None).unwrap();
-        assert_int_slice_eq(&fmt.load(&path).unwrap(), &data);
+    formats
+}
+
+/// The floating-point formats, with a file extension.
+const FLOAT_FORMATS: [(FloatSliceFormat, &str); 4] = [
+    (FloatSliceFormat::Ascii, "txt"),
+    (FloatSliceFormat::Json, "json"),
+    (FloatSliceFormat::Java, "bin"),
+    (FloatSliceFormat::Epserde, "eps"),
+];
+
+#[test]
+fn test_int_roundtrip_all_formats() {
+    let dir = tempfile::tempdir().unwrap();
+    for data in [vec![10, 20, 30, 0, 42], vec![]] {
+        for (fmt, ext) in int_formats() {
+            let path = dir.path().join(format!("test.{ext}"));
+            fmt.store(&path, &data, None).unwrap();
+            assert_int_slice_eq(&fmt.load(&path).unwrap(), &data);
+        }
     }
 }
 
@@ -41,28 +55,6 @@ fn test_int_roundtrip_bitfieldvec() {
     assert_int_slice_eq(&IntSliceFormat::BitFieldVec.load(&path).unwrap(), &data);
 }
 
-#[allow(unused_mut)]
-#[test]
-fn test_int_roundtrip_empty() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut formats: Vec<(IntSliceFormat, &str)> = vec![
-        (IntSliceFormat::Ascii, "txt"),
-        (IntSliceFormat::Json, "json"),
-        (IntSliceFormat::Epserde, "eps"),
-    ];
-    #[cfg(target_pointer_width = "64")]
-    formats.push((IntSliceFormat::Java, "bin"));
-    for (fmt, ext) in formats {
-        let path = dir.path().join(format!("empty.{ext}"));
-        fmt.store(&path, &[], None).unwrap();
-        assert_eq!(
-            fmt.load(&path).unwrap().len(),
-            0,
-            "empty roundtrip failed for {ext}"
-        );
-    }
-}
-
 #[test]
 fn test_int_creates_parent_dirs() {
     let dir = tempfile::tempdir().unwrap();
@@ -71,54 +63,26 @@ fn test_int_creates_parent_dirs() {
     assert!(path.exists());
 }
 
+/// Stores `values` in all floating-point formats and checks that loading
+/// returns the same values.
+macro_rules! check_float_roundtrip {
+    ($values:expr, $T:ty) => {{
+        let dir = tempfile::tempdir().unwrap();
+        let values: Vec<$T> = $values;
+        for (fmt, ext) in FLOAT_FORMATS {
+            let path = dir.path().join(format!("test.{ext}"));
+            fmt.store(&path, &values, None).unwrap();
+            let loaded: Vec<$T> = fmt.load(&path).unwrap();
+            assert_eq!(loaded, values, "roundtrip failed for {ext}");
+        }
+    }};
+}
+
 #[test]
 fn test_float_roundtrip_all_formats() {
-    let dir = tempfile::tempdir().unwrap();
-    let values: Vec<f64> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
-    for (fmt, ext) in [
-        (FloatSliceFormat::Ascii, "txt"),
-        (FloatSliceFormat::Json, "json"),
-        (FloatSliceFormat::Java, "bin"),
-        (FloatSliceFormat::Epserde, "eps"),
-    ] {
-        let path = dir.path().join(format!("test.{ext}"));
-        fmt.store(&path, &values, None).unwrap();
-        let loaded: Vec<f64> = fmt.load(&path).unwrap();
-        assert_eq!(loaded, values, "roundtrip failed for {ext}");
-    }
-}
-
-#[test]
-fn test_float_roundtrip_f32() {
-    let dir = tempfile::tempdir().unwrap();
-    let values: Vec<f32> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
-    for (fmt, ext) in [
-        (FloatSliceFormat::Ascii, "txt"),
-        (FloatSliceFormat::Json, "json"),
-        (FloatSliceFormat::Java, "bin"),
-        (FloatSliceFormat::Epserde, "eps"),
-    ] {
-        let path = dir.path().join(format!("f32.{ext}"));
-        fmt.store(&path, &values, None).unwrap();
-        let loaded: Vec<f32> = fmt.load(&path).unwrap();
-        assert_eq!(loaded, values, "f32 roundtrip failed for {ext}");
-    }
-}
-
-#[test]
-fn test_float_roundtrip_empty() {
-    let dir = tempfile::tempdir().unwrap();
-    for (fmt, ext) in [
-        (FloatSliceFormat::Ascii, "txt"),
-        (FloatSliceFormat::Json, "json"),
-        (FloatSliceFormat::Java, "bin"),
-        (FloatSliceFormat::Epserde, "eps"),
-    ] {
-        let path = dir.path().join(format!("empty.{ext}"));
-        fmt.store::<f64>(&path, &[], None).unwrap();
-        let loaded: Vec<f64> = fmt.load(&path).unwrap();
-        assert!(loaded.is_empty(), "empty roundtrip failed for {ext}");
-    }
+    check_float_roundtrip!(vec![1.5, 2.75, 3.0, 0.0, -1.25], f64);
+    check_float_roundtrip!(vec![1.5, 2.75, 3.0, 0.0, -1.25], f32);
+    check_float_roundtrip!(vec![], f64);
 }
 
 #[test]

@@ -10,7 +10,6 @@ use clap::Args;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use std::{path::PathBuf, process::exit};
-use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::traits::graph;
 use webgraph::utils::MmapHelper;
 
@@ -29,13 +28,7 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    match get_endianness(&args.first_basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => compare_graphs::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => compare_graphs::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.first_basename, |E| compare_graphs::<E>(args))
 }
 
 pub fn compare_graphs<E: Endianness + 'static>(args: CliArgs) -> Result<()>

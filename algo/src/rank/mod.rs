@@ -48,7 +48,6 @@ pub mod preds {
     //! [`PredParams`]: super::birank::PredParams
     //! [`PageRank`]: super::PageRank
 
-    use anyhow::ensure;
     use predicates::{Predicate, reflection::PredicateReflection};
     use std::fmt::Display;
 
@@ -118,110 +117,24 @@ pub mod preds {
         }
     }
 
-    /// Stops when the norm of the difference between successive approximations
-    /// falls below a given threshold.
-    #[derive(Debug, Clone)]
-    pub struct L1Norm {
-        threshold: f64,
+    threshold_predicate! {
+        /// Stops when the norm of the difference between successive approximations
+        /// falls below a given threshold.
+        L1Norm,
+        default: 1E-6,
+        label: "norm",
+        check: |threshold| { ensure!(threshold > 0.0, "The threshold must be positive"); },
+        eval: impl<T: HasL1Norm> Predicate<T> |params| params.l1_norm(),
     }
 
-    impl L1Norm {
-        /// The default threshold.
-        pub const DEFAULT_THRESHOLD: f64 = 1E-6;
-    }
-
-    impl TryFrom<Option<f64>> for L1Norm {
-        type Error = anyhow::Error;
-        fn try_from(threshold: Option<f64>) -> anyhow::Result<Self> {
-            Ok(match threshold {
-                Some(threshold) => {
-                    ensure!(!threshold.is_nan());
-                    ensure!(threshold > 0.0, "The threshold must be positive");
-                    L1Norm { threshold }
-                }
-                None => Self::default(),
-            })
-        }
-    }
-
-    impl TryFrom<f64> for L1Norm {
-        type Error = anyhow::Error;
-        fn try_from(threshold: f64) -> anyhow::Result<Self> {
-            Some(threshold).try_into()
-        }
-    }
-
-    impl Default for L1Norm {
-        fn default() -> Self {
-            Self::try_from(Self::DEFAULT_THRESHOLD).unwrap()
-        }
-    }
-
-    impl Display for L1Norm {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_fmt(format_args!("(norm: {})", self.threshold))
-        }
-    }
-
-    impl PredicateReflection for L1Norm {}
-
-    impl<T: HasL1Norm> Predicate<T> for L1Norm {
-        fn eval(&self, params: &T) -> bool {
-            params.l1_norm() <= self.threshold
-        }
-    }
-
-    /// Stops when the ℓ_∞ norm of the difference between successive
-    /// approximations falls below a given threshold.
-    #[derive(Debug, Clone)]
-    pub struct LInfNorm {
-        threshold: f64,
-    }
-
-    impl LInfNorm {
-        /// The default threshold.
-        pub const DEFAULT_THRESHOLD: f64 = 1E-6;
-    }
-
-    impl TryFrom<Option<f64>> for LInfNorm {
-        type Error = anyhow::Error;
-        fn try_from(threshold: Option<f64>) -> anyhow::Result<Self> {
-            Ok(match threshold {
-                Some(threshold) => {
-                    ensure!(!threshold.is_nan());
-                    ensure!(threshold > 0.0, "The threshold must be positive");
-                    LInfNorm { threshold }
-                }
-                None => Self::default(),
-            })
-        }
-    }
-
-    impl TryFrom<f64> for LInfNorm {
-        type Error = anyhow::Error;
-        fn try_from(threshold: f64) -> anyhow::Result<Self> {
-            Some(threshold).try_into()
-        }
-    }
-
-    impl Default for LInfNorm {
-        fn default() -> Self {
-            Self::try_from(Self::DEFAULT_THRESHOLD).unwrap()
-        }
-    }
-
-    impl Display for LInfNorm {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_fmt(format_args!("(linf norm: {})", self.threshold))
-        }
-    }
-
-    impl PredicateReflection for LInfNorm {}
-
-    impl<T: HasLInfNorm> Predicate<T> for LInfNorm {
-        fn eval(&self, params: &T) -> bool {
-            params.linf_norm() <= self.threshold
-        }
+    threshold_predicate! {
+        /// Stops when the ℓ_∞ norm of the difference between successive
+        /// approximations falls below a given threshold.
+        LInfNorm,
+        default: 1E-6,
+        label: "linf norm",
+        check: |threshold| { ensure!(threshold > 0.0, "The threshold must be positive"); },
+        eval: impl<T: HasLInfNorm> Predicate<T> |params| params.linf_norm(),
     }
 }
 

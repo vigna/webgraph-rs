@@ -10,12 +10,9 @@ use clap::{ArgGroup, Parser, ValueEnum};
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::progress_logger;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+use webgraph::prelude::{BvGraph, LoadModeCodesReader, Mmap};
 use webgraph::utils::MmapHelper;
-use webgraph::{
-    graphs::bvgraph::get_endianness,
-    prelude::{BvGraph, LoadModeCodesReader, Mmap},
-};
 use webgraph_algo::distances::exact_sum_sweep::{
     All, AllForward, Diameter, Level, Radius, RadiusDiameter,
 };
@@ -81,14 +78,8 @@ pub enum LevelArg {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    ensure!(
-        args.symmetric || args.transpose.is_some(),
-        "You have to either pass --transposed with the basename of the transposed graph or --symm if the graph is symmetric."
-    );
-    ensure!(
-        !(args.symmetric && args.transpose.is_some()),
-        "--transposed is needed only if the graph is not symmetric."
-    );
+    // The ArgGroup guarantees that exactly one of --symm and the transpose
+    // basename is present.
     ensure!(
         args.forward.is_none() || matches!(args.level, LevelArg::All | LevelArg::AllForward),
         "You can only pass --forward with --level=all or --level=all-forward, as the forward eccentricities won't be computed otherwise."
@@ -106,18 +97,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         "You cannot pass --backward with --symm and --level=all as the eccentricities of a symmetric graph are the same in both directions."
     );
 
-    match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => exact_sum_sweep::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => exact_sum_sweep::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
-}
-
-/// Stores eccentricities to a file using the specified format.
-fn store_eccentricities(eccentricities: &[usize], path: &Path, fmt: IntSliceFormat) -> Result<()> {
-    fmt.store(path, eccentricities, None)
+    dispatch_endianness!(&args.basename, |E| exact_sum_sweep::<E>(args))
 }
 
 pub fn exact_sum_sweep<E: Endianness>(args: CliArgs) -> Result<()>
@@ -136,6 +116,18 @@ where
     ];
 
     let use_tot = !args.no_tot;
+
+    // Prints radius, diameter, the related vertices, and iterations.
+    macro_rules! print_radius_diameter {
+        ($out:expr) => {{
+            println!("Radius: {}", $out.radius);
+            println!("Diameter: {}", $out.diameter);
+            println!("Radial vertex: {}", $out.radial_vertex);
+            println!("Diametral vertex: {}", $out.diametral_vertex);
+            println!("Radius iterations: {}", $out.radius_iterations);
+            println!("Diameter iterations: {}", $out.diameter_iterations);
+        }};
+    }
 
     macro_rules! ess {
         (symm $Level:ident) => {
@@ -162,27 +154,14 @@ where
             }
             LevelArg::RadiusDiameter => {
                 let out = thread_pool.install(|| ess!(symm RadiusDiameter));
-                println!("Radius: {}", out.radius);
-                println!("Diameter: {}", out.diameter);
-                println!("Radial vertex: {}", out.radial_vertex);
-                println!("Diametral vertex: {}", out.diametral_vertex);
-                println!("Radius iterations: {}", out.radius_iterations);
-                println!("Diameter iterations: {}", out.diameter_iterations);
+                print_radius_diameter!(out);
             }
             LevelArg::AllForward | LevelArg::All => {
                 let out = thread_pool.install(|| ess!(symm All));
-                println!("Radius: {}", out.radius);
-                println!("Diameter: {}", out.diameter);
-                println!("Radial vertex: {}", out.radial_vertex);
-                println!("Diametral vertex: {}", out.diametral_vertex);
-                println!("Radius iterations: {}", out.radius_iterations);
-                println!("Diameter iterations: {}", out.diameter_iterations);
+                print_radius_diameter!(out);
                 println!("Iterations: {}", out.iterations);
-                store_eccentricities(
-                    &out.eccentricities,
-                    args.forward.as_ref().unwrap(),
-                    args.fmt,
-                )?;
+                args.fmt
+                    .store(args.forward.as_ref().unwrap(), &out.eccentricities, None)?;
             }
         }
     } else {
@@ -209,45 +188,31 @@ where
             }
             LevelArg::RadiusDiameter => {
                 let out = thread_pool.install(|| ess!(RadiusDiameter, transpose));
-                println!("Radius: {}", out.radius);
-                println!("Diameter: {}", out.diameter);
-                println!("Radial vertex: {}", out.radial_vertex);
-                println!("Diametral vertex: {}", out.diametral_vertex);
-                println!("Radius iterations: {}", out.radius_iterations);
-                println!("Diameter iterations: {}", out.diameter_iterations);
+                print_radius_diameter!(out);
             }
             LevelArg::AllForward => {
                 let out = thread_pool.install(|| ess!(AllForward, transpose));
-                println!("Radius: {}", out.radius);
-                println!("Diameter: {}", out.diameter);
-                println!("Radial vertex: {}", out.radial_vertex);
-                println!("Diametral vertex: {}", out.diametral_vertex);
-                println!("Radius iterations: {}", out.radius_iterations);
-                println!("Diameter iterations: {}", out.diameter_iterations);
+                print_radius_diameter!(out);
                 println!("Forward iterations: {}", out.forward_iterations);
-                store_eccentricities(
-                    &out.forward_eccentricities,
+                args.fmt.store(
                     args.forward.as_ref().unwrap(),
-                    args.fmt,
+                    &out.forward_eccentricities,
+                    None,
                 )?;
             }
             LevelArg::All => {
                 let out = thread_pool.install(|| ess!(All, transpose));
-                println!("Radius: {}", out.radius);
-                println!("Diameter: {}", out.diameter);
-                println!("Radial vertex: {}", out.radial_vertex);
-                println!("Diametral vertex: {}", out.diametral_vertex);
-                println!("Radius iterations: {}", out.radius_iterations);
-                println!("Diameter iterations: {}", out.diameter_iterations);
+                print_radius_diameter!(out);
                 println!("Forward iterations: {}", out.forward_iterations);
                 println!("All iterations: {}", out.all_iterations);
-                store_eccentricities(
-                    &out.forward_eccentricities,
+                args.fmt.store(
                     args.forward.as_ref().unwrap(),
-                    args.fmt,
+                    &out.forward_eccentricities,
+                    None,
                 )?;
                 if let Some(backward) = args.backward.as_ref() {
-                    store_eccentricities(&out.backward_eccentricities, backward, args.fmt)?;
+                    args.fmt
+                        .store(backward, &out.backward_eccentricities, None)?;
                 }
             }
         }

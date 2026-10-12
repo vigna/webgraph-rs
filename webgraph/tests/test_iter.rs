@@ -21,16 +21,13 @@ fn test_iter_nodes() -> Result<()> {
         .endianness::<BE>()
         .load()?;
 
+    // Sequential and random access read the same successors
+    labels::check_impl(&bvgraph)?;
+
     let mut seen_node_ids = Vec::new();
-
-    // Check that they read the same
-    let mut iter_nodes = bvgraph.iter();
-    while let Some((node_id, seq_succ)) = iter_nodes.next() {
+    for_!((node_id, _succ) in bvgraph.iter() {
         seen_node_ids.push(node_id);
-        let rand_succ = bvgraph.successors(node_id).collect::<Vec<_>>();
-        assert_eq!(rand_succ, seq_succ.into_iter().collect::<Vec<_>>());
-    }
-
+    });
     assert_eq!(seen_node_ids, (0..bvgraph.num_nodes()).collect::<Vec<_>>());
 
     Ok(())
@@ -65,7 +62,7 @@ fn test_iter_nodes_from() -> Result<()> {
 
 #[test]
 fn test_split_iter_bv() -> Result<()> {
-    let bvgraph_seq = BvGraphSeq::with_basename("../data/cnr-2000")
+    let bvgraph_seq = BvGraphSeq::with_basename(common::cnr_2000_basename())
         .endianness::<BE>()
         .load()?;
 
@@ -83,7 +80,7 @@ fn test_split_iter_bvrnd() -> Result<()> {
 
 #[test]
 fn test_split_iter_perm() -> Result<()> {
-    let bvgraph_seq = BvGraphSeq::with_basename("../data/cnr-2000")
+    let bvgraph_seq = BvGraphSeq::with_basename(common::cnr_2000_basename())
         .endianness::<BE>()
         .load()?;
 
@@ -97,7 +94,7 @@ fn test_split_iter_perm() -> Result<()> {
 
 #[test]
 fn test_split_iter_arc_list() -> Result<()> {
-    let bvgraph_seq = BvGraphSeq::with_basename("../data/cnr-2000")
+    let bvgraph_seq = BvGraphSeq::with_basename(common::cnr_2000_basename())
         .endianness::<BE>()
         .load()?;
 
@@ -166,7 +163,7 @@ fn test_split_iter_at_bvrnd() -> Result<()> {
 
 #[test]
 fn test_split_iter_at_bvseq() -> Result<()> {
-    let g = BvGraphSeq::with_basename("../data/cnr-2000")
+    let g = BvGraphSeq::with_basename(common::cnr_2000_basename())
         .endianness::<BE>()
         .load()?;
 
@@ -223,5 +220,23 @@ where
         count += 1;
     }
     assert_eq!(count, cutpoints.len() - 1, "Wrong number of segments");
+    Ok(())
+}
+
+#[test]
+fn test_next_successors() -> Result<()> {
+    // With the default compression window, nodes 0 and 8 share a slot of the
+    // buffer of backreferences: node 8 must not see the successors of node 0.
+    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (9, 0)]);
+    let (_dir, basename) = common::tmp_basename()?;
+    BvComp::with_basename(&basename).comp_graph::<BE>(&graph)?;
+    let seq = BvGraphSeq::with_basename(&basename)
+        .endianness::<BE>()
+        .load()?;
+    let mut iter = seq.iter();
+    for node in 0..graph.num_nodes() {
+        let expected: Vec<usize> = graph.successors(node).collect();
+        assert_eq!(iter.next_successors()?, expected, "node {node}");
+    }
     Ok(())
 }

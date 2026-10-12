@@ -15,7 +15,6 @@ use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::io::Write;
 use std::path::PathBuf;
-use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::traits::SequentialLabeling;
 use webgraph::utils::MmapHelper;
 
@@ -44,13 +43,7 @@ pub struct CliArgs {
 }
 
 pub fn main(args: CliArgs) -> Result<()> {
-    match get_endianness(&args.basename)?.as_str() {
-        #[cfg(feature = "be_bins")]
-        BE::NAME => to_csv::<BE>(args),
-        #[cfg(feature = "le_bins")]
-        LE::NAME => to_csv::<LE>(args),
-        e => anyhow::bail!("Unknown endianness: {}", e),
-    }
+    dispatch_endianness!(&args.basename, |E| to_csv::<E>(args))
 }
 
 pub fn to_csv<E: Endianness + 'static>(args: CliArgs) -> Result<()>

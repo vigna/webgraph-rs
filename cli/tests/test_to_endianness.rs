@@ -8,6 +8,8 @@
 // does not support (same convention as the other CLI integration tests).
 #![cfg(not(miri))]
 
+mod common;
+
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use webgraph::graphs::vec_graph::VecGraph;
@@ -32,15 +34,7 @@ fn test_to_endianness_offsets() -> Result<()> {
 
     // The converted offsets must match what `build offsets` derives from the
     // converted graph itself.
-    let offsets = format!("{dst}.offsets");
-    let offsets_orig = format!("{dst}.offsets.orig");
-    std::fs::rename(&offsets, &offsets_orig)?;
-    cli_main(vec!["webgraph", "build", "offsets", &dst])?;
-    assert_eq!(
-        std::fs::read(&offsets_orig)?,
-        std::fs::read(&offsets)?,
-        "converted offsets differ from rebuilt offsets"
-    );
+    common::check_rebuilt_offsets(&dst)?;
 
     // And the converted graph must be identical to the source graph.
     let seq = BvGraphSeq::with_basename(&dst)
