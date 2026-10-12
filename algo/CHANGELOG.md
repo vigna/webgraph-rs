@@ -75,6 +75,15 @@
 - HyperBall log messages no longer overflow for graphs with more than 2³²
   nodes.
 
+## [0.6.2] - 2026-05-01
+
+### Fixed
+
+- The dependency on `dsi-progress-logger` is no longer pinned to version
+  0.8.2, so that dependents can use later versions. This release has the
+  same sources as 0.6.1: it was published from the same commit, with just
+  this change, so there is no corresponding tag.
+
 ## [0.6.1] - 2026-02-23
 
 ### New
