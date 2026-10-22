@@ -564,6 +564,125 @@ impl<I: Iterator + core::iter::FusedIterator> core::iter::FusedIterator
 {
 }
 
+/// A way to merge the labels of repeated arcs into a single label.
+///
+/// Successor lists of graphs in the BV format cannot contain the same
+/// successor twice. When a labeled graph contains repeated arcs (e.g., a
+/// graph built by sorting labeled pairs without deduplication), the labels of
+/// each run of equal successors must be merged into a single label before
+/// being stored. For each such run, the compressor calls [`init`] once, and
+/// then [`merge`] once for each label of the run, including the first one; the
+/// resulting merged label is then stored.
+///
+/// The merged label can have a type different from that of the input labels:
+/// for example, single labels can be collected into a vector, or just
+/// counted.
+///
+/// The order of the labels within a run is unspecified, so the result of a
+/// merge should not depend on it. A single instance is shared by reference by
+/// all compression threads.
+///
+/// # Examples
+///
+/// A merger counting the occurrences of each arc:
+///
+/// ```rust
+/// use webgraph::traits::MergeLabel;
+///
+/// struct Count;
+///
+/// impl<L> MergeLabel<L> for Count {
+///     type Merged = usize;
+///
+///     fn merge(&self, merged: &mut usize, _label: L) {
+///         *merged += 1;
+///     }
+/// }
+///
+/// let mut merged = 0;
+/// for label in ["a", "b", "c"] {
+///     Count.merge(&mut merged, label);
+/// }
+/// assert_eq!(merged, 3);
+/// // init() cannot infer the label type by itself
+/// MergeLabel::<&str>::init(&Count, &mut merged);
+/// assert_eq!(merged, 0);
+/// ```
+///
+/// [`init`]: Self::init
+/// [`merge`]: Self::merge
+pub trait MergeLabel<L> {
+    /// The type of merged labels.
+    type Merged: Default;
+
+    /// Resets `merged` to the empty merge.
+    ///
+    /// The default implementation assigns `Self::Merged::default()`.
+    /// Override it to reuse resources: for example, a merger
+    /// collecting labels into a `Vec` can call `merged.clear()`,
+    /// keeping the allocation across runs of equal successors.
+    fn init(&self, merged: &mut Self::Merged) {
+        *merged = Self::Merged::default();
+    }
+
+    /// Merges `label` into `merged`.
+    fn merge(&self, merged: &mut Self::Merged, label: L);
+}
+
+/// A [`MergeLabel`] keeping one of the labels of each run.
+///
+/// Which label is kept is unspecified, as the order of the labels within a
+/// run is unspecified.
+///
+/// # Examples
+///
+/// ```rust
+/// use webgraph::traits::{KeepOne, MergeLabel};
+///
+/// let mut merged = 0_u32;
+/// MergeLabel::<u32>::init(&KeepOne, &mut merged);
+/// KeepOne.merge(&mut merged, 7);
+/// assert_eq!(merged, 7);
+/// ```
+#[derive(Debug, Clone, Copy, Default)]
+pub struct KeepOne;
+
+impl<L: Default> MergeLabel<L> for KeepOne {
+    type Merged = L;
+
+    #[inline(always)]
+    fn merge(&self, merged: &mut L, label: L) {
+        *merged = label;
+    }
+}
+
+/// A [`MergeLabel`] ignoring labels and counting the occurrences of each arc.
+///
+/// # Examples
+///
+/// ```rust
+/// use webgraph::traits::{CountRepeats, MergeLabel};
+///
+/// let mut merged = 0;
+/// for label in ['x', 'y', 'z'] {
+///     CountRepeats.merge(&mut merged, label);
+/// }
+/// assert_eq!(merged, 3);
+/// MergeLabel::<char>::init(&CountRepeats, &mut merged);
+/// assert_eq!(merged, 0);
+/// ```
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CountRepeats;
+
+impl<L> MergeLabel<L> for CountRepeats {
+    type Merged = u64;
+
+    #[inline(always)]
+    fn merge(&self, merged: &mut u64, _label: L) {
+        *merged += 1;
+    }
+}
+
 /// A [`SequentialLabeling`] providing, additionally, random access to
 /// the list of labels associated with a node.
 ///
