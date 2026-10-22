@@ -117,6 +117,7 @@ fn test_bvcompz_push_label_error_propagates() -> Result<()> {
         2,
         0,
         common::FailingStore::<usize>(std::marker::PhantomData),
+        NoMerge,
     );
     // Regression: label-store errors panicked instead of propagating.
     assert!(comp.push([(1usize, 42usize)]).is_err());
