@@ -505,7 +505,8 @@ impl<PL, P> BvCompConf<PL, P> {
     ///     ((2, 0), 'f'),
     ///     ((2, 0), 'g'),
     /// ];
-    /// // Labels are sorted along with the pairs, so they must be integers
+    /// // Labels are serialized during sorting, so they must be supported by
+    /// // the serializer (here, FixedWidth::<u32>)
     /// let graph = ParSortedLabeledGraph::from_pairs(
     ///     3,
     ///     FixedWidth::<u32>::new(),

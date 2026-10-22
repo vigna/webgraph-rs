@@ -21,7 +21,11 @@
 
 - `BvCompConf::comp_labeled_lender` and `BvCompConf::par_comp_labeled` have
   a new type parameter for the type of input labels, which can now be
-  different from the type of stored labels.
+  different from the type of stored labels. Analogously, `push` and `extend`
+  of `BvComp` and `BvCompZ` have a new leading type parameter for the type
+  of input labels, and `BvCompConf::comp_labeled_graph` requires the merge
+  policy to be compatible with the input and stored labels, rather than the
+  two types to be equal.
 
 - Repeated successors, or successors that are not sorted, now cause an
   error during compression instead of a panic (or, possibly, a corrupted

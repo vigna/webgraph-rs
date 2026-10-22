@@ -570,17 +570,22 @@ impl<I: Iterator + core::iter::FusedIterator> core::iter::FusedIterator
 /// successor twice. When a labeled graph contains repeated arcs (e.g., a
 /// graph built by sorting labeled pairs without deduplication), the labels of
 /// each run of equal successors must be merged into a single label before
-/// being stored. For each such run, the compressor calls [`init`] once, and
-/// then [`merge`] once for each label of the run, including the first one; the
-/// resulting merged label is then stored.
+/// being stored. Every arc, repeated or not, belongs to a run, possibly of
+/// length one, and every stored label is a merged label. For each run, the
+/// compressor calls [`init`] once, and then [`merge`] once for each label of
+/// the run, including the first one; the resulting merged label is then
+/// stored.
 ///
 /// The merged label can have a type different from that of the input labels:
 /// for example, single labels can be collected into a vector, or just
 /// counted.
 ///
 /// The order of the labels within a run is unspecified, so the result of a
-/// merge should not depend on it. A single instance is shared by reference by
-/// all compression threads.
+/// merge should not depend on it. Since there is no end-of-run hook, a merger
+/// collecting labels that needs a deterministic result must keep its
+/// collection ordered within [`merge`] (e.g., by inserting each label in
+/// sorted position). A single instance is shared by reference by all
+/// compression threads.
 ///
 /// Mergers are set with [`BvCompConf::merge_labels`].
 ///
@@ -635,7 +640,8 @@ pub trait MergeLabel<L> {
 /// A [`MergeLabel`] keeping one of the labels of each run.
 ///
 /// Which label is kept is unspecified, as the order of the labels within a
-/// run is unspecified.
+/// run is unspecified. The merged type is the label type, which must
+/// implement [`Default`].
 ///
 /// # Examples
 ///
@@ -660,6 +666,8 @@ impl<L: Default> MergeLabel<L> for KeepOne {
 }
 
 /// A [`MergeLabel`] ignoring labels and counting the occurrences of each arc.
+///
+/// The merged type is `u64`.
 ///
 /// # Examples
 ///
