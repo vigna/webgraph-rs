@@ -252,7 +252,7 @@ impl StoreLabelsConf for () {
 /// let basename = dir.path().join("graph");
 /// let conf = || BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
 /// BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, conf())?;
-/// BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, conf())?;
+/// BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _, _>(&graph, conf())?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 ///
@@ -269,7 +269,7 @@ impl StoreLabelsConf for () {
 /// let dir = tempfile::tempdir()?;
 /// let basename = dir.path().join("graph");
 /// let conf = || BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new()).zstd();
-/// BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, conf())?;
+/// BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _, _>(&graph, conf())?;
 /// // Does not compile: the factory does not implement SeqStoreLabelsConf
 /// BvComp::with_basename(&basename).comp_labeled_graph::<BE, _, _>(&graph, conf())?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())

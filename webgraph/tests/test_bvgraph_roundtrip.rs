@@ -369,8 +369,8 @@ mod labeled {
         let mut comp = BvComp::with_basename(&basename);
         match mode {
             Mode::Seq => comp.comp_labeled_graph::<BE, _, _>(graph, conf)?,
-            Mode::Par => comp.par_comp_labeled::<BE, _, _>(graph, conf)?,
-            Mode::ParZstd => comp.par_comp_labeled::<BE, _, _>(graph, conf.zstd())?,
+            Mode::Par => comp.par_comp_labeled::<BE, _, _, _>(graph, conf)?,
+            Mode::ParZstd => comp.par_comp_labeled::<BE, _, _, _>(graph, conf.zstd())?,
         };
 
         let labels_basename = BvCompConf::default_labels_basename(&basename);
@@ -432,6 +432,214 @@ mod labeled {
         let graph = LabeledVecGraph::from_arcs(arcs);
         labeled_roundtrip(&graph, Mode::Seq)?;
         labeled_roundtrip(&graph, Mode::Par)?;
+        Ok(())
+    }
+}
+
+#[cfg(not(miri))]
+mod merge_labels {
+    use super::*;
+    use std::path::Path;
+    use webgraph::graphs::arc_list_graph::ArcListGraph;
+    use webgraph::graphs::bvgraph::parse_label_properties;
+    use webgraph::graphs::vec_graph::LabeledVecGraph;
+    use webgraph::labels::bitstream::BitStreamStoreLabelsConf;
+    use webgraph::traits::FixedWidth;
+
+    /// Multiplicities of the arcs of `common::TEST_GRAPH_ARCS`, in order: the
+    /// first, a middle, and the last successor of a node are repeated, and
+    /// node 3 has a single successor repeated three times.
+    const MULTIPLICITIES: [u64; 11] = [2, 1, 1, 3, 2, 1, 3, 1, 1, 2, 1];
+
+    /// A way of compressing a labeled graph.
+    #[derive(Debug, Clone, Copy)]
+    enum Mode {
+        /// Sequential compression.
+        Seq,
+        /// Parallel compression.
+        Par,
+    }
+
+    /// Compresses a labeled graph with a configuration in the given mode.
+    macro_rules! compress {
+        ($conf:expr, $mode:expr, $graph:expr, $store:expr) => {
+            match $mode {
+                Mode::Seq => $conf.comp_labeled_lender::<BE, _, _, _>($graph, $store, Some(8)),
+                Mode::Par => $conf.par_comp_labeled::<BE, _, _, _>($graph, $store),
+            }
+        };
+    }
+
+    /// Checks that the labeled graph with the given basename is equal to the
+    /// expected one, and that its label properties count its distinct arcs.
+    macro_rules! check {
+        ($expected:expr, $basename:expr, $deser:expr) => {{
+            let labels_basename = BvCompConf::default_labels_basename($basename);
+            let label_props = parse_label_properties::<BE>(&labels_basename)?;
+            assert_eq!(label_props.num_nodes, 8);
+            assert_eq!(label_props.num_arcs, 11);
+            let seq = BvGraphSeq::with_basename($basename)
+                .endianness::<BE>()
+                .mode::<LoadMem>()
+                .load()?;
+            let labeling = BitStreamLabelingSeq::<BE, _, _>::load(&labels_basename, $deser)?;
+            graph::eq_labeled($expected, &Zip(seq, labeling))?;
+        }};
+    }
+
+    /// Returns a configuration for the standard compressor, or for the
+    /// Zuckerli-based compressor if `z` is true.
+    fn conf(basename: &Path, z: bool) -> BvCompConf {
+        if z {
+            BvCompZ::with_basename(basename)
+        } else {
+            BvComp::with_basename(basename)
+        }
+    }
+
+    /// Returns the arcs of the test graph, each repeated as many times as its
+    /// multiplicity; the `k`-th copy of the `i`-th arc has label `label(i, k)`.
+    fn pairs(label: impl Fn(usize, u64) -> u32) -> Vec<((usize, usize), u32)> {
+        let label = &label;
+        common::TEST_GRAPH_ARCS
+            .into_iter()
+            .zip(MULTIPLICITIES)
+            .enumerate()
+            .flat_map(|(i, (arc, m))| (0..m).map(move |k| (arc, label(i, k))))
+            .collect()
+    }
+
+    #[test]
+    fn test_count_repeats() -> Result<()> {
+        let graph = ParSortedLabeledGraph::from_pairs(
+            8,
+            FixedWidth::<u32>::new(),
+            pairs(|i, k| (100 * i as u64 + k) as u32),
+        )?;
+        let expected =
+            LabeledVecGraph::from_arcs(common::TEST_GRAPH_ARCS.into_iter().zip(MULTIPLICITIES));
+        for z in [false, true] {
+            for mode in [Mode::Seq, Mode::Par] {
+                (|| -> Result<()> {
+                    let (_dir, basename) = tmp_basename()?;
+                    let store = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u64>::new());
+                    compress!(
+                        conf(&basename, z).merge_labels(CountRepeats),
+                        mode,
+                        &graph,
+                        store
+                    )?;
+                    check!(&expected, &basename, FixedWidth::<u64>::new());
+                    Ok(())
+                })()
+                .with_context(|| format!("z: {z}, mode: {mode:?}"))?;
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_keep_one() -> Result<()> {
+        let label = |(src, dst): (usize, usize)| (10 * src + dst) as u32;
+        let graph = ParSortedLabeledGraph::from_pairs(
+            8,
+            FixedWidth::<u32>::new(),
+            pairs(|i, _| label(common::TEST_GRAPH_ARCS[i])),
+        )?;
+        let expected =
+            LabeledVecGraph::from_arcs(common::TEST_GRAPH_ARCS.map(|arc| (arc, label(arc))));
+        for z in [false, true] {
+            for mode in [Mode::Seq, Mode::Par] {
+                (|| -> Result<()> {
+                    let (_dir, basename) = tmp_basename()?;
+                    let store = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
+                    compress!(
+                        conf(&basename, z).merge_labels(KeepOne),
+                        mode,
+                        &graph,
+                        store
+                    )?;
+                    check!(&expected, &basename, FixedWidth::<u32>::new());
+                    Ok(())
+                })()
+                .with_context(|| format!("z: {z}, mode: {mode:?}"))?;
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_repeated_without_merger() -> Result<()> {
+        let mut arcs: Vec<_> = common::TEST_GRAPH_ARCS.map(|arc| (arc, 0_u32)).to_vec();
+        arcs.push(((0, 1), 0));
+        let graph = ParSortedLabeledGraph::from_pairs(8, FixedWidth::<u32>::new(), arcs)?;
+        for z in [false, true] {
+            for mode in [Mode::Seq, Mode::Par] {
+                let (_dir, basename) = tmp_basename()?;
+                let store = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
+                let err = compress!(conf(&basename, z), mode, &graph, store).unwrap_err();
+                let msg = format!("{err:#}");
+                assert!(
+                    msg.contains("Repeated successor 1 in successor list of node 0"),
+                    "z: {z}, mode: {mode:?}: {msg}"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_unsorted_successors() -> Result<()> {
+        let graph = ArcListGraph::new_labeled(8, vec![((0, 2), 0_u32), ((0, 1), 0)]);
+        for z in [false, true] {
+            for merge in [false, true] {
+                let (_dir, basename) = tmp_basename()?;
+                let store = BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
+                let err = if merge {
+                    conf(&basename, z)
+                        .merge_labels(KeepOne)
+                        .comp_labeled_lender::<BE, _, _, _>(&graph, store, Some(8))
+                } else {
+                    conf(&basename, z).comp_labeled_lender::<BE, _, _, _>(&graph, store, Some(8))
+                }
+                .unwrap_err();
+                let msg = format!("{err:#}");
+                assert!(
+                    msg.contains("Successor list of node 0 is not sorted: 1 follows 2"),
+                    "z: {z}, merge: {merge}: {msg}"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_unlabeled_with_merger_configured() -> Result<()> {
+        let graph = common::test_graph();
+        for z in [false, true] {
+            for mode in [Mode::Seq, Mode::Par] {
+                let (_dir, basename) = tmp_basename()?;
+                let mut conf = conf(&basename, z).merge_labels(CountRepeats);
+                match mode {
+                    Mode::Seq => conf.comp_graph::<BE>(&graph)?,
+                    Mode::Par => conf.par_comp::<BE, _>(&graph)?,
+                };
+                let seq = BvGraphSeq::with_basename(&basename)
+                    .endianness::<BE>()
+                    .load()?;
+                graph::eq(&graph, &seq).with_context(|| format!("z: {z}, mode: {mode:?}"))?;
+            }
+            let (_dir, basename) = tmp_basename()?;
+            let err = conf(&basename, z)
+                .merge_labels(CountRepeats)
+                .comp_graph::<BE>(ArcListGraph::new(8, vec![(0, 1), (0, 1)]))
+                .unwrap_err();
+            let msg = format!("{err:#}");
+            assert!(
+                msg.contains("Repeated successor 1 in successor list of node 0"),
+                "z: {z}: {msg}"
+            );
+        }
         Ok(())
     }
 }

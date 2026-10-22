@@ -254,7 +254,10 @@ impl<W: Write> OffsetsWriter<W> {
 /// - [`labels_basename`]: overrides the default label-file basename
 ///   (e.g., to write labels to a different disk);
 /// - [`tmp_dir`]: sets the temporary directory for parallel
-///   compression.
+///   compression;
+/// - [`merge_labels`]: sets a [`MergeLabel`] that merges the labels of
+///   repeated successors (by default, repeated successors cause an
+///   error).
 ///
 /// # Compression Methods
 ///
@@ -309,7 +312,7 @@ impl<W: Write> OffsetsWriter<W> {
 /// let label_config =
 ///     BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
 /// BvComp::with_basename("output")
-///     .par_comp_labeled::<BE, _, _>(&labeled_graph, label_config)?;
+///     .par_comp_labeled::<BE, _, _, _>(&labeled_graph, label_config)?;
 ///
 /// // Zuckerli-based compression
 /// BvCompZ::with_basename("output").comp_graph::<BE>(&graph)?;
@@ -322,6 +325,7 @@ impl<W: Write> OffsetsWriter<W> {
 /// [`labels_basename`]: Self::labels_basename
 /// [`default_labels_basename`]: Self::default_labels_basename
 /// [`tmp_dir`]: Self::tmp_dir
+/// [`merge_labels`]: Self::merge_labels
 /// [`comp_graph`]: Self::comp_graph
 /// [`comp_lender`]: Self::comp_lender
 /// [`comp_labeled_graph`]: Self::comp_labeled_graph
@@ -333,7 +337,7 @@ impl<W: Write> OffsetsWriter<W> {
 /// [`store_ef_with_data`]: crate::graphs::bvgraph::store_ef_with_data
 /// [`BitStreamStoreLabelsConf`]: crate::labels::BitStreamStoreLabelsConf
 #[derive(Debug)]
-pub struct BvCompConf<PL = Option<ProgressLogger>> {
+pub struct BvCompConf<PL = Option<ProgressLogger>, P = NoMerge> {
     /// The basename of the output files.
     basename: PathBuf,
     /// Compression flags for BvComp/BvCompZ.
@@ -350,6 +354,8 @@ pub struct BvCompConf<PL = Option<ProgressLogger>> {
     tmp_dir: Option<PathBuf>,
     /// Progress logger for compression methods.
     pl: PL,
+    /// The merge policy for the labels of repeated successors.
+    merge_policy: P,
 }
 
 impl BvCompConf {
@@ -371,6 +377,7 @@ impl BvCompConf {
             labels_basename: None,
             tmp_dir: None,
             pl: None,
+            merge_policy: NoMerge,
         }
     }
 
@@ -387,7 +394,7 @@ impl BvCompConf {
     }
 }
 
-impl<PL> BvCompConf<PL> {
+impl<PL, P> BvCompConf<PL, P> {
     /// Sets the [`CompFlags`] controlling the compression parameters
     /// (compression window, maximum reference count, minimum interval length,
     /// and the instantaneous codes used for each component of the successor
@@ -447,7 +454,7 @@ impl<PL> BvCompConf<PL> {
     ///
     /// [`item_name`]: ProgressLog::item_name
     /// [`expected_updates`]: ProgressLog::expected_updates
-    pub fn progress_logger<PL2>(self, pl: PL2) -> BvCompConf<PL2> {
+    pub fn progress_logger<PL2>(self, pl: PL2) -> BvCompConf<PL2, P> {
         BvCompConf {
             basename: self.basename,
             comp_flags: self.comp_flags,
@@ -456,6 +463,100 @@ impl<PL> BvCompConf<PL> {
             labels_basename: self.labels_basename,
             tmp_dir: self.tmp_dir,
             pl,
+            merge_policy: self.merge_policy,
+        }
+    }
+
+    /// Sets a [`MergeLabel`] merging the labels of repeated successors.
+    ///
+    /// By default, labeled compression methods reject repeated successors
+    /// with an error. After calling this method, each run of equal
+    /// successors is instead compressed as a single successor, and its label
+    /// is obtained by merging the labels of the run with `merger`. The
+    /// [`StoreLabelsConf`] passed to the labeled compression methods must
+    /// then store labels of type [`MergeLabel::Merged`], which can be
+    /// different from that of the input labels.
+    ///
+    /// The unlabeled compression methods ignore the merger, and always
+    /// reject repeated successors.
+    ///
+    /// # Examples
+    ///
+    /// Compresses a graph built from pairs containing repeated arcs, using
+    /// as label of each arc the number of its occurrences:
+    ///
+    /// ```
+    /// # use anyhow::Result;
+    /// # use dsi_bitstream::prelude::*;
+    /// # use webgraph::prelude::*;
+    /// # use webgraph::graphs::vec_graph::LabeledVecGraph;
+    /// # use webgraph::labels::BitStreamStoreLabelsConf;
+    /// # use webgraph::traits::FixedWidth;
+    /// # fn main() -> Result<()> {
+    /// # if cfg!(miri) { return Ok(()); }
+    /// # let tmp = tempfile::TempDir::new()?;
+    /// # let basename = tmp.path().join("example");
+    /// let pairs = [
+    ///     ((0, 1), 'a'),
+    ///     ((0, 1), 'b'),
+    ///     ((0, 2), 'c'),
+    ///     ((1, 2), 'd'),
+    ///     ((2, 0), 'e'),
+    ///     ((2, 0), 'f'),
+    ///     ((2, 0), 'g'),
+    /// ];
+    /// // Labels are sorted along with the pairs, so they must be integers
+    /// let graph = ParSortedLabeledGraph::from_pairs(
+    ///     3,
+    ///     FixedWidth::<u32>::new(),
+    ///     pairs.map(|(arc, label)| (arc, label as u32)),
+    /// )?;
+    ///
+    /// BvComp::with_basename(&basename)
+    ///     .merge_labels(CountRepeats)
+    ///     .par_comp_labeled::<BE, _, _, _>(
+    ///         &graph,
+    ///         BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u64>::new()),
+    ///     )?;
+    ///
+    /// let seq = BvGraphSeq::with_basename(&basename)
+    ///     .endianness::<BE>()
+    ///     .load()?;
+    /// let labeling = BitStreamLabelingSeq::<BE, _, _>::load(
+    ///     BvCompConf::default_labels_basename(&basename),
+    ///     FixedWidth::<u64>::new(),
+    /// )?;
+    /// let expected =
+    ///     LabeledVecGraph::from_arcs([((0, 1), 2), ((0, 2), 1), ((1, 2), 1), ((2, 0), 3)]);
+    /// graph::eq_labeled(&expected, &Zip(seq, labeling))?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn merge_labels<M>(self, merger: M) -> BvCompConf<PL, WithMerge<M>> {
+        BvCompConf {
+            basename: self.basename,
+            comp_flags: self.comp_flags,
+            bvgraphz: self.bvgraphz,
+            chunk_size: self.chunk_size,
+            labels_basename: self.labels_basename,
+            tmp_dir: self.tmp_dir,
+            pl: self.pl,
+            merge_policy: WithMerge(merger),
+        }
+    }
+
+    /// Returns a copy of this configuration borrowing the progress logger
+    /// and rejecting repeated successors, for the unlabeled methods.
+    fn no_merge(&mut self) -> BvCompConf<&mut PL, NoMerge> {
+        BvCompConf {
+            basename: self.basename.clone(),
+            comp_flags: self.comp_flags,
+            bvgraphz: self.bvgraphz,
+            chunk_size: self.chunk_size,
+            labels_basename: self.labels_basename.clone(),
+            tmp_dir: self.tmp_dir.clone(),
+            pl: &mut self.pl,
+            merge_policy: NoMerge,
         }
     }
 
@@ -509,7 +610,7 @@ fn write_properties<E: Endianness>(
     Ok(())
 }
 
-impl<PL: ProgressLog> BvCompConf<PL> {
+impl<PL: ProgressLog, P> BvCompConf<PL, P> {
     /// Compresses sequentially a [`SequentialGraph`] and returns
     /// the number of bits written to the graph bitstream.
     ///
@@ -521,7 +622,8 @@ impl<PL: ProgressLog> BvCompConf<PL> {
     where
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
-        self.comp_labeled_graph::<E, (), ()>(UnitLabelGraph(graph), ())
+        self.no_merge()
+            .comp_labeled_graph::<E, (), ()>(UnitLabelGraph(graph), ())
     }
 
     /// Compresses sequentially a [`NodeLabelsLender`] and returns
@@ -539,7 +641,7 @@ impl<PL: ProgressLog> BvCompConf<PL> {
         L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
-        self.comp_labeled_lender::<E, _, _>(
+        self.no_merge().comp_labeled_lender::<E, _, _, _>(
             UnitLabelLender(iter.into_lender()),
             (),
             expected_num_nodes,
@@ -555,18 +657,23 @@ impl<PL: ProgressLog> BvCompConf<PL> {
     /// the final output files, the factory must implement
     /// [`SeqStoreLabelsConf`].
     ///
+    /// Successors must be sorted. Repeated successors cause an error, unless
+    /// a [`MergeLabel`] has been set with [`merge_labels`], in which case the
+    /// labels of each run of equal successors are merged into a single label.
+    ///
     /// [`BitStreamStoreLabelsConf`]: crate::labels::BitStreamStoreLabelsConf
+    /// [`merge_labels`]: Self::merge_labels
     pub fn comp_labeled_graph<E: Endianness, L, SLC: SeqStoreLabelsConf>(
         &mut self,
         graph: impl LabeledSequentialGraph<L>,
         store_labels_config: SLC,
     ) -> Result<u64>
     where
-        SLC::StoreLabels: StoreLabels<Label = L>,
+        P: MergePolicy<L, <SLC::StoreLabels as StoreLabels>::Label>,
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
         let num_nodes = graph.num_nodes();
-        self.comp_labeled_lender::<E, _, _>(graph.iter(), store_labels_config, Some(num_nodes))
+        self.comp_labeled_lender::<E, _, _, _>(graph.iter(), store_labels_config, Some(num_nodes))
     }
 
     /// Compresses sequentially a labeled [`NodeLabelsLender`] and returns
@@ -579,7 +686,13 @@ impl<PL: ProgressLog> BvCompConf<PL> {
     ///
     /// The optional `expected_num_nodes` parameter will be used to provide
     /// forecasts on the progress logger.
-    pub fn comp_labeled_lender<E, L, SLC>(
+    ///
+    /// Successors must be sorted. Repeated successors cause an error, unless
+    /// a [`MergeLabel`] has been set with [`merge_labels`], in which case the
+    /// labels of each run of equal successors are merged into a single label.
+    ///
+    /// [`merge_labels`]: Self::merge_labels
+    pub fn comp_labeled_lender<E, L, SLC, T>(
         &mut self,
         iter: L,
         store_labels_config: SLC,
@@ -590,10 +703,8 @@ impl<PL: ProgressLog> BvCompConf<PL> {
         L: IntoLender,
         SLC: SeqStoreLabelsConf,
         SLC::StoreLabels: StoreLabels,
-        L::Lender: for<'next> NodeLabelsLender<
-                'next,
-                Label = (usize, <SLC::StoreLabels as StoreLabels>::Label),
-            >,
+        L::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, T)>,
+        P: MergePolicy<T, <SLC::StoreLabels as StoreLabels>::Label>,
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
@@ -629,7 +740,7 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                 self.comp_flags.min_interval_length,
                 0,
                 store_labels,
-                NoMerge,
+                &self.merge_policy,
             );
 
             for_! ( (_node_id, successors) in iter {
@@ -650,7 +761,7 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                 self.comp_flags.min_interval_length,
                 0,
                 store_labels,
-                NoMerge,
+                &self.merge_policy,
             );
 
             for_! ( (_node_id, successors) in iter {
@@ -698,7 +809,8 @@ impl<PL: ProgressLog> BvCompConf<PL> {
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
-        self.par_comp_labeled::<E, _, _>(UnitLabelParLenders(graph), ())
+        self.no_merge()
+            .par_comp_labeled::<E, _, _, _>(UnitLabelParLenders(graph), ())
     }
 
     /// Compresses a labeled [`IntoParLenders`] in parallel and returns the
@@ -719,6 +831,10 @@ impl<PL: ProgressLog> BvCompConf<PL> {
     ///
     /// A concrete implementation of [`StoreLabelsConf`] for
     /// bitstream-based labels is [`BitStreamStoreLabelsConf`].
+    ///
+    /// Successors must be sorted. Repeated successors cause an error, unless
+    /// a [`MergeLabel`] has been set with [`merge_labels`], in which case the
+    /// labels of each run of equal successors are merged into a single label.
     ///
     /// # Examples
     ///
@@ -750,7 +866,7 @@ impl<PL: ProgressLog> BvCompConf<PL> {
     ///     BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
     ///
     /// BvComp::with_basename(&basename)
-    ///     .par_comp_labeled::<BE, _, _>(&graph, label_config)?;
+    ///     .par_comp_labeled::<BE, _, _, _>(&graph, label_config)?;
     ///
     /// let labels_basename = BvCompConf::default_labels_basename(&basename);
     ///
@@ -773,20 +889,17 @@ impl<PL: ProgressLog> BvCompConf<PL> {
     /// [`BitStreamStoreLabelsConf`]: crate::labels::BitStreamStoreLabelsConf
     /// [`par_comp`]: Self::par_comp
     /// [`BitStreamLabelingSeq::load`]: crate::labels::BitStreamLabelingSeq::load
-    pub fn par_comp_labeled<E: Endianness, G, SLC>(
+    /// [`merge_labels`]: Self::merge_labels
+    pub fn par_comp_labeled<E: Endianness, G, SLC, T>(
         &mut self,
         graph: G,
         mut store_labels_config: SLC,
     ) -> Result<u64>
     where
-        G: for<'a> IntoParLenders<
-            ParLender: NodeLabelsLender<
-                'a,
-                Label = (usize, <SLC::StoreLabels as StoreLabels>::Label),
-            >,
-        >,
+        G: for<'a> IntoParLenders<ParLender: NodeLabelsLender<'a, Label = (usize, T)>>,
         SLC: StoreLabelsConf + Send + Sync,
         SLC::StoreLabels: Send,
+        P: MergePolicy<T, <SLC::StoreLabels as StoreLabels>::Label> + Sync,
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
@@ -815,6 +928,7 @@ impl<PL: ProgressLog> BvCompConf<PL> {
             current_num_threads()
         ));
         let cp_flags = &self.comp_flags;
+        let merge_policy = &self.merge_policy;
         let bvgraphz = self.bvgraphz;
         let chunk_size = self.chunk_size;
 
@@ -857,7 +971,7 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                                 cp_flags.min_interval_length,
                                 node_id,
                                 store_labels,
-                                NoMerge,
+                                merge_policy,
                             );
                             bvcomp.push(successors)?;
                             last_node = first_node;
@@ -878,7 +992,7 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                                 cp_flags.min_interval_length,
                                 node_id,
                                 store_labels,
-                                NoMerge,
+                                merge_policy,
                             );
                             bvcomp.push(successors)?;
                             last_node = first_node;

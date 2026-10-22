@@ -18,6 +18,10 @@
 //! compression or other transformations. Optionally, you can [deduplicate]
 //! after sorting.
 //!
+//! Without deduplication, repeated arcs are kept. Since compressors reject
+//! repeated successors, in the labeled case you can compress such a graph by
+//! [merging the labels] of repeated arcs.
+//!
 //! # Examples
 //!
 //! Here we turn a list of arcs into a parallel sorted graph:
@@ -185,6 +189,7 @@
 //! [`par_from_pair_iters`]: ParSortedGraph::par_from_pair_iters
 //! [configuration]: ParSortedGraph::config
 //! [deduplicate]: ParSortedGraphConf::dedup
+//! [merging the labels]: crate::graphs::bvgraph::BvCompConf::merge_labels
 use crate::graphs::{arc_list_graph, impl_into_lender};
 use crate::labels::proj::LeftIterator;
 use crate::prelude::*;
@@ -234,6 +239,11 @@ use std::sync::Arc;
 /// These method use default values: use a [configuration] for
 /// turning.
 ///
+/// Unless [deduplication] is enabled, repeated arcs are kept, each with its
+/// label. To compress such a graph, set a [`MergeLabel`] with
+/// [`BvCompConf::merge_labels`]; otherwise, compression will fail with an
+/// error.
+///
 /// For the unlabeled case, use [`ParSortedGraph`].
 ///
 /// # Examples
@@ -248,6 +258,8 @@ use std::sync::Arc;
 /// [`par_from_try_pairs`]: ParSortedLabeledGraph::par_from_try_pairs
 /// [`par_from_pair_iters`]: ParSortedLabeledGraph::par_from_pair_iters
 /// [configuration]: ParSortedLabeledGraph::config
+/// [deduplication]: ParSortedLabeledGraphConf::dedup
+/// [`BvCompConf::merge_labels`]: crate::graphs::bvgraph::BvCompConf::merge_labels
 /// [module documentation]: crate::graphs::par_sorted_graph
 pub struct ParSortedLabeledGraph<I> {
     boundaries: Box<[usize]>,
@@ -1039,6 +1051,12 @@ impl Default for ParSortedLabeledGraphConf {
 
 impl<PL, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
     /// Enables deduplication of arcs during sorting.
+    ///
+    /// Of the labels of repeated arcs, an arbitrary one is kept. To combine
+    /// the labels of repeated arcs instead, do not deduplicate, and set a
+    /// [`MergeLabel`] with [`BvCompConf::merge_labels`] when compressing.
+    ///
+    /// [`BvCompConf::merge_labels`]: crate::graphs::bvgraph::BvCompConf::merge_labels
     pub fn dedup(self) -> ParSortedLabeledGraphConf<PL, true> {
         ParSortedLabeledGraphConf {
             num_partitions: self.num_partitions,

@@ -582,6 +582,8 @@ impl<I: Iterator + core::iter::FusedIterator> core::iter::FusedIterator
 /// merge should not depend on it. A single instance is shared by reference by
 /// all compression threads.
 ///
+/// Mergers are set with [`BvCompConf::merge_labels`].
+///
 /// # Examples
 ///
 /// A merger counting the occurrences of each arc:
@@ -611,6 +613,7 @@ impl<I: Iterator + core::iter::FusedIterator> core::iter::FusedIterator
 ///
 /// [`init`]: Self::init
 /// [`merge`]: Self::merge
+/// [`BvCompConf::merge_labels`]: crate::graphs::bvgraph::BvCompConf::merge_labels
 pub trait MergeLabel<L> {
     /// The type of merged labels.
     type Merged: Default;

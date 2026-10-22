@@ -110,7 +110,7 @@ fn test_par_comp_worker_error_propagates() -> Result<()> {
 
     let graph = LabeledVecGraph::from_arcs([((0, 1), 10u32), ((1, 2), 20)]);
     let (_dir, basename) = common::tmp_basename()?;
-    let res = BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(&graph, FailingConf);
+    let res = BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _, _>(&graph, FailingConf);
     let err = match res {
         Err(e) => e,
         Ok(_) => anyhow::bail!("expected error, got Ok"),

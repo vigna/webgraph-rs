@@ -1,5 +1,32 @@
 # Change Log
 
+## [0.8.0] - unreleased
+
+### New
+
+- New trait `MergeLabel`, with implementations `KeepOne` and `CountRepeats`,
+  describing how to merge the labels of repeated arcs into a single label,
+  possibly of a different type. `BvCompConf::merge_labels` sets a
+  `MergeLabel` for labeled compression, so that, for example, a
+  `ParSortedLabeledGraph` built without deduplication can be compressed.
+
+- New merge policies `NoMerge` and `WithMerge` for the compressors, and
+  sealed trait `MergePolicy` they implement.
+
+### Changed
+
+- `BvComp::new` and `BvCompZ::new` take a merge policy as additional last
+  argument, and `BvComp`, `BvCompZ`, and `BvCompConf` have a new type
+  parameter for it (by default, `NoMerge`).
+
+- `BvCompConf::comp_labeled_lender` and `BvCompConf::par_comp_labeled` have
+  a new type parameter for the type of input labels, which can now be
+  different from the type of stored labels.
+
+- Repeated successors, or successors that are not sorted, now cause an
+  error during compression instead of a panic (or, possibly, a corrupted
+  bitstream).
+
 ## [0.7.0] - 2026-10-12
 
 ### New
