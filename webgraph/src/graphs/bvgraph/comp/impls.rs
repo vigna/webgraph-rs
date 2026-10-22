@@ -649,6 +649,7 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                 self.comp_flags.min_interval_length,
                 0,
                 store_labels,
+                NoMerge,
             );
 
             for_! ( (_node_id, successors) in iter {
@@ -875,6 +876,7 @@ impl<PL: ProgressLog> BvCompConf<PL> {
                                 cp_flags.min_interval_length,
                                 node_id,
                                 store_labels,
+                                NoMerge,
                             );
                             bvcomp.push(successors)?;
                             last_node = first_node;

@@ -17,6 +17,62 @@ pub use impls::{BvCompConf, OffsetsWriter};
 mod flags;
 pub use flags::*;
 
+/// An in-memory label store for the tests of [`BvComp`] and [`BvCompZ`].
+#[cfg(test)]
+mod test_store {
+    use crate::traits::StoreLabels;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    /// A [`StoreLabels`] collecting labels in a vector shared with the
+    /// test, so that it can be inspected after the compressor (which owns
+    /// the store) has been flushed.
+    #[derive(Debug)]
+    pub(super) struct VecStore<T>(Rc<RefCell<Vec<T>>>);
+
+    impl<T> Default for VecStore<T> {
+        fn default() -> Self {
+            Self(Rc::new(RefCell::new(Vec::new())))
+        }
+    }
+
+    impl<T> VecStore<T> {
+        /// Returns a handle to the stored labels.
+        pub(super) fn labels(&self) -> Rc<RefCell<Vec<T>>> {
+            self.0.clone()
+        }
+    }
+
+    impl<T: Clone> StoreLabels for VecStore<T> {
+        type Label = T;
+
+        fn init(&mut self) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        fn push_node(&mut self) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        fn push_label(&mut self, label: &T) -> anyhow::Result<()> {
+            self.0.borrow_mut().push(label.clone());
+            Ok(())
+        }
+
+        fn flush(&mut self) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        fn label_written_bits(&self) -> u64 {
+            0
+        }
+
+        fn offsets_written_bits(&self) -> u64 {
+            0
+        }
+    }
+}
+
 /// Helpers for the tests of [`BvComp`] and [`BvCompZ`].
 #[cfg(all(test, not(miri)))]
 mod test_utils {

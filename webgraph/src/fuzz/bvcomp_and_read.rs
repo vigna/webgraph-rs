@@ -36,6 +36,7 @@ macro_rules! compress {
                 comp_flags.min_interval_length,
                 0,
                 (),
+                NoMerge,
             );
             bvcomp.extend(UnitLabelLender($graph.iter())).unwrap();
             bvcomp.flush().unwrap();
