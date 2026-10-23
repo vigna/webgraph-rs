@@ -151,8 +151,10 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels> BvCompZ<E, W, SL> {
     /// the encoder.
     ///
     /// Successors must be sorted and distinct; otherwise, an error is
-    /// returned. The labels of repeated arcs can be merged while sorting
-    /// them.
+    /// returned. The labels of repeated arcs can be [merged while sorting
+    /// them].
+    ///
+    /// [merged while sorting them]: crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf::merge_labels
     pub fn push<I: IntoIterator<Item = (usize, SL::Label)>>(
         &mut self,
         succ_iter: I,

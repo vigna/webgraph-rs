@@ -30,6 +30,7 @@ pub fn transpose_labeled_seq<SD>(
 ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
 where
     SD: LabelSerDeser,
+    SD::SerType: Copy,
 {
     ParSortedLabeledGraphConf::default()
         .memory_usage(memory_usage)
@@ -87,6 +88,7 @@ pub fn transpose_labeled_par<SD, G>(
 ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
 where
     SD: LabelSerDeser,
+    SD::SerType: Copy,
     G: LabeledSequentialGraph<SD::SerType>
         + IntoParLenders<
             ParLender: for<'a> NodeLabelsLender<

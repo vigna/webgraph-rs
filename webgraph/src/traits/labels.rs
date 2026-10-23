@@ -566,7 +566,7 @@ impl<I: Iterator + core::iter::FusedIterator> core::iter::FusedIterator
 
 /// A way to merge the labels of repeated arcs into a single label.
 ///
-/// When sorting labeled pairs, the same arc may appear several times with
+/// When [sorting labeled pairs], the same arc may appear several times with
 /// different labels. A merger turns the labels of each arc into a single
 /// label, possibly of a different type, using a *state*: labels are added to
 /// states by [`AddLabel::add`], states are merged by [`merge`], and a fully
@@ -697,6 +697,7 @@ impl<I: Iterator + core::iter::FusedIterator> core::iter::FusedIterator
 /// assert_eq!(&*Collect.finish(first), &[1, 2, 3]);
 /// ```
 ///
+/// [sorting labeled pairs]: crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf::merge_labels
 /// [`init`]: Self::init
 /// [`add`]: AddLabel::add
 /// [`merge`]: Self::merge
@@ -736,7 +737,7 @@ pub trait AddLabel<L>: MergeLabels {
 ///
 /// Which label is kept is unspecified, as the order of the labels of an arc
 /// is unspecified. The state and the output are the label type, which must
-/// implement [`Default`]. Deduplication while sorting keeps one label
+/// implement [`Default`]. [Deduplication] while sorting keeps one label
 /// without this requirement.
 ///
 /// # Examples
@@ -750,6 +751,8 @@ pub trait AddLabel<L>: MergeLabels {
 /// keep.add(&mut state, 7);
 /// assert_eq!(keep.finish(state), 7);
 /// ```
+///
+/// [Deduplication]: crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf::dedup
 pub struct KeepOne<L>(core::marker::PhantomData<fn() -> L>);
 
 impl<L> KeepOne<L> {

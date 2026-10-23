@@ -23,11 +23,13 @@
 //!
 //! Both traits are sealed: the three types above are their only
 //! implementations. Usually you do not need to use these types directly:
-//! see [`ParSortedLabeledGraphConf::dedup`].
+//! see [`ParSortedLabeledGraphConf::dedup`] and
+//! [`ParSortedLabeledGraphConf::merge_labels`].
 //!
 //! [batch codecs]: crate::utils::BatchCodec
 //! [`KMergeIters`]: crate::utils::kmerge_iters::KMergeIters
 //! [`ParSortedLabeledGraphConf::dedup`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf::dedup
+//! [`ParSortedLabeledGraphConf::merge_labels`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf::merge_labels
 
 use crate::traits::{AddLabel, MergeLabels};
 

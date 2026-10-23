@@ -97,10 +97,15 @@ impl<E: Endianness, BR: BitRead<E>, S, D: BitDeserializer<E, BR>> BitDeserialize
 /// The type serialized and the type deserialized must be the same. The trait
 /// is implemented by every type satisfying the bounds.
 ///
+/// The type serialized need not be [`Copy`]: when [merging labels], it is
+/// the type of the states of the merger, which can be, for example, a
+/// vector (see [`VecOf`]).
+///
+/// [merging labels]: crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf::merge_labels
 /// [`ParSortedLabeledGraph`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraph
 /// [`transpose_labeled_par`]: crate::transform::transpose_labeled_par
 pub trait LabelSerDeser:
-    BitSerializer<NE, BitWriter<NE>, SerType: Copy + Send + Sync + 'static>
+    BitSerializer<NE, BitWriter<NE>, SerType: Clone + Send + Sync + 'static>
     + BitDeserializer<
         NE,
         BitReader<NE>,
@@ -112,7 +117,7 @@ pub trait LabelSerDeser:
 }
 
 impl<T> LabelSerDeser for T where
-    T: BitSerializer<NE, BitWriter<NE>, SerType: Copy + Send + Sync + 'static>
+    T: BitSerializer<NE, BitWriter<NE>, SerType: Clone + Send + Sync + 'static>
         + BitDeserializer<
             NE,
             BitReader<NE>,

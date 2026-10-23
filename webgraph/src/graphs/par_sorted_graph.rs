@@ -195,6 +195,7 @@ use crate::utils::par_sort_iters::ParSortIters;
 use crate::utils::par_sort_pairs::ParSortPairs;
 use crate::utils::{
     AddPolicy, BitWriter, CodecIter, Dedup, DefaultBatchCodec, MemoryUsage, MergePolicy, NoMerge,
+    WithMerge,
 };
 use anyhow::Result;
 use dsi_bitstream::prelude::NE;
@@ -236,6 +237,11 @@ use std::sync::Arc;
 /// These method use default values: use a [configuration] for
 /// turning.
 ///
+/// Unless [deduplication] or [label merging] is enabled in the
+/// configuration, repeated arcs are kept, each with its label. Since
+/// compressors reject repeated successors, a graph with repeated arcs cannot
+/// be compressed.
+///
 /// For the unlabeled case, use [`ParSortedGraph`].
 ///
 /// # Examples
@@ -250,6 +256,8 @@ use std::sync::Arc;
 /// [`par_from_try_pairs`]: ParSortedLabeledGraph::par_from_try_pairs
 /// [`par_from_pair_iters`]: ParSortedLabeledGraph::par_from_pair_iters
 /// [configuration]: ParSortedLabeledGraph::config
+/// [deduplication]: ParSortedLabeledGraphConf::dedup
+/// [label merging]: ParSortedLabeledGraphConf::merge_labels
 /// [module documentation]: crate::graphs::par_sorted_graph
 pub struct ParSortedLabeledGraph<I> {
     boundaries: Box<[usize]>,
@@ -342,6 +350,7 @@ impl ParSortedLabeledGraph<()> {
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: LabelSerDeser,
+        SD::SerType: Copy,
         G: LabeledSequentialGraph<SD::SerType>,
     {
         ParSortedLabeledGraphConf::default().sort_graph(graph, sd)
@@ -360,6 +369,7 @@ impl ParSortedLabeledGraph<()> {
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: LabelSerDeser,
+        SD::SerType: Copy,
         G: LabeledSequentialGraph<SD::SerType>
             + IntoParLenders<
                 ParLender: for<'a> NodeLabelsLender<
@@ -385,6 +395,7 @@ impl ParSortedLabeledGraph<()> {
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: LabelSerDeser,
+        SD::SerType: Copy,
     {
         ParSortedLabeledGraphConf::default().sort_pairs(num_nodes, sd, pairs)
     }
@@ -403,6 +414,7 @@ impl ParSortedLabeledGraph<()> {
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: LabelSerDeser,
+        SD::SerType: Copy,
     {
         ParSortedLabeledGraphConf::default().par_sort_pairs(num_nodes, sd, pairs)
     }
@@ -421,6 +433,7 @@ impl ParSortedLabeledGraph<()> {
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: LabelSerDeser,
+        SD::SerType: Copy,
         I: Iterator<Item = ((usize, usize), SD::SerType)> + Send,
     {
         ParSortedLabeledGraphConf::default().par_sort_pair_iters(num_nodes, sd, iters)
@@ -444,6 +457,7 @@ impl ParSortedLabeledGraph<()> {
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: LabelSerDeser,
+        SD::SerType: Copy,
     {
         ParSortedLabeledGraphConf::default().sort_try_pairs(num_nodes, sd, pairs)
     }
@@ -466,6 +480,7 @@ impl ParSortedLabeledGraph<()> {
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: LabelSerDeser,
+        SD::SerType: Copy,
     {
         ParSortedLabeledGraphConf::default().par_sort_try_pairs(num_nodes, sd, pairs)
     }
@@ -473,7 +488,7 @@ impl ParSortedLabeledGraph<()> {
 
 // === SequentialLabeling for SortedLabeledGraph ===
 
-impl<L: Clone + Copy + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync>
+impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync>
     SequentialLabeling for ParSortedLabeledGraph<I>
 {
     type Label = (usize, L);
@@ -503,7 +518,7 @@ impl<L: Clone + Copy + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone 
 /// Creates labeled lenders from an iterator of labeled-pair-iterators and
 /// their boundaries.
 fn make_labeled_lenders<
-    L: Clone + Copy + 'static,
+    L: Clone + 'static,
     I: Iterator<Item = ((usize, usize), L)> + Send + Sync,
 >(
     iters: impl IntoIterator<Item = I>,
@@ -523,7 +538,7 @@ fn make_labeled_lenders<
         .collect()
 }
 
-impl<L: Clone + Copy + Send + Sync + 'static, I: Iterator<Item = ((usize, usize), L)> + Send + Sync>
+impl<L: Clone + Send + Sync + 'static, I: Iterator<Item = ((usize, usize), L)> + Send + Sync>
     IntoParLenders for ParSortedLabeledGraph<I>
 {
     type ParLender = arc_list_graph::NodeLabels<L, I>;
@@ -535,7 +550,7 @@ impl<L: Clone + Copy + Send + Sync + 'static, I: Iterator<Item = ((usize, usize)
 }
 
 impl<
-    L: Clone + Copy + Send + Sync + 'static,
+    L: Clone + Send + Sync + 'static,
     I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync,
 > IntoParLenders for &ParSortedLabeledGraph<I>
 {
@@ -550,15 +565,12 @@ impl<
 // === IntoLender / Lending for SortedLabeledGraph ===
 
 impl_into_lender!(
-    [L: Clone + Copy + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync]
+    [L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync]
     ParSortedLabeledGraph<I>
 );
 
-impl<
-    'lend,
-    L: Clone + Copy + 'static,
-    I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync,
-> Lending<'lend> for &ParSortedLabeledGraph<I>
+impl<'lend, L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync>
+    Lending<'lend> for &ParSortedLabeledGraph<I>
 {
     type Lend = Lend<'lend, <ParSortedLabeledGraph<I> as SequentialLabeling>::Lender<'lend>>;
 }
@@ -1047,12 +1059,81 @@ impl Default for ParSortedLabeledGraphConf {
 
 impl<PL, P> ParSortedLabeledGraphConf<PL, P> {
     /// Enables deduplication of arcs during sorting.
+    ///
+    /// Of the labels of a repeated arc, an unspecified one is kept. To
+    /// combine the labels of repeated arcs instead, use [`merge_labels`].
+    ///
+    /// This method replaces the effect of a previous call to
+    /// [`merge_labels`].
+    ///
+    /// [`merge_labels`]: Self::merge_labels
     pub fn dedup(self) -> ParSortedLabeledGraphConf<PL, Dedup> {
         ParSortedLabeledGraphConf {
             num_partitions: self.num_partitions,
             memory_usage: self.memory_usage,
             pl: self.pl,
             policy: Dedup,
+        }
+    }
+
+    /// Merges the labels of repeated arcs during sorting using the given
+    /// [`MergeLabels`].
+    ///
+    /// The sorted graph contains each arc once, labeled by the
+    /// [output](MergeLabels::Output) of the merger. Merging happens both
+    /// when batches of pairs are written to disk, so that each batch
+    /// contains each arc once, labeled by a state of the merger, and when
+    /// the batches are merged; the [final step] of the merger is applied
+    /// exactly once to each arc, repeated or not. See [`MergeLabels`] for
+    /// the details.
+    ///
+    /// The merger must implement [`AddLabel`] for the type of the labels of
+    /// the pairs to sort; this requirement is checked by the sorting
+    /// methods. The serializer and deserializer passed to the sorting
+    /// methods handle the states of the merger.
+    ///
+    /// This method replaces the effect of a previous call to [`dedup`].
+    ///
+    /// # Examples
+    ///
+    /// Counting the occurrences of each arc, and compressing the result:
+    ///
+    /// ```rust
+    /// # use dsi_bitstream::prelude::*;
+    /// # use webgraph::prelude::*;
+    /// # use webgraph::graphs::par_sorted_graph::ParSortedLabeledGraph;
+    /// # use webgraph::labels::bitstream::BitStreamStoreLabelsConf;
+    /// # use webgraph::traits::{CountRepeats, FixedWidth};
+    /// // Labels are ignored by CountRepeats
+    /// let pairs = [((0, 1), 'a'), ((1, 2), 'b'), ((0, 1), 'c'), ((0, 1), 'd')];
+    /// let graph = ParSortedLabeledGraph::config()
+    ///     .merge_labels(CountRepeats)
+    ///     .sort_pairs(3, FixedWidth::<u64>::new(), pairs)?;
+    ///
+    /// // The graph has no repeated arcs, and its labels are u64 counts
+    /// let mut lender = graph.iter();
+    /// let (node, succ) = lender.next().unwrap();
+    /// assert_eq!((node, succ.into_iter().collect::<Vec<_>>()), (0, vec![(1, 3)]));
+    ///
+    /// let dir = tempfile::tempdir()?;
+    /// BvComp::with_basename(dir.path().join("graph")).par_comp_labeled::<BE, _, _>(
+    ///     &graph,
+    ///     BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u64>::new()),
+    /// )?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// [final step]: MergeLabels::finish
+    /// [`dedup`]: Self::dedup
+    pub fn merge_labels<M: MergeLabels>(
+        self,
+        merger: M,
+    ) -> ParSortedLabeledGraphConf<PL, WithMerge<M>> {
+        ParSortedLabeledGraphConf {
+            num_partitions: self.num_partitions,
+            memory_usage: self.memory_usage,
+            pl: self.pl,
+            policy: WithMerge(merger),
         }
     }
 
