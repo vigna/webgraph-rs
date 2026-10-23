@@ -1099,6 +1099,32 @@ impl<PL, P> ParSortedLabeledGraphConf<PL, P> {
     /// methods. The serializer and deserializer passed to the sorting
     /// methods handle the states of the merger.
     ///
+    /// The merger must also implement [`Clone`], [`Send`], and [`Sync`], as
+    /// it is shared by the sorting threads and cloned by the iterators of
+    /// the sorted graph:
+    ///
+    /// ```compile_fail
+    /// # use webgraph::graphs::par_sorted_graph::ParSortedLabeledGraph;
+    /// # use webgraph::traits::MergeLabels;
+    /// // Does not implement Clone
+    /// struct Sum;
+    ///
+    /// impl MergeLabels for Sum {
+    ///     type State = u64;
+    ///     type Output = u64;
+    ///
+    ///     fn merge(&self, state: &mut u64, other: u64) {
+    ///         *state += other;
+    ///     }
+    ///
+    ///     fn finish(&self, state: u64) -> u64 {
+    ///         state
+    ///     }
+    /// }
+    ///
+    /// let _conf = ParSortedLabeledGraph::config().merge_labels(Sum);
+    /// ```
+    ///
     /// This method replaces the effect of a previous call to [`dedup`].
     ///
     /// # Examples
@@ -1133,7 +1159,7 @@ impl<PL, P> ParSortedLabeledGraphConf<PL, P> {
     ///
     /// [final step]: MergeLabels::finish
     /// [`dedup`]: Self::dedup
-    pub fn merge_labels<M: MergeLabels>(
+    pub fn merge_labels<M: MergeLabels + Clone + Send + Sync>(
         self,
         merger: M,
     ) -> ParSortedLabeledGraphConf<PL, WithMerge<M>> {
