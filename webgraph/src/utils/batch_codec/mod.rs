@@ -21,7 +21,7 @@
 
 use anyhow::{Context, Result};
 
-use super::{ArcMmapHelper, MmapHelper};
+use super::{ArcMmapHelper, MergePolicy, MmapHelper, NoMerge};
 use core::fmt::Display;
 use dsi_bitstream::prelude::*;
 use mmap_rs::MmapFlags;
@@ -36,15 +36,18 @@ pub mod grouped_gaps;
 
 /// The recommended default batch codec for unlabeled batches.
 ///
-/// When `DEDUP` is `true`, duplicates are eliminated during batch
+/// With the [`Dedup`] [merge policy], duplicates are eliminated during batch
 /// serialization, reducing I/O and disk usage.
-pub type DefaultBatchCodec<const DEDUP: bool = false> = grouped_gaps::GroupedGapsCodec<
+///
+/// [`Dedup`]: crate::utils::Dedup
+/// [merge policy]: crate::utils::merge_policy
+pub type DefaultBatchCodec<P = NoMerge> = grouped_gaps::GroupedGapsCodec<
     NE,
     (),
     { dsi_bitstream::dispatch::code_consts::GAMMA },
     { dsi_bitstream::dispatch::code_consts::GAMMA },
     { dsi_bitstream::dispatch::code_consts::DELTA },
-    DEDUP,
+    P,
 >;
 
 pub type BitWriter<E> = BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>;
@@ -63,11 +66,34 @@ pub trait BatchStats: Display {
 }
 
 /// A trait for encoding and decoding batches of sorted triples.
+///
+/// A codec has a [merge policy], which it uses to collapse the repeated pairs
+/// of each batch, and which it passes, through [`merge_policy`], to the
+/// [`KMergeIters`] merging its batches. With merging, the labels written to
+/// batches (states) may have a type different from that of the labels of the
+/// triples to encode.
+///
+/// [merge policy]: crate::utils::merge_policy
+/// [`merge_policy`]: Self::merge_policy
+/// [`KMergeIters`]: crate::utils::kmerge_iters::KMergeIters
 pub trait BatchCodec: Send + Sync {
-    /// The label type of the triples to encode and decode.
-    /// While the bounds are not really necessary, in all the practical cases
-    /// we need them.
+    /// The label type of the triples to encode.
+    ///
+    /// The bounds are needed to sort batches in memory.
     type Label: Copy + Send + Sync + 'static;
+
+    /// The label type written to and decoded from batches.
+    ///
+    /// It is equal to [`Label`] unless labels are merged, in which case it
+    /// is the type of the states of the merger.
+    ///
+    /// [`Label`]: Self::Label
+    type State: Send + Sync + 'static;
+
+    /// The [merge policy] of the codec.
+    ///
+    /// [merge policy]: crate::utils::merge_policy
+    type Policy: MergePolicy<Self::State>;
     /// The type returned by `decode_batch`, the iterator of which yields the
     /// decoded triples in sorted order.
     ///
@@ -76,15 +102,19 @@ pub trait BatchCodec: Send + Sync {
     ///
     /// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
     /// [`SortedLabeledGraph`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraph
-    type DecodedBatch: IntoIterator<Item = ((usize, usize), Self::Label), IntoIter: Send + Sync + Clone>;
+    type DecodedBatch: IntoIterator<Item = ((usize, usize), Self::State), IntoIter: Send + Sync + Clone>;
 
     /// A type representing statistics about the encoded batch.
     ///
     /// It has to implement [`Display`] so that we can log it, and
     /// [`BatchStats`] so that we can query the number of triples actually
     /// encoded (which may differ from the number of arcs pushed when
-    /// deduplication is enabled).
+    /// repeated pairs are collapsed).
     type EncodedBatchStats: BatchStats;
+
+    /// Returns the merge policy, which must be used to merge the decoded
+    /// batches.
+    fn merge_policy(&self) -> Self::Policy;
 
     /// Given a batch of sorted triples, encodes them to disk and returns the
     /// number of bits written.
@@ -130,11 +160,11 @@ fn num_distinct_pairs<L>(batch: &[((usize, usize), L)]) -> usize {
 /// Creates a batch file, writing its length as a prefix.
 ///
 /// The length is the number of triples in `batch`, or the number of distinct
-/// pairs in `batch` if `dedup` is true.
+/// pairs in `batch` if `collapse` is true.
 fn create_batch<E: Endianness, L>(
     path: &Path,
     batch: &[((usize, usize), L)],
-    dedup: bool,
+    collapse: bool,
 ) -> Result<(BitWriter<E>, usize)>
 where
     BitWriter<E>: CodesWrite<E>,
@@ -145,7 +175,7 @@ where
             path.display()
         )
     })?;
-    let len = if dedup {
+    let len = if collapse {
         num_distinct_pairs(batch)
     } else {
         batch.len()

@@ -10,7 +10,7 @@ use super::{BitReader, BitWriter, create_batch, impl_batch_iter, open_batch};
 use crate::utils::Triple;
 use crate::{
     traits::{BitDeserializer, BitSerializer},
-    utils::{BatchCodec, humanize},
+    utils::{AddPolicy, BatchCodec, MergePolicy, NoMerge, humanize},
 };
 
 use anyhow::{Context, Result};
@@ -26,7 +26,12 @@ use dsi_bitstream::prelude::*;
 /// * `S` - Serializer for the labels, implementing [`BitSerializer`] for the label type.
 /// * `D` - Deserializer for the labels, implementing [`BitDeserializer`] for the label type.
 /// * `SRC_CODE` - Code used for encoding source gaps (default: gamma).
-/// * `DST_CODE` - Code used for encoding destination gaps (default: gamma).
+/// * `DST_CODE` - Code used for encoding destination gaps (default: delta).
+/// * `P` - The [merge policy] for repeated pairs (default: [`NoMerge`]).
+/// * `L` - The label type of the triples to encode (default: the type
+///   serialized by `S`). Unless `P` merges labels, it must be the type
+///   serialized by `S`; otherwise, `S` and `D` serialize and deserialize the
+///   states of the merger.
 ///
 /// # Encoding Format
 ///
@@ -36,9 +41,14 @@ use dsi_bitstream::prelude::*;
 ///     - The gap from the previous destination is encoded.
 ///     - The label is serialized.
 ///
+/// If the policy collapses repeated pairs, the length counts distinct pairs,
+/// and each pair is written once, with the label given by the policy.
+///
 /// The bit deserializer must be [`Clone`] because we need one for each
 /// [`GapsIter`], and there are possible scenarios in which the
 /// deserializer might be stateful.
+///
+/// [merge policy]: crate::utils::merge_policy
 #[derive(Clone, Debug)]
 pub struct GapsCodec<
     E: Endianness = NE,
@@ -46,7 +56,8 @@ pub struct GapsCodec<
     D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Clone = (),
     const SRC_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
     const DST_CODE: usize = { dsi_bitstream::dispatch::code_consts::DELTA },
-    const DEDUP: bool = false,
+    P = NoMerge,
+    L = <S as BitSerializer<E, BitWriter<E>>>::SerType,
 > where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
@@ -55,12 +66,14 @@ pub struct GapsCodec<
     pub serializer: S,
     /// Deserializer for the labels
     pub deserializer: D,
-    /// Marker for the endianness
-    _marker: std::marker::PhantomData<E>,
+    /// The merge policy
+    policy: P,
+    /// Marker for the endianness and the label type
+    _marker: std::marker::PhantomData<(E, fn(L))>,
 }
 
-impl<E, S, D, const SRC_CODE: usize, const DST_CODE: usize, const DEDUP: bool>
-    GapsCodec<E, S, D, SRC_CODE, DST_CODE, DEDUP>
+impl<E, S, D, const SRC_CODE: usize, const DST_CODE: usize>
+    GapsCodec<E, S, D, SRC_CODE, DST_CODE, NoMerge, S::SerType>
 where
     E: Endianness,
     S: BitSerializer<E, BitWriter<E>> + Send + Sync,
@@ -68,18 +81,38 @@ where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
 {
-    /// Creates a new `GapsCodec` with the given serializer and deserializer.
+    /// Creates a new `GapsCodec` with the given serializer and deserializer
+    /// keeping repeated pairs.
     pub const fn new(serializer: S, deserializer: D) -> Self {
+        Self::with_policy(serializer, deserializer, NoMerge)
+    }
+}
+
+impl<E, S, D, const SRC_CODE: usize, const DST_CODE: usize, P, L>
+    GapsCodec<E, S, D, SRC_CODE, DST_CODE, P, L>
+where
+    E: Endianness,
+    S: BitSerializer<E, BitWriter<E>> + Send + Sync,
+    D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Send + Sync + Clone,
+    BitReader<E>: BitRead<E> + CodesRead<E>,
+    BitWriter<E>: BitWrite<E> + CodesWrite<E>,
+{
+    /// Creates a new `GapsCodec` with the given serializer, deserializer, and
+    /// [merge policy].
+    ///
+    /// [merge policy]: crate::utils::merge_policy
+    pub const fn with_policy(serializer: S, deserializer: D, policy: P) -> Self {
         Self {
             serializer,
             deserializer,
+            policy,
             _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl<E, S: Default, D: Default, const SRC_CODE: usize, const DST_CODE: usize, const DEDUP: bool>
-    core::default::Default for GapsCodec<E, S, D, SRC_CODE, DST_CODE, DEDUP>
+impl<E, S: Default, D: Default, const SRC_CODE: usize, const DST_CODE: usize, P: Default, L>
+    core::default::Default for GapsCodec<E, S, D, SRC_CODE, DST_CODE, P, L>
 where
     E: Endianness,
     S: BitSerializer<E, BitWriter<E>> + Send + Sync,
@@ -88,7 +121,7 @@ where
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
 {
     fn default() -> Self {
-        Self::new(Default::default(), Default::default())
+        Self::with_policy(Default::default(), Default::default(), Default::default())
     }
 }
 
@@ -130,19 +163,27 @@ impl crate::utils::BatchStats for GapsStats {
     }
 }
 
-impl<E, S, D, const SRC_CODE: usize, const DST_CODE: usize, const DEDUP: bool> BatchCodec
-    for GapsCodec<E, S, D, SRC_CODE, DST_CODE, DEDUP>
+impl<E, S, D, const SRC_CODE: usize, const DST_CODE: usize, P, L> BatchCodec
+    for GapsCodec<E, S, D, SRC_CODE, DST_CODE, P, L>
 where
     E: Endianness,
     S: BitSerializer<E, BitWriter<E>> + Send + Sync,
     D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Send + Sync + Clone,
-    S::SerType: Send + Sync + Copy + 'static, // needed by radix sort
+    S::SerType: Send + Sync + 'static,
+    P: AddPolicy<L, State = S::SerType> + MergePolicy<S::SerType>,
+    L: Copy + Send + Sync + 'static, // needed by radix sort
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
 {
-    type Label = S::SerType;
+    type Label = L;
+    type State = S::SerType;
+    type Policy = P;
     type DecodedBatch = GapsIter<E, D, SRC_CODE, DST_CODE>;
     type EncodedBatchStats = GapsStats;
+
+    fn merge_policy(&self) -> P {
+        self.policy.clone()
+    }
 
     fn encode_sorted_batch(
         &self,
@@ -150,7 +191,7 @@ where
         batch: &[((usize, usize), Self::Label)],
     ) -> Result<(usize, Self::EncodedBatchStats)> {
         debug_assert!(Triple::cast_batch(batch).is_sorted());
-        let (mut stream, batch_len) = create_batch::<E, _>(path.as_ref(), batch, DEDUP)?;
+        let (mut stream, batch_len) = create_batch::<E, _>(path.as_ref(), batch, P::COLLAPSES)?;
 
         let mut stats = GapsStats {
             total_triples: batch_len,
@@ -158,21 +199,24 @@ where
             dst_bits: 0,
             labels_bits: 0,
         };
+        // A buffer for the states, reused across runs
+        let mut buffer = self.policy.buffer();
         // Dump the triples to the bitstream
         let (mut prev_src, mut prev_dst) = (0, 0);
-        let mut prev_pair: Option<(usize, usize)> = None;
-        for ((src, dst), label) in batch.iter() {
-            if DEDUP {
-                if prev_pair == Some((*src, *dst)) {
-                    continue;
-                }
-                prev_pair = Some((*src, *dst));
-            }
+        let mut i = 0;
+        while i < batch.len() {
+            let ((src, dst), _) = batch[i];
+            // The run of triples with this pair, if collapsing
+            let run_end = if P::COLLAPSES {
+                i + batch[i..].iter().take_while(|t| t.0 == (src, dst)).count()
+            } else {
+                i + 1
+            };
             // write the source gap as gamma
             stats.src_bits += ConstCode::<SRC_CODE>
                 .write(&mut stream, (src - prev_src) as u64)
                 .with_context(|| format!("Could not write {src} after {prev_src}"))?;
-            if *src != prev_src {
+            if src != prev_src {
                 // Reset prev_y
                 prev_dst = 0;
             }
@@ -183,9 +227,13 @@ where
             // write the label
             stats.labels_bits += self
                 .serializer
-                .serialize(label, &mut stream)
+                .serialize(
+                    self.policy.state(&mut buffer, &batch[i..run_end]),
+                    &mut stream,
+                )
                 .context("Could not serialize label")?;
-            (prev_src, prev_dst) = (*src, *dst);
+            (prev_src, prev_dst) = (src, dst);
+            i = run_end;
         }
         // flush the stream and reset the buffer
         stream.flush().context("Could not flush stream")?;

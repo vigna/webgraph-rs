@@ -193,7 +193,9 @@ use crate::utils::grouped_gaps;
 use crate::utils::kmerge_iters::KMergeIters;
 use crate::utils::par_sort_iters::ParSortIters;
 use crate::utils::par_sort_pairs::ParSortPairs;
-use crate::utils::{BitWriter, CodecIter, DefaultBatchCodec, MemoryUsage};
+use crate::utils::{
+    AddPolicy, BitWriter, CodecIter, Dedup, DefaultBatchCodec, MemoryUsage, MergePolicy, NoMerge,
+};
 use anyhow::Result;
 use dsi_bitstream::prelude::NE;
 use dsi_progress_logger::{ProgressLog, ProgressLogger};
@@ -262,13 +264,14 @@ type SeqIter<'a, I> = Flatten<std::iter::Cloned<std::slice::Iter<'a, I>>>;
 /// methods on [`ParSortedLabeledGraphConf`] and [`ParSortedLabeledGraph`]
 /// accept a single `SD` parameter implementing both [`BitSerializer`]
 /// and [`BitDeserializer`].
-pub(crate) type LabeledCodec<SD> = grouped_gaps::GroupedGapsCodec<
+pub(crate) type LabeledCodec<SD, P, L> = grouped_gaps::GroupedGapsCodec<
     NE,
     SD,
     { dsi_bitstream::dispatch::code_consts::GAMMA },
     { dsi_bitstream::dispatch::code_consts::GAMMA },
     { dsi_bitstream::dispatch::code_consts::DELTA },
-    false,
+    P,
+    L,
 >;
 
 /// The concrete iterator type for labeled sorted graphs.
@@ -278,7 +281,7 @@ pub(crate) type LabeledCodec<SD> = grouped_gaps::GroupedGapsCodec<
 /// [`BitSerializer`] and [`BitDeserializer`] for the label type. Use
 /// [`BitSerDeser`] to combine separate serializer and deserializer
 /// implementations.
-pub type SortedLabeledIter<SD, const DEDUP: bool = false> = KMergeIters<
+pub type SortedLabeledIter<SD, P = NoMerge> = KMergeIters<
     grouped_gaps::GroupedGapsIter<
         NE,
         SD,
@@ -287,7 +290,7 @@ pub type SortedLabeledIter<SD, const DEDUP: bool = false> = KMergeIters<
         { dsi_bitstream::dispatch::code_consts::DELTA },
     >,
     <SD as BitSerializer<NE, BitWriter<NE>>>::SerType,
-    DEDUP,
+    P,
     Arc<tempfile::TempDir>,
 >;
 
@@ -612,10 +615,11 @@ pub struct ParSortedGraph<I>(pub ParSortedLabeledGraph<I>);
 /// Yields `((usize, usize), ())` pairs. The `()` label is projected
 /// away by [`ParSortedGraph`]'s trait implementations.
 ///
-/// When `DEDUP` is `true`, consecutive duplicate pairs are suppressed during
-/// decoding.
-pub type SortedPairIter<const DEDUP: bool = false> =
-    KMergeIters<CodecIter<DefaultBatchCodec<DEDUP>>, (), DEDUP, Arc<tempfile::TempDir>>;
+/// With the [`Dedup`] [merge policy], duplicate pairs are suppressed.
+///
+/// [merge policy]: crate::utils::merge_policy
+pub type SortedPairIter<P = NoMerge> =
+    KMergeIters<CodecIter<DefaultBatchCodec<P>>, (), P, Arc<tempfile::TempDir>>;
 
 impl ParSortedGraph<SortedPairIter> {
     /// Creates a [`ParSortedGraph`] from pre-sorted partition boundaries and
@@ -842,8 +846,8 @@ impl<'lend, I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> Lend
 /// deduplication.
 ///
 /// [`.dedup()`]: Self::dedup
-pub struct ParSortedGraphConf<PL = Option<ProgressLogger>, const DEDUP: bool = false>(
-    pub(crate) ParSortedLabeledGraphConf<PL, DEDUP>,
+pub struct ParSortedGraphConf<PL = Option<ProgressLogger>, P = NoMerge>(
+    pub(crate) ParSortedLabeledGraphConf<PL, P>,
 );
 
 impl Default for ParSortedGraphConf {
@@ -852,9 +856,9 @@ impl Default for ParSortedGraphConf {
     }
 }
 
-impl<PL, const DEDUP: bool> ParSortedGraphConf<PL, DEDUP> {
+impl<PL, P> ParSortedGraphConf<PL, P> {
     /// Enables deduplication of arcs during sorting.
-    pub fn dedup(self) -> ParSortedGraphConf<PL, true> {
+    pub fn dedup(self) -> ParSortedGraphConf<PL, Dedup> {
         ParSortedGraphConf(self.0.dedup())
     }
 
@@ -878,24 +882,26 @@ impl<PL, const DEDUP: bool> ParSortedGraphConf<PL, DEDUP> {
     /// should be configured by the caller.
     ///
     /// [`item_name`]: ProgressLog::item_name
-    pub fn progress_logger<PL2: ProgressLog>(self, pl: PL2) -> ParSortedGraphConf<PL2, DEDUP> {
+    pub fn progress_logger<PL2: ProgressLog>(self, pl: PL2) -> ParSortedGraphConf<PL2, P> {
         ParSortedGraphConf(self.0.progress_logger(pl))
     }
 }
 
-impl<PL: ProgressLog, const DEDUP: bool> ParSortedGraphConf<PL, DEDUP> {
+impl<PL: ProgressLog, P: AddPolicy<(), State = ()> + MergePolicy<(), Output = ()>>
+    ParSortedGraphConf<PL, P>
+{
     /// Sorts arcs from a [`SequentialGraph`], returning a [`ParSortedGraph`].
     pub fn sort_graph<G: SequentialGraph>(
         self,
         graph: G,
-    ) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>> {
+    ) -> Result<ParSortedGraph<SortedPairIter<P>>> {
         let num_nodes = graph.num_nodes();
         self.sort_pairs(num_nodes, graph.iter().into_pairs())
     }
 
     /// Sorts arcs from a graph implementing [`IntoParLenders`] in
     /// parallel, producing a partitioned [`ParSortedGraph`].
-    pub fn par_sort_graph<G>(self, graph: G) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>>
+    pub fn par_sort_graph<G>(self, graph: G) -> Result<ParSortedGraph<SortedPairIter<P>>>
     where
         G: SequentialGraph
             + IntoParLenders<
@@ -921,7 +927,7 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedGraphConf<PL, DEDUP> {
         self,
         num_nodes: usize,
         pairs: impl IntoIterator<Item = (usize, usize)>,
-    ) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>> {
+    ) -> Result<ParSortedGraph<SortedPairIter<P>>> {
         Ok(ParSortedGraph(self.0.sort_pairs(
             num_nodes,
             (),
@@ -935,7 +941,7 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedGraphConf<PL, DEDUP> {
         self,
         num_nodes: usize,
         iters: impl IntoIterator<Item = I>,
-    ) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>>
+    ) -> Result<ParSortedGraph<SortedPairIter<P>>>
     where
         I: Iterator<Item = (usize, usize)> + Send,
     {
@@ -952,7 +958,7 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedGraphConf<PL, DEDUP> {
         self,
         num_nodes: usize,
         pairs: impl rayon::iter::ParallelIterator<Item = (usize, usize)>,
-    ) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>> {
+    ) -> Result<ParSortedGraph<SortedPairIter<P>>> {
         Ok(ParSortedGraph(self.0.par_sort_pairs(
             num_nodes,
             (),
@@ -970,7 +976,7 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedGraphConf<PL, DEDUP> {
         self,
         num_nodes: usize,
         pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
-    ) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>> {
+    ) -> Result<ParSortedGraph<SortedPairIter<P>>> {
         Ok(ParSortedGraph(self.0.sort_try_pairs(
             num_nodes,
             (),
@@ -988,7 +994,7 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedGraphConf<PL, DEDUP> {
         self,
         num_nodes: usize,
         pairs: impl rayon::iter::ParallelIterator<Item = Result<(usize, usize), E>>,
-    ) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>> {
+    ) -> Result<ParSortedGraph<SortedPairIter<P>>> {
         Ok(ParSortedGraph(self.0.par_sort_try_pairs(
             num_nodes,
             (),
@@ -1016,10 +1022,11 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedGraphConf<PL, DEDUP> {
 /// deduplication.
 ///
 /// [`.dedup()`]: Self::dedup
-pub struct ParSortedLabeledGraphConf<PL = Option<ProgressLogger>, const DEDUP: bool = false> {
+pub struct ParSortedLabeledGraphConf<PL = Option<ProgressLogger>, P = NoMerge> {
     num_partitions: usize,
     memory_usage: Option<MemoryUsage>,
     pl: PL,
+    policy: P,
 }
 
 impl Default for ParSortedLabeledGraphConf {
@@ -1033,17 +1040,19 @@ impl Default for ParSortedLabeledGraphConf {
             num_partitions: rayon::current_num_threads(),
             memory_usage: None,
             pl: None,
+            policy: NoMerge,
         }
     }
 }
 
-impl<PL, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
+impl<PL, P> ParSortedLabeledGraphConf<PL, P> {
     /// Enables deduplication of arcs during sorting.
-    pub fn dedup(self) -> ParSortedLabeledGraphConf<PL, true> {
+    pub fn dedup(self) -> ParSortedLabeledGraphConf<PL, Dedup> {
         ParSortedLabeledGraphConf {
             num_partitions: self.num_partitions,
             memory_usage: self.memory_usage,
             pl: self.pl,
+            policy: Dedup,
         }
     }
 
@@ -1075,53 +1084,55 @@ impl<PL, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
     /// caller.
     ///
     /// [`item_name`]: ProgressLog::item_name
-    pub fn progress_logger<PL2: ProgressLog>(
-        self,
-        pl: PL2,
-    ) -> ParSortedLabeledGraphConf<PL2, DEDUP> {
+    pub fn progress_logger<PL2: ProgressLog>(self, pl: PL2) -> ParSortedLabeledGraphConf<PL2, P> {
         ParSortedLabeledGraphConf {
             num_partitions: self.num_partitions,
             memory_usage: self.memory_usage,
             pl,
+            policy: self.policy,
         }
     }
 }
 
-impl<PL: ProgressLog, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
+impl<PL: ProgressLog, P> ParSortedLabeledGraphConf<PL, P> {
     /// Consumes this configuration and returns a configured [`ParSortIters`]
-    /// together with the progress logger.
-    fn into_par_sort_iters(self, num_nodes: usize) -> Result<(ParSortIters<DEDUP>, PL)> {
-        let mut psi = ParSortIters::create(num_nodes)?.num_partitions(self.num_partitions);
+    /// together with the progress logger and the merge policy.
+    fn into_par_sort_iters(self, num_nodes: usize) -> Result<(ParSortIters, PL, P)> {
+        let mut psi = ParSortIters::new(num_nodes)?.num_partitions(self.num_partitions);
         if let Some(m) = self.memory_usage {
             psi = psi.memory_usage(m);
         }
-        Ok((psi, self.pl))
+        Ok((psi, self.pl, self.policy))
     }
 
     /// Consumes this configuration and returns a configured [`ParSortPairs`]
-    /// together with the progress logger.
-    fn into_par_sort_pairs(self, num_nodes: usize) -> Result<(ParSortPairs<DEDUP>, PL)> {
-        let mut psp = ParSortPairs::create(num_nodes)?.num_partitions(self.num_partitions);
+    /// together with the progress logger and the merge policy.
+    fn into_par_sort_pairs(self, num_nodes: usize) -> Result<(ParSortPairs, PL, P)> {
+        let mut psp = ParSortPairs::new(num_nodes)?.num_partitions(self.num_partitions);
         if let Some(m) = self.memory_usage {
             psp = psp.memory_usage(m);
         }
-        Ok((psp, self.pl))
+        Ok((psp, self.pl, self.policy))
     }
 
     /// Sorts labeled arcs from a [`LabeledSequentialGraph`], producing a
     /// partitioned [`ParSortedLabeledGraph`].
-    pub fn sort_graph<SD, G>(
+    pub fn sort_graph<SD, L, G>(
         self,
         graph: G,
         sd: SD,
-    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, P>>>
     where
         SD: LabelSerDeser,
-        G: LabeledSequentialGraph<SD::SerType>,
+        L: Copy + Send + Sync + 'static,
+        P: AddPolicy<L, State = SD::SerType> + MergePolicy<SD::SerType>,
+        L: Copy + Send + Sync + 'static,
+        P: AddPolicy<L, State = SD::SerType> + MergePolicy<SD::SerType>,
+        G: LabeledSequentialGraph<L>,
     {
         let num_nodes = graph.num_nodes();
-        let (par_sort, mut pl) = self.into_par_sort_iters(num_nodes)?;
-        let codec = LabeledCodec::new(sd);
+        let (par_sort, mut pl, policy) = self.into_par_sort_iters(num_nodes)?;
+        let codec = LabeledCodec::<SD, P, L>::with_policy(sd, policy);
         Ok(par_sort
             .sort_labeled_seq(codec, graph.iter().into_labeled_pairs(), &mut pl)?
             .into())
@@ -1129,18 +1140,22 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
 
     /// Sorts labeled arcs from a graph implementing [`IntoParLenders`] in
     /// parallel, producing a partitioned [`ParSortedLabeledGraph`].
-    pub fn par_sort_graph<SD, G>(
+    pub fn par_sort_graph<SD, L, G>(
         self,
         graph: G,
         sd: SD,
-    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, P>>>
     where
         SD: LabelSerDeser,
-        G: LabeledSequentialGraph<SD::SerType>
+        L: Copy + Send + Sync + 'static,
+        P: AddPolicy<L, State = SD::SerType> + MergePolicy<SD::SerType>,
+        L: Copy + Send + Sync + 'static,
+        P: AddPolicy<L, State = SD::SerType> + MergePolicy<SD::SerType>,
+        G: LabeledSequentialGraph<L>
             + IntoParLenders<
                 ParLender: for<'a> NodeLabelsLender<
                     'a,
-                    Label: Pair<Left = usize, Right = SD::SerType> + Copy,
+                    Label: Pair<Left = usize, Right = L> + Copy,
                     IntoIterator: IntoIterator<IntoIter: Send>,
                 >,
             >,
@@ -1156,51 +1171,57 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
 
     /// Sorts labeled pairs from an iterator, producing a partitioned
     /// [`ParSortedLabeledGraph`].
-    pub fn sort_pairs<SD>(
+    pub fn sort_pairs<SD, L>(
         self,
         num_nodes: usize,
         sd: SD,
-        pairs: impl IntoIterator<Item = ((usize, usize), SD::SerType)>,
-    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
+        pairs: impl IntoIterator<Item = ((usize, usize), L)>,
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, P>>>
     where
         SD: LabelSerDeser,
+        L: Copy + Send + Sync + 'static,
+        P: AddPolicy<L, State = SD::SerType> + MergePolicy<SD::SerType>,
     {
-        let (par_sort, mut pl) = self.into_par_sort_iters(num_nodes)?;
-        let codec = LabeledCodec::new(sd);
+        let (par_sort, mut pl, policy) = self.into_par_sort_iters(num_nodes)?;
+        let codec = LabeledCodec::<SD, P, L>::with_policy(sd, policy);
         Ok(par_sort.sort_labeled_seq(codec, pairs, &mut pl)?.into())
     }
 
     /// Sorts labeled pairs from multiple iterators in parallel,
     /// producing a partitioned [`ParSortedLabeledGraph`].
-    pub fn par_sort_pair_iters<SD, I>(
+    pub fn par_sort_pair_iters<SD, L, I>(
         self,
         num_nodes: usize,
         sd: SD,
         iters: impl IntoIterator<Item = I>,
-    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, P>>>
     where
         SD: LabelSerDeser,
-        I: Iterator<Item = ((usize, usize), SD::SerType)> + Send,
+        L: Copy + Send + Sync + 'static,
+        P: AddPolicy<L, State = SD::SerType> + MergePolicy<SD::SerType>,
+        I: Iterator<Item = ((usize, usize), L)> + Send,
     {
-        let (par_sort, mut pl) = self.into_par_sort_iters(num_nodes)?;
-        let codec = LabeledCodec::new(sd);
+        let (par_sort, mut pl, policy) = self.into_par_sort_iters(num_nodes)?;
+        let codec = LabeledCodec::<SD, P, L>::with_policy(sd, policy);
         let iters: Vec<_> = iters.into_iter().collect();
         Ok(par_sort.sort_labeled(codec, iters, &mut pl)?.into())
     }
 
     /// Sorts labeled pairs from a parallel iterator, producing a
     /// partitioned [`ParSortedLabeledGraph`].
-    pub fn par_sort_pairs<SD>(
+    pub fn par_sort_pairs<SD, L>(
         self,
         num_nodes: usize,
         sd: SD,
-        pairs: impl rayon::iter::ParallelIterator<Item = ((usize, usize), SD::SerType)>,
-    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
+        pairs: impl rayon::iter::ParallelIterator<Item = ((usize, usize), L)>,
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, P>>>
     where
         SD: LabelSerDeser,
+        L: Copy + Send + Sync + 'static,
+        P: AddPolicy<L, State = SD::SerType> + MergePolicy<SD::SerType>,
     {
-        let codec = LabeledCodec::new(sd);
-        let (par_sort, mut pl) = self.into_par_sort_pairs(num_nodes)?;
+        let (par_sort, mut pl, policy) = self.into_par_sort_pairs(num_nodes)?;
+        let codec = LabeledCodec::<SD, P, L>::with_policy(sd, policy);
         Ok(par_sort.sort_labeled(&codec, pairs, &mut pl)?.into())
     }
 
@@ -1210,17 +1231,19 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
     /// Note that the `try_` infix refers to the fallibility of the
     /// pairs returned by the input iterators; all methods in this module
     /// are fallible as they write batches on disk.
-    pub fn sort_try_pairs<SD, E: Into<anyhow::Error>>(
+    pub fn sort_try_pairs<SD, L, E: Into<anyhow::Error>>(
         self,
         num_nodes: usize,
         sd: SD,
-        pairs: impl IntoIterator<Item = Result<((usize, usize), SD::SerType), E>>,
-    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
+        pairs: impl IntoIterator<Item = Result<((usize, usize), L), E>>,
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, P>>>
     where
         SD: LabelSerDeser,
+        L: Copy + Send + Sync + 'static,
+        P: AddPolicy<L, State = SD::SerType> + MergePolicy<SD::SerType>,
     {
-        let (par_sort, mut pl) = self.into_par_sort_iters(num_nodes)?;
-        let codec = LabeledCodec::new(sd);
+        let (par_sort, mut pl, policy) = self.into_par_sort_iters(num_nodes)?;
+        let codec = LabeledCodec::<SD, P, L>::with_policy(sd, policy);
         Ok(par_sort.try_sort_labeled_seq(codec, pairs, &mut pl)?.into())
     }
 
@@ -1230,17 +1253,19 @@ impl<PL: ProgressLog, const DEDUP: bool> ParSortedLabeledGraphConf<PL, DEDUP> {
     /// Note that the `try_` infix refers to the fallibility of the
     /// pairs returned by the input iterators; all methods in this module
     /// are fallible as they write batches on disk.
-    pub fn par_sort_try_pairs<SD, E: Into<anyhow::Error> + Send>(
+    pub fn par_sort_try_pairs<SD, L, E: Into<anyhow::Error> + Send>(
         self,
         num_nodes: usize,
         sd: SD,
-        pairs: impl rayon::iter::ParallelIterator<Item = Result<((usize, usize), SD::SerType), E>>,
-    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
+        pairs: impl rayon::iter::ParallelIterator<Item = Result<((usize, usize), L), E>>,
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, P>>>
     where
         SD: LabelSerDeser,
+        L: Copy + Send + Sync + 'static,
+        P: AddPolicy<L, State = SD::SerType> + MergePolicy<SD::SerType>,
     {
-        let codec = LabeledCodec::new(sd);
-        let (par_sort, mut pl) = self.into_par_sort_pairs(num_nodes)?;
+        let (par_sort, mut pl, policy) = self.into_par_sort_pairs(num_nodes)?;
+        let codec = LabeledCodec::<SD, P, L>::with_policy(sd, policy);
         Ok(par_sort.try_sort_labeled(&codec, pairs, &mut pl)?.into())
     }
 }

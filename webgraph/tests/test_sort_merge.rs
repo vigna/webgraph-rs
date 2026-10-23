@@ -14,16 +14,18 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::no_logging;
 #[cfg(not(miri))]
 use rayon::prelude::*;
+use webgraph::traits::CountRepeats;
 use webgraph::utils::Matrix;
 use webgraph::utils::kmerge_iters::KMergeIters;
+use webgraph::utils::{Dedup, NoMerge, WithMerge};
 #[cfg(not(miri))]
 use webgraph::utils::{MemoryUsage, ParSortIters, ParSortPairs, SplitIters};
 
 /// A [`KMergeIters`] on vectors of unlabeled pairs.
-type KMerge = KMergeIters<std::vec::IntoIter<((usize, usize), ())>, (), false>;
+type KMerge = KMergeIters<std::vec::IntoIter<((usize, usize), ())>, (), NoMerge>;
 
 /// A deduplicating [`KMergeIters`] on vectors of unlabeled pairs.
-type KMergeDedup = KMergeIters<std::vec::IntoIter<((usize, usize), ())>, (), true>;
+type KMergeDedup = KMergeIters<std::vec::IntoIter<((usize, usize), ())>, (), Dedup>;
 
 /// Returns an iterator on unlabeled versions of the given pairs.
 fn unlabeled(pairs: &[(usize, usize)]) -> std::vec::IntoIter<((usize, usize), ())> {
@@ -150,6 +152,34 @@ fn test_kmerge_iters_dedup() {
     let b = KMergeDedup::new(vec![unlabeled(&[(0, 1), (1, 2)])]);
     let merged: KMergeDedup = vec![a, b].into_iter().sum();
     assert_eq!(keys(merged), [(0, 1), (1, 2)]);
+}
+
+#[test]
+fn test_kmerge_iters_merge() {
+    let iters = || {
+        vec![
+            vec![((0, 1), 1_u64), ((0, 2), 1), ((2, 0), 2)],
+            vec![((0, 1), 2), ((1, 1), 1)],
+            vec![((0, 1), 3), ((2, 0), 1), ((3, 3), 1)],
+        ]
+        .into_iter()
+        .map(Vec::into_iter)
+    };
+    type Merge<I> = KMergeIters<I, u64, WithMerge<CountRepeats>>;
+    assert_eq!(
+        Merge::new(iters()).collect::<Vec<_>>(),
+        [
+            ((0, 1), 6),
+            ((0, 2), 1),
+            ((1, 1), 1),
+            ((2, 0), 3),
+            ((3, 3), 1)
+        ]
+    );
+    assert_eq!(Merge::new(iters()).count(), 5);
+    assert_eq!(KMergeIters::<_, u64, Dedup>::new(iters()).count(), 5);
+    assert_eq!(KMergeIters::<_, u64>::new(iters()).len(), 8);
+    assert_eq!(KMergeIters::<_, u64>::new(iters()).count(), 8);
 }
 
 // ── Matrix ──
@@ -316,8 +346,8 @@ fn test_par_sort_iters_dedup() -> Result<()> {
     // Two iterators with overlapping pairs
     let iter1 = vec![((0usize, 1usize), ()), ((1, 2), ()), ((0, 1), ())];
     let iter2 = vec![((1usize, 2usize), ()), ((2, 3), ()), ((2, 3), ())];
-    let split = ParSortIters::new_dedup(4)?.num_partitions(2).sort_labeled(
-        <DefaultBatchCodec<true>>::default(),
+    let split = ParSortIters::new(4)?.num_partitions(2).sort_labeled(
+        DefaultBatchCodec::<Dedup>::default(),
         vec![iter1, iter2],
         no_logging![],
     )?;

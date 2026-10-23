@@ -11,7 +11,7 @@ use crate::traits::{
     SortedLender, SplitLabeling,
 };
 use crate::utils::par_sort_iters::ParSortIters;
-use crate::utils::{MemoryUsage, SplitIters};
+use crate::utils::{Dedup, MemoryUsage, SplitIters};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLog;
 
@@ -237,7 +237,7 @@ pub fn symmetrize_seq<const NO_LOOPS: bool>(
     graph: &impl SequentialGraph,
     memory_usage: MemoryUsage,
     pl: &mut impl ProgressLog,
-) -> Result<ParSortedGraph<SortedPairIter<true>>> {
+) -> Result<ParSortedGraph<SortedPairIter<Dedup>>> {
     ParSortedGraph::config()
         .dedup()
         .memory_usage(memory_usage)
@@ -269,7 +269,7 @@ pub fn symmetrize_par<const NO_LOOPS: bool, G>(
     graph: G,
     memory_usage: MemoryUsage,
     pl: &mut impl ProgressLog,
-) -> Result<ParSortedGraph<SortedPairIter<true>>>
+) -> Result<ParSortedGraph<SortedPairIter<Dedup>>>
 where
     G: SequentialGraph
         + IntoParLenders<

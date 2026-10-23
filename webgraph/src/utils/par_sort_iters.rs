@@ -58,22 +58,23 @@ use tempfile::TempDir;
 use super::MemoryUsage;
 use super::kmerge_iters::KMergeIters;
 use crate::traits::split::uniform_cutpoints;
-use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec};
+use crate::utils::{AddPolicy, BatchCodec, CodecIter, DefaultBatchCodec, MergePolicy, NoMerge};
 use crate::utils::{SortedPairIter, SplitIters};
 
 /// Implements the constructors and the setters of a sorter.
 ///
-/// The sorter must be a structure with a `DEDUP` const parameter and fields
-/// `num_nodes`, `num_partitions`, and `memory_usage`.
+/// The sorter must be a structure with a merge-policy type parameter and
+/// fields `num_nodes`, `num_partitions`, `memory_usage`, and `_policy`.
 macro_rules! impl_sorter_conf {
     ($ty:ident) => {
-        impl<const DEDUP: bool> $ty<DEDUP> {
+        impl<P> $ty<P> {
             #[doc = concat!("Creates a new [`", stringify!($ty), "`] instance.")]
             pub(crate) fn create(num_nodes: usize) -> ::anyhow::Result<Self> {
                 Ok(Self {
                     num_nodes,
                     num_partitions: rayon::current_num_threads(),
                     memory_usage: None,
+                    _policy: ::core::marker::PhantomData,
                 })
             }
         }
@@ -93,19 +94,21 @@ macro_rules! impl_sorter_conf {
 
             #[doc = concat!("Creates a new [`", stringify!($ty), "`] instance with deduplication enabled.")]
             ///
-            /// When enabled, each partition iterator in the resulting [`SplitIters`]
-            /// will skip consecutive elements sharing the same pair of nodes, keeping
-            /// only the first occurrence.
+            /// When enabled, the iterators in the resulting [`SplitIters`] return
+            /// each pair of nodes once. Deduplication applies to the methods
+            /// sorting unlabeled pairs: methods sorting labeled pairs are
+            /// available only on instances created by [`new`], as they use the
+            /// merge policy of their batch codec.
             ///
             /// See [`new`] for details.
             ///
             #[doc = concat!("[`new`]: ", stringify!($ty), "::new")]
-            pub fn new_dedup(num_nodes: usize) -> ::anyhow::Result<$ty<true>> {
+            pub fn new_dedup(num_nodes: usize) -> ::anyhow::Result<$ty<$crate::utils::Dedup>> {
                 $ty::create(num_nodes)
             }
         }
 
-        impl<const DEDUP: bool> $ty<DEDUP> {
+        impl<P> $ty<P> {
             /// How many partitions to split the nodes into.
             ///
             /// This is the number of iterators in the resulting [`SplitIters`].
@@ -207,18 +210,21 @@ pub(crate) use impl_sorter_conf;
 /// [`BvCompConf::par_comp`]: crate::graphs::bvgraph::BvCompConf::par_comp
 /// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
 /// [module documentation]: self
-pub struct ParSortIters<const DEDUP: bool = false> {
+pub struct ParSortIters<P = NoMerge> {
     num_nodes: usize,
     num_partitions: usize,
     memory_usage: Option<MemoryUsage>,
+    _policy: core::marker::PhantomData<P>,
 }
 
-impl<const DEDUP: bool> ParSortIters<DEDUP> {
+impl<P: MergePolicy<(), Output = ()> + AddPolicy<(), State = ()> + Default> ParSortIters<P> {
     /// Sorts the output of the provided sequence of iterators, returning a
     /// [`SplitIters`] structure.
     ///
-    /// When `DEDUP` is `true`, [`DefaultBatchCodec<true>`] is used to also
-    /// eliminate duplicates during batch serialization.
+    /// With deduplication (see [`new_dedup`]), duplicates are also eliminated
+    /// during batch serialization.
+    ///
+    /// [`new_dedup`]: ParSortIters::new_dedup
     pub fn sort(
         &self,
         pairs: impl IntoIterator<
@@ -226,10 +232,10 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
             IntoIter: ExactSizeIterator + Send + Sync,
         >,
         pl: &mut impl ProgressLog,
-    ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
+    ) -> Result<SplitIters<SortedPairIter<P>>> {
         Ok(strip_labels(
-            self.sort_labeled::<DefaultBatchCodec<DEDUP>, _>(
-                <DefaultBatchCodec<DEDUP>>::default(),
+            self.sort_codec(
+                DefaultBatchCodec::<P>::default(),
                 pairs
                     .into_iter()
                     .map(|iter| iter.into_iter().map(|pair| (pair, ()))),
@@ -247,7 +253,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         &self,
         pairs: impl IntoIterator<Item = (usize, usize)>,
         pl: &mut impl ProgressLog,
-    ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
+    ) -> Result<SplitIters<SortedPairIter<P>>> {
         self.try_sort_seq::<std::convert::Infallible>(pairs.into_iter().map(Ok), pl)
     }
 
@@ -263,10 +269,10 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         &self,
         pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
         pl: &mut impl ProgressLog,
-    ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
+    ) -> Result<SplitIters<SortedPairIter<P>>> {
         Ok(strip_labels(
-            self.try_sort_labeled_seq::<DefaultBatchCodec<DEDUP>, E, _>(
-                <DefaultBatchCodec<DEDUP>>::default(),
+            self.try_sort_codec_seq::<DefaultBatchCodec<P>, E, _>(
+                DefaultBatchCodec::<P>::default(),
                 pairs.into_iter().map(|r| r.map(|pair| (pair, ()))),
                 pl,
             )?,
@@ -276,32 +282,20 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
 
 impl_sorter_conf!(ParSortIters);
 
-impl<const DEDUP: bool> ParSortIters<DEDUP> {
-    /// Sorts the output of the provided sequence of iterators of (labeled)
-    /// pairs, returning a [`SplitIters`] structure.
-    ///
-    /// This method accepts as type parameter a [`BitSerializer`] and a
-    /// [`BitDeserializer`] that are used to serialize and deserialize the
-    /// labels.
-    ///
-    /// The bit deserializer must be [`Clone`] because we need one for each
-    /// `BatchIterator`, and there are possible scenarios in which the
-    /// deserializer might be stateful.
-    ///
-    /// [`BitSerializer`]: crate::traits::BitSerializer
-    /// [`BitDeserializer`]: crate::traits::BitDeserializer
-    pub fn sort_labeled<
+impl<P> ParSortIters<P> {
+    /// Sorts in parallel using a given codec.
+    fn sort_codec<
         C: BatchCodec,
-        P: IntoIterator<
+        I: IntoIterator<
                 Item: IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send> + Send,
                 IntoIter: ExactSizeIterator + Send,
             >,
     >(
         &self,
         batch_codec: C,
-        pairs: P,
+        pairs: I,
         pl: &mut impl ProgressLog,
-    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>>> {
+    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::State, C::Policy, Arc<TempDir>>>> {
         let sorter = Sorter::new(
             &batch_codec,
             self.num_nodes,
@@ -336,47 +330,17 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         Ok(sorter.into_split_iters(partitions))
     }
 
-    /// See [`try_sort_labeled_seq`].
-    ///
-    /// This is a convenience method for iterators that cannot fail.
-    ///
-    /// [`try_sort_labeled_seq`]: ParSortIters::try_sort_labeled_seq
-    pub fn sort_labeled_seq<C: BatchCodec, P: IntoIterator<Item = ((usize, usize), C::Label)>>(
-        &self,
-        batch_codec: C,
-        pairs: P,
-        pl: &mut impl ProgressLog,
-    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>>> {
-        self.try_sort_labeled_seq::<C, std::convert::Infallible, _>(
-            batch_codec,
-            pairs.into_iter().map(Ok),
-            pl,
-        )
-    }
-
-    /// Sorts the output of the provided iterator of (labeled) pairs
-    /// sequentially, returning a [`SplitIters`] structure.
-    ///
-    /// Unlike [`sort_labeled`], this method processes the input on the
-    /// current thread and does not require `Send` or `Sync` on the iterator
-    /// or its items. The output is still partitioned, so the resulting
-    /// [`SplitIters`] can be wrapped in a [`ParSortedGraph`] and compressed
-    /// in parallel via
-    /// [`BvCompConf::par_comp`].
-    ///
-    /// [`sort_labeled`]: ParSortIters::sort_labeled
-    /// [`BvCompConf::par_comp`]: crate::graphs::bvgraph::BvCompConf::par_comp
-    /// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
-    pub fn try_sort_labeled_seq<
+    /// Sorts sequentially using a given codec.
+    fn try_sort_codec_seq<
         C: BatchCodec,
         E: Into<anyhow::Error>,
-        P: IntoIterator<Item = Result<((usize, usize), C::Label), E>>,
+        I: IntoIterator<Item = Result<((usize, usize), C::Label), E>>,
     >(
         &self,
         batch_codec: C,
-        pairs: P,
+        pairs: I,
         pl: &mut impl ProgressLog,
-    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>>> {
+    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::State, C::Policy, Arc<TempDir>>>> {
         let sorter = Sorter::new(
             &batch_codec,
             self.num_nodes,
@@ -397,8 +361,95 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
     }
 }
 
-/// The buffers of unsorted pairs and the sorted batches of a sorting thread,
-/// one for each partition.
+impl ParSortIters {
+    /// Sorts the output of the provided sequence of iterators of (labeled)
+    /// pairs, returning a [`SplitIters`] structure.
+    ///
+    /// This method accepts as type parameter a [`BitSerializer`] and a
+    /// [`BitDeserializer`] that are used to serialize and deserialize the
+    /// labels.
+    ///
+    /// The bit deserializer must be [`Clone`] because we need one for each
+    /// `BatchIterator`, and there are possible scenarios in which the
+    /// deserializer might be stateful.
+    ///
+    /// Repeated pairs are handled by the [merge policy] of the codec: thus,
+    /// this method is available only on instances created by [`new`].
+    ///
+    /// [`BitSerializer`]: crate::traits::BitSerializer
+    /// [`BitDeserializer`]: crate::traits::BitDeserializer
+    /// [merge policy]: crate::utils::merge_policy
+    /// [`new`]: ParSortIters::new
+    pub fn sort_labeled<
+        C: BatchCodec,
+        P: IntoIterator<
+                Item: IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send> + Send,
+                IntoIter: ExactSizeIterator + Send,
+            >,
+    >(
+        &self,
+        batch_codec: C,
+        pairs: P,
+        pl: &mut impl ProgressLog,
+    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::State, C::Policy, Arc<TempDir>>>> {
+        self.sort_codec(batch_codec, pairs, pl)
+    }
+
+    /// See [`try_sort_labeled_seq`].
+    ///
+    /// This is a convenience method for iterators that cannot fail.
+    ///
+    /// Repeated pairs are handled by the [merge policy] of the codec: thus,
+    /// this method is available only on instances created by [`new`].
+    ///
+    /// [`try_sort_labeled_seq`]: ParSortIters::try_sort_labeled_seq
+    /// [merge policy]: crate::utils::merge_policy
+    /// [`new`]: ParSortIters::new
+    pub fn sort_labeled_seq<C: BatchCodec, P: IntoIterator<Item = ((usize, usize), C::Label)>>(
+        &self,
+        batch_codec: C,
+        pairs: P,
+        pl: &mut impl ProgressLog,
+    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::State, C::Policy, Arc<TempDir>>>> {
+        self.try_sort_codec_seq::<C, std::convert::Infallible, _>(
+            batch_codec,
+            pairs.into_iter().map(Ok),
+            pl,
+        )
+    }
+
+    /// Sorts the output of the provided iterator of (labeled) pairs
+    /// sequentially, returning a [`SplitIters`] structure.
+    ///
+    /// Unlike [`sort_labeled`], this method processes the input on the
+    /// current thread and does not require `Send` or `Sync` on the iterator
+    /// or its items. The output is still partitioned, so the resulting
+    /// [`SplitIters`] can be wrapped in a [`ParSortedGraph`] and compressed
+    /// in parallel via
+    /// [`BvCompConf::par_comp`].
+    ///
+    /// Repeated pairs are handled by the [merge policy] of the codec: thus,
+    /// this method is available only on instances created by [`new`].
+    ///
+    /// [`sort_labeled`]: ParSortIters::sort_labeled
+    /// [`BvCompConf::par_comp`]: crate::graphs::bvgraph::BvCompConf::par_comp
+    /// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
+    /// [merge policy]: crate::utils::merge_policy
+    /// [`new`]: ParSortIters::new
+    pub fn try_sort_labeled_seq<
+        C: BatchCodec,
+        E: Into<anyhow::Error>,
+        P: IntoIterator<Item = Result<((usize, usize), C::Label), E>>,
+    >(
+        &self,
+        batch_codec: C,
+        pairs: P,
+        pl: &mut impl ProgressLog,
+    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::State, C::Policy, Arc<TempDir>>>> {
+        self.try_sort_codec_seq(batch_codec, pairs, pl)
+    }
+}
+
 pub(crate) struct PartitionBuffers<C: BatchCodec> {
     /// An identifier for the thread, used in the names of the batch files.
     id: usize,
@@ -574,15 +625,22 @@ impl<'a, C: BatchCodec> Sorter<'a, C> {
     }
 
     /// Returns a [`SplitIters`] merging the sorted batches of each partition.
-    pub(super) fn into_split_iters<const DEDUP: bool>(
+    pub(super) fn into_split_iters(
         self,
         partitions: Vec<Vec<CodecIter<C>>>,
-    ) -> SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP, Arc<TempDir>>> {
+    ) -> SplitIters<KMergeIters<CodecIter<C>, C::State, C::Policy, Arc<TempDir>>> {
         let iters = partitions
             .into_iter()
             // The batches of a partition are not sorted with respect to each
-            // other, so we merge them into a single sorted iterator
-            .map(|batches| KMergeIters::with_anchor(batches, Arc::clone(&self.tmp_dir)))
+            // other, so we merge them into a single sorted iterator, using the
+            // merge policy of the codec
+            .map(|batches| {
+                KMergeIters::with_policy_and_anchor(
+                    batches,
+                    self.batch_codec.merge_policy(),
+                    Arc::clone(&self.tmp_dir),
+                )
+            })
             .collect();
         SplitIters::new(
             uniform_cutpoints(self.num_nodes, self.num_partitions).collect(),
@@ -647,9 +705,9 @@ pub(super) fn merge_partitions<I>(mut partitions: Vec<Vec<I>>, other: Vec<Vec<I>
 }
 
 /// Strips the `()` labels from the result of sorting unlabeled pairs.
-pub(super) fn strip_labels<const DEDUP: bool>(
-    split: SplitIters<KMergeIters<CodecIter<DefaultBatchCodec<DEDUP>>, (), DEDUP, Arc<TempDir>>>,
-) -> SplitIters<SortedPairIter<DEDUP>> {
+pub(super) fn strip_labels<P: MergePolicy<(), Output = ()> + AddPolicy<(), State = ()>>(
+    split: SplitIters<KMergeIters<CodecIter<DefaultBatchCodec<P>>, (), P, Arc<TempDir>>>,
+) -> SplitIters<SortedPairIter<P>> {
     let strip: fn(((usize, usize), ())) -> (usize, usize) = |(pair, _)| pair;
     SplitIters::new(
         split.boundaries,

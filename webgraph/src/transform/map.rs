@@ -7,6 +7,7 @@
 use crate::graphs::par_sorted_graph::{ParSortedGraphConf, SortedPairIter};
 use crate::prelude::*;
 use crate::traits::{IntoParLenders, NodeLabelsLender};
+use crate::utils::{AddPolicy, Dedup, MergePolicy};
 use anyhow::{Result, ensure};
 use dsi_progress_logger::ProgressLog;
 use value_traits::slices::SliceByValue;
@@ -30,7 +31,7 @@ pub fn map_seq(
     num_nodes: usize,
     memory_usage: MemoryUsage,
     pl: &mut impl ProgressLog,
-) -> Result<ParSortedGraph<SortedPairIter<true>>> {
+) -> Result<ParSortedGraph<SortedPairIter<Dedup>>> {
     check_map_len("map", map.len(), graph.num_nodes())?;
     let conf = ParSortedGraph::config()
         .dedup()
@@ -65,7 +66,7 @@ pub fn map_par<G, M>(
     num_nodes: usize,
     memory_usage: MemoryUsage,
     pl: &mut impl ProgressLog,
-) -> Result<ParSortedGraph<SortedPairIter<true>>>
+) -> Result<ParSortedGraph<SortedPairIter<Dedup>>>
 where
     G: SequentialGraph
         + IntoParLenders<
@@ -97,12 +98,15 @@ pub(crate) fn check_map_len(what: &str, map_len: usize, num_nodes: usize) -> Res
 
 /// Sorts the arcs of a graph after mapping their endpoints through a map,
 /// using the given configuration.
-pub(crate) fn sort_mapped_seq<PL: ProgressLog, const DEDUP: bool>(
-    conf: ParSortedGraphConf<PL, DEDUP>,
+pub(crate) fn sort_mapped_seq<
+    PL: ProgressLog,
+    P: AddPolicy<(), State = ()> + MergePolicy<(), Output = ()>,
+>(
+    conf: ParSortedGraphConf<PL, P>,
     graph: &impl SequentialGraph,
     map: &impl SliceByValue<Value = usize>,
     num_nodes: usize,
-) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>> {
+) -> Result<ParSortedGraph<SortedPairIter<P>>> {
     conf.sort_pairs(
         num_nodes,
         graph
@@ -114,12 +118,17 @@ pub(crate) fn sort_mapped_seq<PL: ProgressLog, const DEDUP: bool>(
 
 /// Sorts in parallel the arcs of a graph after mapping their endpoints
 /// through a map, using the given configuration.
-pub(crate) fn sort_mapped_par<G, M, PL: ProgressLog, const DEDUP: bool>(
-    conf: ParSortedGraphConf<PL, DEDUP>,
+pub(crate) fn sort_mapped_par<
+    G,
+    M,
+    PL: ProgressLog,
+    P: AddPolicy<(), State = ()> + MergePolicy<(), Output = ()>,
+>(
+    conf: ParSortedGraphConf<PL, P>,
     graph: G,
     map: &M,
     num_nodes: usize,
-) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>>
+) -> Result<ParSortedGraph<SortedPairIter<P>>>
 where
     G: IntoParLenders<
         ParLender: for<'a> NodeLabelsLender<

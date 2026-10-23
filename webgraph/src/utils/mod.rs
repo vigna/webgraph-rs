@@ -344,13 +344,8 @@ impl<I> SplitIters<I> {
 /// [`transpose_par`]: crate::transform::transpose_par
 /// [`Map`]: std::iter::Map
 /// [`KMergeIters`]: kmerge_iters::KMergeIters
-pub type SortedPairIter<const DEDUP: bool = false> = std::iter::Map<
-    kmerge_iters::KMergeIters<
-        CodecIter<DefaultBatchCodec<DEDUP>>,
-        (),
-        DEDUP,
-        Arc<tempfile::TempDir>,
-    >,
+pub type SortedPairIter<P = NoMerge> = std::iter::Map<
+    kmerge_iters::KMergeIters<CodecIter<DefaultBatchCodec<P>>, (), P, Arc<tempfile::TempDir>>,
     fn(((usize, usize), ())) -> (usize, usize),
 >;
 
