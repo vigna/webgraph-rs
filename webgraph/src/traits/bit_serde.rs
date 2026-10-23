@@ -8,7 +8,8 @@
 //! Traits for bit serialization and deserialization of graph labels.
 //!
 //! The main implementation is [`FixedWidth`], which serializes primitive
-//! integers using a fixed number of bits. Serializers and deserializers are
+//! integers using a fixed number of bits. [`VecOf`] serializes vectors of
+//! values using an inner serializer. Serializers and deserializers are
 //! used by [`BitStreamStoreLabelsConf`] to compress labels alongside a
 //! graph, and by [`BitStreamLabeling`] / [`BitStreamLabelingSeq`] to read
 //! them back.
@@ -266,5 +267,74 @@ impl<E: Endianness, BR: BitRead<E>, T: PrimitiveInteger> BitDeserializer<E, BR> 
     }
     fn name(&self) -> String {
         self.codec_name()
+    }
+}
+
+/// A [`BitSerializer`] and [`BitDeserializer`] for vectors, writing the
+/// length of the vector in [γ code] followed by its elements, which are
+/// serialized and deserialized by the inner serializer and deserializer.
+///
+/// This type is useful for labels made of a variable number of values: for
+/// example, it can serialize the states of a [`MergeLabels`] collecting
+/// labels into a vector.
+///
+/// # Examples
+///
+/// ```rust
+/// # use dsi_bitstream::prelude::*;
+/// # use webgraph::traits::{BitDeserializer, BitSerializer, FixedWidth, VecOf};
+/// let sd = VecOf(FixedWidth::<u32>::new());
+/// let mut buf: Vec<u64> = vec![];
+/// let mut writer = BufBitWriter::<BE, _>::new(MemWordWriterVec::new(&mut buf));
+/// // γ code of 2 (3 bits) followed by two 32-bit values
+/// assert_eq!(sd.serialize(&vec![3, 1], &mut writer)?, 67);
+/// drop(writer);
+///
+/// let mut reader = BufBitReader::<BE, _>::new(MemWordReader::new(&buf));
+/// assert_eq!(sd.deserialize(&mut reader)?, vec![3, 1]);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// [γ code]: dsi_bitstream::codes::gamma
+/// [`MergeLabels`]: crate::traits::MergeLabels
+#[derive(Clone, Copy, Debug, Default)]
+pub struct VecOf<S>(pub S);
+
+impl<E: Endianness, BW: BitWrite<E> + GammaWrite<E>, S: BitSerializer<E, BW>> BitSerializer<E, BW>
+    for VecOf<S>
+{
+    type SerType = Vec<S::SerType>;
+
+    #[inline]
+    fn serialize(&self, value: &Self::SerType, bitstream: &mut BW) -> Result<usize, BW::Error> {
+        let mut bits = bitstream.write_gamma(value.len() as u64)?;
+        for v in value {
+            bits += self.0.serialize(v, bitstream)?;
+        }
+        Ok(bits)
+    }
+
+    fn name(&self) -> String {
+        format!("VecOf<{}>", self.0.name())
+    }
+}
+
+impl<E: Endianness, BR: BitRead<E> + GammaRead<E>, D: BitDeserializer<E, BR>> BitDeserializer<E, BR>
+    for VecOf<D>
+{
+    type DeserType = Vec<D::DeserType>;
+
+    #[inline]
+    fn deserialize(&self, bitstream: &mut BR) -> Result<Self::DeserType, BR::Error> {
+        let len = bitstream.read_gamma()? as usize;
+        let mut value = Vec::with_capacity(len);
+        for _ in 0..len {
+            value.push(self.0.deserialize(bitstream)?);
+        }
+        Ok(value)
+    }
+
+    fn name(&self) -> String {
+        format!("VecOf<{}>", self.0.name())
     }
 }
