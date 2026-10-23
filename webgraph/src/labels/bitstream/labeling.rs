@@ -61,7 +61,7 @@
 //!     BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u32>::new());
 //!
 //! BvComp::with_basename(&basename)
-//!     .par_comp_labeled::<BE, _, _, _>(&graph, label_config)?;
+//!     .par_comp_labeled::<BE, _, _>(&graph, label_config)?;
 //!
 //! let labels_basename = BvCompConf::default_labels_basename(&basename);
 //!

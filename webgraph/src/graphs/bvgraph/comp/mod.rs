@@ -17,59 +17,27 @@ pub use impls::{BvCompConf, OffsetsWriter};
 mod flags;
 pub use flags::*;
 
-/// An in-memory label store for the tests of [`BvComp`] and [`BvCompZ`].
-#[cfg(test)]
-mod test_store {
-    use crate::traits::StoreLabels;
-    use std::cell::RefCell;
-    use std::rc::Rc;
-
-    /// A [`StoreLabels`] collecting labels in a vector shared with the
-    /// test, so that it can be inspected after the compressor (which owns
-    /// the store) has been flushed.
-    #[derive(Debug)]
-    pub(super) struct VecStore<T>(Rc<RefCell<Vec<T>>>);
-
-    impl<T> Default for VecStore<T> {
-        fn default() -> Self {
-            Self(Rc::new(RefCell::new(Vec::new())))
-        }
+/// Checks that `succ`, a successor of `node`, is greater than the previous
+/// successor, which is `*min_succ - 1`, and sets `*min_succ` to `succ + 1`.
+///
+/// `*min_succ` must be zero before the first successor of each node.
+#[inline(always)]
+fn check_succ(node: usize, min_succ: &mut usize, succ: usize) -> anyhow::Result<()> {
+    if succ < *min_succ {
+        return Err(succ_error(node, succ, *min_succ - 1));
     }
+    *min_succ = succ + 1;
+    Ok(())
+}
 
-    impl<T> VecStore<T> {
-        /// Returns a handle to the stored labels.
-        pub(super) fn labels(&self) -> Rc<RefCell<Vec<T>>> {
-            self.0.clone()
-        }
-    }
-
-    impl<T: Clone> StoreLabels for VecStore<T> {
-        type Label = T;
-
-        fn init(&mut self) -> anyhow::Result<()> {
-            Ok(())
-        }
-
-        fn push_node(&mut self) -> anyhow::Result<()> {
-            Ok(())
-        }
-
-        fn push_label(&mut self, label: &T) -> anyhow::Result<()> {
-            self.0.borrow_mut().push(label.clone());
-            Ok(())
-        }
-
-        fn flush(&mut self) -> anyhow::Result<()> {
-            Ok(())
-        }
-
-        fn label_written_bits(&self) -> u64 {
-            0
-        }
-
-        fn offsets_written_bits(&self) -> u64 {
-            0
-        }
+/// Returns the error for a successor `succ` of `node` following `prev`.
+#[cold]
+#[inline(never)]
+fn succ_error(node: usize, succ: usize, prev: usize) -> anyhow::Error {
+    if succ == prev {
+        anyhow::anyhow!("Repeated successor {succ} in successor list of node {node}")
+    } else {
+        anyhow::anyhow!("Successor list of node {node} is not sorted: {succ} follows {prev}")
     }
 }
 

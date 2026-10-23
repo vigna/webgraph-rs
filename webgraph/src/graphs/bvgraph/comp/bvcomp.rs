@@ -53,230 +53,6 @@ impl AddAssign for CompStats {
     }
 }
 
-/// A [merge policy] storing labels as they are and rejecting repeated
-/// successors.
-///
-/// This is the default merge policy of [`BvComp`], [`BvCompZ`], and
-/// [`BvCompConf`]: a repeated successor causes an error.
-///
-/// [merge policy]: MergePolicy
-/// [`BvCompZ`]: super::BvCompZ
-#[derive(Debug, Clone, Copy, Default)]
-pub struct NoMerge;
-
-/// A [merge policy] merging the labels of repeated successors using a
-/// [`MergeLabel`].
-///
-/// Usually you do not need to use this type directly: see
-/// [`BvCompConf::merge_labels`].
-///
-/// [merge policy]: MergePolicy
-#[derive(Debug, Clone, Copy)]
-pub struct WithMerge<M>(pub M);
-
-mod sealed {
-    pub trait Sealed {}
-}
-
-impl sealed::Sealed for NoMerge {}
-impl<M> sealed::Sealed for WithMerge<M> {}
-impl<P: sealed::Sealed> sealed::Sealed for &P {}
-
-/// The way a compressor handles the labels of runs of equal successors.
-///
-/// `L` is the type of the input labels, and `S` is the type of the stored
-/// labels. This trait is sealed: its implementations are [`NoMerge`] (`S` is
-/// equal to `L`, and repeated successors are rejected), [`WithMerge`]
-/// (labels are merged by a [`MergeLabel`] with merged type `S`), and
-/// references to them.
-pub trait MergePolicy<L, S>: sealed::Sealed {
-    /// Consumes the labels of the next run of equal successors, stores the
-    /// resulting label, and returns the successor, or `None` at the end of
-    /// the input.
-    ///
-    /// `lookahead` contains `None` if no input is buffered, `Some(None)` if
-    /// the input is exhausted, and `Some(Some(item))` if `item` is buffered.
-    /// `merged` is the buffer for merged labels, reused across runs.
-    #[doc(hidden)]
-    fn next_succ<I, SL>(
-        &self,
-        iter: &mut I,
-        lookahead: &mut Option<Option<(usize, L)>>,
-        merged: &mut Option<S>,
-        store_labels: &mut SL,
-    ) -> anyhow::Result<Option<usize>>
-    where
-        I: Iterator<Item = (usize, L)>,
-        SL: StoreLabels<Label = S>;
-}
-
-impl<L> MergePolicy<L, L> for NoMerge {
-    #[inline(always)]
-    fn next_succ<I, SL>(
-        &self,
-        iter: &mut I,
-        _lookahead: &mut Option<Option<(usize, L)>>,
-        _merged: &mut Option<L>,
-        store_labels: &mut SL,
-    ) -> anyhow::Result<Option<usize>>
-    where
-        I: Iterator<Item = (usize, L)>,
-        SL: StoreLabels<Label = L>,
-    {
-        let Some((succ, label)) = iter.next() else {
-            return Ok(None);
-        };
-        store_labels.push_label(&label)?;
-        Ok(Some(succ))
-    }
-}
-
-impl<L, M: MergeLabel<L>> MergePolicy<L, M::Merged> for WithMerge<M> {
-    fn next_succ<I, SL>(
-        &self,
-        iter: &mut I,
-        lookahead: &mut Option<Option<(usize, L)>>,
-        merged: &mut Option<M::Merged>,
-        store_labels: &mut SL,
-    ) -> anyhow::Result<Option<usize>>
-    where
-        I: Iterator<Item = (usize, L)>,
-        SL: StoreLabels<Label = M::Merged>,
-    {
-        let first = match lookahead.take() {
-            Some(item) => item,
-            None => iter.next(),
-        };
-        let Some((succ, label)) = first else {
-            // Remember that the input is exhausted
-            *lookahead = Some(None);
-            return Ok(None);
-        };
-        let merged = merged.get_or_insert_with(Default::default);
-        self.0.init(merged);
-        self.0.merge(merged, label);
-        loop {
-            match iter.next() {
-                Some((next_succ, label)) if next_succ == succ => self.0.merge(merged, label),
-                next => {
-                    *lookahead = Some(next);
-                    break;
-                }
-            }
-        }
-        store_labels.push_label(merged)?;
-        Ok(Some(succ))
-    }
-}
-
-impl<L, S, P: MergePolicy<L, S>> MergePolicy<L, S> for &P {
-    #[inline(always)]
-    fn next_succ<I, SL>(
-        &self,
-        iter: &mut I,
-        lookahead: &mut Option<Option<(usize, L)>>,
-        merged: &mut Option<S>,
-        store_labels: &mut SL,
-    ) -> anyhow::Result<Option<usize>>
-    where
-        I: Iterator<Item = (usize, L)>,
-        SL: StoreLabels<Label = S>,
-    {
-        (**self).next_succ(iter, lookahead, merged, store_labels)
-    }
-}
-
-/// An iterator on the distinct successors of a node, storing their labels
-/// as prescribed by a [`MergePolicy`].
-///
-/// The iterator stops at the first error (a repeated successor that is not
-/// merged, a successor smaller than the previous one, or an error of the
-/// label store), which is then returned by [`into_result`].
-///
-/// [`into_result`]: Self::into_result
-pub(crate) struct MergedSucc<'a, I, L, S, P, SL> {
-    iter: I,
-    lookahead: Option<Option<(usize, L)>>,
-    merge_policy: &'a P,
-    merged: &'a mut Option<S>,
-    store_labels: &'a mut SL,
-    node: usize,
-    /// The minimum acceptable value for the next successor (i.e., the
-    /// previous successor plus one).
-    min_succ: usize,
-    error: Option<anyhow::Error>,
-}
-
-impl<'a, I, L, S, P, SL> MergedSucc<'a, I, L, S, P, SL> {
-    /// Creates a new iterator on the distinct successors of `node`.
-    pub(crate) fn new(
-        iter: I,
-        merge_policy: &'a P,
-        merged: &'a mut Option<S>,
-        store_labels: &'a mut SL,
-        node: usize,
-    ) -> Self {
-        Self {
-            iter,
-            lookahead: None,
-            merge_policy,
-            merged,
-            store_labels,
-            node,
-            min_succ: 0,
-            error: None,
-        }
-    }
-
-    /// Returns the first error that stopped the iteration, if any.
-    pub(crate) fn into_result(self) -> anyhow::Result<()> {
-        self.error.map_or(Ok(()), Err)
-    }
-}
-
-impl<I, L, S, P, SL> Iterator for MergedSucc<'_, I, L, S, P, SL>
-where
-    I: Iterator<Item = (usize, L)>,
-    P: MergePolicy<L, S>,
-    SL: StoreLabels<Label = S>,
-{
-    type Item = usize;
-
-    #[inline]
-    fn next(&mut self) -> Option<usize> {
-        let succ = match self.merge_policy.next_succ(
-            &mut self.iter,
-            &mut self.lookahead,
-            self.merged,
-            self.store_labels,
-        ) {
-            Ok(Some(succ)) => succ,
-            Ok(None) => return None,
-            Err(error) => {
-                self.error = Some(error);
-                return None;
-            }
-        };
-        if succ < self.min_succ {
-            let prev = self.min_succ - 1;
-            self.error = Some(if succ == prev {
-                anyhow::anyhow!(
-                    "Repeated successor {succ} in successor list of node {}",
-                    self.node
-                )
-            } else {
-                anyhow::anyhow!(
-                    "Successor list of node {} is not sorted: {succ} follows {prev}",
-                    self.node
-                )
-            });
-            return None;
-        }
-        self.min_succ = succ + 1;
-        Some(succ)
-    }
-}
-
 /// Compresses a graph into the [BV graph format].
 ///
 /// This is the standard compressor: for each node, it considers the
@@ -302,13 +78,6 @@ where
 /// For a compressor that uses an alternative reference-selection strategy
 /// based on dynamic programming, see [`BvCompZ`].
 ///
-/// Successors must be pushed in increasing order. The type parameter `P` is
-/// a [merge policy] deciding what happens to repeated successors: with the
-/// default [`NoMerge`] they cause an error, whereas with [`WithMerge`] each
-/// run of equal successors is compressed as a single successor, whose label
-/// is the merge of the labels of the run.
-///
-/// [merge policy]: MergePolicy
 /// [BV graph format]: super::super
 /// [module-level documentation]: super::super
 /// [`push`]: Self::push
@@ -318,7 +87,7 @@ where
 /// [`par_comp`]: BvCompConf::par_comp
 /// [`BvCompZ`]: super::BvCompZ
 #[derive(Debug)]
-pub struct BvComp<E, W: Write, SL: StoreLabels = (), P = NoMerge> {
+pub struct BvComp<E, W: Write, SL: StoreLabels = ()> {
     /// The ring-buffer that stores the neighbors of the last
     /// `compression_window` nodes
     backrefs: CircularBuffer<Vec<usize>>,
@@ -351,10 +120,6 @@ pub struct BvComp<E, W: Write, SL: StoreLabels = (), P = NoMerge> {
     stats: CompStats,
     /// The label store.
     store_labels: SL,
-    /// The merge policy.
-    merge_policy: P,
-    /// The buffer for merged labels, reused across runs of equal successors.
-    merged: Option<SL::Label>,
 }
 
 impl BvComp<(), std::io::Sink, ()> {
@@ -628,12 +393,11 @@ impl Compressor {
     }
 }
 
-impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels, P> BvComp<E, W, SL, P> {
+impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels> BvComp<E, W, SL> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
     /// Creates a new BvGraph compressor.
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         encoder: E,
         offsets_writer: OffsetsWriter<W>,
@@ -642,7 +406,6 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels, P> BvComp<E, W, SL, P> {
         min_interval_length: usize,
         start_node: usize,
         store_labels: SL,
-        merge_policy: P,
     ) -> Self {
         BvComp {
             backrefs: CircularBuffer::new(compression_window + 1),
@@ -659,8 +422,6 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels, P> BvComp<E, W, SL, P> {
                 .collect(),
             stats: CompStats::default(),
             store_labels,
-            merge_policy,
-            merged: None,
         }
     }
 
@@ -669,36 +430,24 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels, P> BvComp<E, W, SL, P> {
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
     /// empty iterator).
     ///
-    /// Successors must be in increasing order, except that repeated
-    /// successors are allowed if the [merge policy] merges their labels.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if a successor is smaller than the previous one, or
-    /// if it is equal to the previous one and the merge policy is
-    /// [`NoMerge`].
-    ///
-    /// [merge policy]: MergePolicy
-    pub fn push<L, I: IntoIterator<Item = (usize, L)>>(
+    /// Successors must be sorted and distinct; otherwise, an error is
+    /// returned. The labels of repeated arcs can be merged while sorting
+    /// them.
+    pub fn push<I: IntoIterator<Item = (usize, SL::Label)>>(
         &mut self,
         succ_iter: I,
-    ) -> anyhow::Result<()>
-    where
-        P: MergePolicy<L, SL::Label>,
-    {
+    ) -> anyhow::Result<()> {
         self.store_labels.push_node()?;
         {
-            let succ_vec = &mut self.backrefs[self.curr_node];
+            let node = self.curr_node;
+            let succ_vec = &mut self.backrefs[node];
             succ_vec.clear();
-            let mut succs = MergedSucc::new(
-                succ_iter.into_iter(),
-                &self.merge_policy,
-                &mut self.merged,
-                &mut self.store_labels,
-                self.curr_node,
-            );
-            succ_vec.extend(&mut succs);
-            succs.into_result()?;
+            let mut min_succ = 0;
+            for (succ, label) in succ_iter {
+                super::check_succ(node, &mut min_succ, succ)?;
+                succ_vec.push(succ);
+                self.store_labels.push_label(&label)?;
+            }
             if succ_vec.len().max(1024) < succ_vec.capacity() / 4 {
                 succ_vec.shrink_to(succ_vec.capacity() / 2);
             }
@@ -823,11 +572,10 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels, P> BvComp<E, W, SL, P> {
     /// empty iterator).
     ///
     /// This most commonly is called with a reference to a graph.
-    pub fn extend<L, I>(&mut self, iter_nodes: I) -> anyhow::Result<()>
+    pub fn extend<I>(&mut self, iter_nodes: I) -> anyhow::Result<()>
     where
         I: IntoLender,
-        I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
-        P: MergePolicy<L, SL::Label>,
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, SL::Label)>,
     {
         for_! ( (_, succ) in iter_nodes {
             self.push(succ)?;
@@ -839,16 +587,12 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels, P> BvComp<E, W, SL, P> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::graphs::bvgraph::comp::test_store::VecStore;
     #[cfg(not(miri))]
     use crate::graphs::bvgraph::comp::test_utils::*;
     use dsi_bitstream::prelude::*;
 
-    /// Returns a compressor with default flags discarding its output.
-    fn sink_bvcomp<SL: StoreLabels, P>(
-        store_labels: SL,
-        merge_policy: P,
-    ) -> anyhow::Result<BvComp<impl EncodeAndEstimate, std::io::Sink, SL, P>> {
+    /// Returns a compressor with default flags writing to a sink.
+    fn sink_comp() -> anyhow::Result<BvComp<impl EncodeAndEstimate, std::io::Sink, ()>> {
         let comp_flags = CompFlags::default();
         let bit_writer = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(std::io::sink()));
         let encoder = <DynCodesEncoder<BE, _>>::new(bit_writer, &comp_flags)?;
@@ -859,29 +603,13 @@ mod test {
             comp_flags.max_ref_count,
             comp_flags.min_interval_length,
             0,
-            store_labels,
-            merge_policy,
+            (),
         ))
     }
 
     #[test]
-    fn test_push_merges_runs() -> anyhow::Result<()> {
-        let store = VecStore::default();
-        let labels = store.labels();
-        let mut bvcomp = sink_bvcomp(store, WithMerge(CountRepeats))?;
-        bvcomp.push([(1, 'a'), (1, 'b'), (2, 'c'), (3, 'd'), (3, 'e'), (3, 'f')])?;
-        bvcomp.push(core::iter::empty::<(usize, char)>())?;
-        bvcomp.push([(0, 'x'), (0, 'y')])?;
-        assert_eq!(bvcomp.stats().num_arcs, 4);
-        bvcomp.flush()?;
-        assert_eq!(*labels.borrow(), vec![2, 1, 3, 2]);
-        Ok(())
-    }
-
-    #[test]
-    fn test_push_repeated_without_merger() -> anyhow::Result<()> {
-        let mut bvcomp = sink_bvcomp(VecStore::<char>::default(), NoMerge)?;
-        let err = bvcomp.push([(1, 'a'), (1, 'b')]).unwrap_err();
+    fn test_push_repeated() -> anyhow::Result<()> {
+        let err = sink_comp()?.push([(1, ()), (1, ())]).unwrap_err();
         assert_eq!(
             err.to_string(),
             "Repeated successor 1 in successor list of node 0"
@@ -891,14 +619,7 @@ mod test {
 
     #[test]
     fn test_push_unsorted() -> anyhow::Result<()> {
-        let mut bvcomp = sink_bvcomp(VecStore::<char>::default(), NoMerge)?;
-        let err = bvcomp.push([(2, 'a'), (1, 'b')]).unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "Successor list of node 0 is not sorted: 1 follows 2"
-        );
-        let mut bvcomp = sink_bvcomp(VecStore::<u64>::default(), WithMerge(CountRepeats))?;
-        let err = bvcomp.push([(2, 'a'), (2, 'b'), (1, 'c')]).unwrap_err();
+        let err = sink_comp()?.push([(2, ()), (1, ())]).unwrap_err();
         assert_eq!(
             err.to_string(),
             "Successor list of node 0 is not sorted: 1 follows 2"

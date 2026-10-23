@@ -9,7 +9,7 @@ use std::io::Write;
 use std::path::Path;
 
 use super::OffsetsWriter;
-use super::bvcomp::{CompStats, Compressor, MergedSucc};
+use super::bvcomp::{CompStats, Compressor};
 use crate::prelude::*;
 use crate::utils::RaggedArray;
 use lender::prelude::*;
@@ -50,18 +50,13 @@ struct ReferenceTableEntry {
 /// defaults (including a larger compression window of 16), then call
 /// [`comp_graph`] or [`par_comp`] on it.
 ///
-/// Successors must be pushed in increasing order. The type parameter `P` is
-/// a [merge policy] deciding what happens to repeated successors, as in
-/// [`BvComp`].
-///
-/// [merge policy]: MergePolicy
 /// [BV graph format]: super::super
 /// [`flush`]: Self::flush
 /// [`comp_graph`]: BvCompConf::comp_graph
 /// [`par_comp`]: BvCompConf::par_comp
 /// [Zuckerli paper]: <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9272613>
 #[derive(Debug)]
-pub struct BvCompZ<E, W: Write, SL: StoreLabels = (), P = NoMerge> {
+pub struct BvCompZ<E, W: Write, SL: StoreLabels = ()> {
     /// The successors of each node in the chunk.
     backrefs: RaggedArray<usize>,
     /// The references to the adjacency list to copy
@@ -97,10 +92,6 @@ pub struct BvCompZ<E, W: Write, SL: StoreLabels = (), P = NoMerge> {
     stats: CompStats,
     /// The label store.
     store_labels: SL,
-    /// The merge policy.
-    merge_policy: P,
-    /// The buffer for merged labels, reused across runs of equal successors.
-    merged: Option<SL::Label>,
 }
 
 impl BvCompZ<(), std::io::Sink, ()> {
@@ -114,7 +105,7 @@ impl BvCompZ<(), std::io::Sink, ()> {
     }
 }
 
-impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels, P> BvCompZ<E, W, SL, P> {
+impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels> BvCompZ<E, W, SL> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
@@ -129,7 +120,6 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels, P> BvCompZ<E, W, SL, P> {
         min_interval_length: usize,
         start_node: usize,
         store_labels: SL,
-        merge_policy: P,
     ) -> Self {
         BvCompZ {
             backrefs: RaggedArray::new(),
@@ -149,8 +139,6 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels, P> BvCompZ<E, W, SL, P> {
                 .collect(),
             stats: CompStats::default(),
             store_labels,
-            merge_policy,
-            merged: None,
         }
     }
 
@@ -162,35 +150,29 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels, P> BvCompZ<E, W, SL, P> {
     /// and so all the pending adjacency lists are optimized and then written to
     /// the encoder.
     ///
-    /// Successors must be in increasing order, except that repeated
-    /// successors are allowed if the [merge policy] merges their labels.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if a successor is smaller than the previous one, or
-    /// if it is equal to the previous one and the merge policy is
-    /// [`NoMerge`].
-    ///
-    /// [merge policy]: MergePolicy
-    pub fn push<L, I: IntoIterator<Item = (usize, L)>>(
+    /// Successors must be sorted and distinct; otherwise, an error is
+    /// returned. The labels of repeated arcs can be merged while sorting
+    /// them.
+    pub fn push<I: IntoIterator<Item = (usize, SL::Label)>>(
         &mut self,
         succ_iter: I,
-    ) -> anyhow::Result<()>
-    where
-        P: MergePolicy<L, SL::Label>,
-    {
+    ) -> anyhow::Result<()> {
         self.store_labels.push_node()?;
-        let mut succs = MergedSucc::new(
-            succ_iter.into_iter(),
-            &self.merge_policy,
-            &mut self.merged,
-            &mut self.store_labels,
-            self.curr_node,
-        );
-        // RaggedArray::push consumes the iterator eagerly, so the result is
-        // final by the time it returns.
-        self.backrefs.push(&mut succs);
-        succs.into_result()?;
+        let store_labels = &mut self.store_labels;
+        let node = self.curr_node;
+        let mut min_succ = 0;
+        let mut succ_iter = succ_iter.into_iter();
+        // RaggedArray::push consumes the iterator eagerly, so `result` is
+        // final by the time it returns. The iteration stops at the first
+        // error.
+        let mut result: anyhow::Result<()> = Ok(());
+        self.backrefs.push(std::iter::from_fn(|| {
+            let (succ, label) = succ_iter.next()?;
+            result = super::check_succ(node, &mut min_succ, succ)
+                .and_then(|()| store_labels.push_label(&label).map(|_| ()));
+            result.is_ok().then_some(succ)
+        }));
+        result?;
         let offset_in_chunk = self.curr_node - self.start_chunk_node;
         // get the ref
         let curr_list = &self.backrefs[offset_in_chunk];
@@ -317,11 +299,10 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels, P> BvCompZ<E, W, SL, P> {
     /// empty iterator).
     ///
     /// This most commonly is called with a reference to a graph.
-    pub fn extend<L, I>(&mut self, iter_nodes: I) -> anyhow::Result<()>
+    pub fn extend<I>(&mut self, iter_nodes: I) -> anyhow::Result<()>
     where
         I: IntoLender,
-        I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
-        P: MergePolicy<L, SL::Label>,
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, SL::Label)>,
     {
         for_! ( (_, succ) in iter_nodes {
             self.push(succ)?;
@@ -563,17 +544,12 @@ impl<E: EncodeAndEstimate, W: Write, SL: StoreLabels, P> BvCompZ<E, W, SL, P> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::graphs::bvgraph::comp::test_store::VecStore;
     #[cfg(not(miri))]
     use crate::graphs::bvgraph::comp::test_utils::*;
     use dsi_bitstream::prelude::*;
 
-    /// Returns a compressor with default flags and chunk size 4 discarding
-    /// its output.
-    fn sink_bvcompz<SL: StoreLabels, P>(
-        store_labels: SL,
-        merge_policy: P,
-    ) -> anyhow::Result<BvCompZ<impl EncodeAndEstimate, std::io::Sink, SL, P>> {
+    /// Returns a compressor with default flags writing to a sink.
+    fn sink_comp() -> anyhow::Result<BvCompZ<impl EncodeAndEstimate, std::io::Sink, ()>> {
         let comp_flags = CompFlags::default();
         let bit_writer = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(std::io::sink()));
         let encoder = <DynCodesEncoder<BE, _>>::new(bit_writer, &comp_flags)?;
@@ -585,29 +561,13 @@ mod test {
             comp_flags.max_ref_count,
             comp_flags.min_interval_length,
             0,
-            store_labels,
-            merge_policy,
+            (),
         ))
     }
 
     #[test]
-    fn test_push_merges_runs() -> anyhow::Result<()> {
-        let store = VecStore::default();
-        let labels = store.labels();
-        let mut bvcompz = sink_bvcompz(store, WithMerge(CountRepeats))?;
-        bvcompz.push([(1, 'a'), (1, 'b'), (2, 'c'), (3, 'd'), (3, 'e'), (3, 'f')])?;
-        bvcompz.push(core::iter::empty::<(usize, char)>())?;
-        bvcompz.push([(0, 'x'), (0, 'y')])?;
-        assert_eq!(bvcompz.stats().num_arcs, 4);
-        bvcompz.flush()?;
-        assert_eq!(*labels.borrow(), vec![2, 1, 3, 2]);
-        Ok(())
-    }
-
-    #[test]
-    fn test_push_repeated_without_merger() -> anyhow::Result<()> {
-        let mut bvcompz = sink_bvcompz(VecStore::<char>::default(), NoMerge)?;
-        let err = bvcompz.push([(1, 'a'), (1, 'b')]).unwrap_err();
+    fn test_push_repeated() -> anyhow::Result<()> {
+        let err = sink_comp()?.push([(1, ()), (1, ())]).unwrap_err();
         assert_eq!(
             err.to_string(),
             "Repeated successor 1 in successor list of node 0"
@@ -617,14 +577,7 @@ mod test {
 
     #[test]
     fn test_push_unsorted() -> anyhow::Result<()> {
-        let mut bvcompz = sink_bvcompz(VecStore::<char>::default(), NoMerge)?;
-        let err = bvcompz.push([(2, 'a'), (1, 'b')]).unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "Successor list of node 0 is not sorted: 1 follows 2"
-        );
-        let mut bvcompz = sink_bvcompz(VecStore::<u64>::default(), WithMerge(CountRepeats))?;
-        let err = bvcompz.push([(2, 'a'), (2, 'b'), (1, 'c')]).unwrap_err();
+        let err = sink_comp()?.push([(2, ()), (1, ())]).unwrap_err();
         assert_eq!(
             err.to_string(),
             "Successor list of node 0 is not sorted: 1 follows 2"
