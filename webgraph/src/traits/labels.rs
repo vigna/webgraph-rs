@@ -566,131 +566,277 @@ impl<I: Iterator + core::iter::FusedIterator> core::iter::FusedIterator
 
 /// A way to merge the labels of repeated arcs into a single label.
 ///
-/// Successor lists of graphs in the BV format cannot contain the same
-/// successor twice. When a labeled graph contains repeated arcs (e.g., a
-/// graph built by sorting labeled pairs without deduplication), the labels of
-/// each run of equal successors must be merged into a single label before
-/// being stored. Every arc, repeated or not, belongs to a run, possibly of
-/// length one, and every stored label is a merged label. For each run, the
-/// compressor calls [`init`] once, and then [`merge`] once for each label of
-/// the run, including the first one; the resulting merged label is then
-/// stored.
+/// When sorting labeled pairs, the same arc may appear several times with
+/// different labels. A merger turns the labels of each arc into a single
+/// label, possibly of a different type, using a *state*: labels are added to
+/// states by [`AddLabel::add`], states are merged by [`merge`], and a fully
+/// merged state is turned into the label of the arc by [`finish`].
 ///
-/// The merged label can have a type different from that of the input labels:
-/// for example, single labels can be collected into a vector, or just
-/// counted.
+/// Sorting happens in two stages, which use different parts of this
+/// interface:
 ///
-/// The order of the labels within a run is unspecified, so the result of a
-/// merge should not depend on it. Since there is no end-of-run hook, a merger
-/// collecting labels that needs a deterministic result must keep its
-/// collection ordered within [`merge`] (e.g., by inserting each label in
-/// sorted position). A single instance is shared by reference by all
-/// compression threads.
+/// - **Batch stage**: pairs are sorted in memory in batches, which are then
+///   written to disk. For each run of equal arcs in a batch, [`init`] is
+///   called once on a state, and then [`add`] is called once for each label
+///   of the run, including the first one; the state is then written to disk.
+///   A single state is reused for all the runs of a batch.
+/// - **Merge stage**: the batches are merged. For each arc, the state read
+///   from the first batch containing the arc is merged with the states read
+///   from the other batches containing the arc, and then [`finish`] is called
+///   exactly once, producing the label of the arc.
 ///
-/// Mergers are set with [`BvCompConf::merge_labels`].
+/// In particular, [`finish`] is never called in the batch stage, and it is
+/// called for every arc, repeated or not; [`init`] is not called in the
+/// merge stage.
+///
+/// Mergers must satisfy the following laws:
+///
+/// - the state set by [`init`] is an identity for [`merge`];
+/// - [`merge`] is associative;
+/// - adding a label to a state gives the same result as merging the state
+///   with the state obtained by adding the label to a state set by [`init`].
+///
+/// The order of the labels of an arc and the order in which states are
+/// merged are unspecified. [`add`] and [`merge`] may depend on these orders
+/// as long as [`finish`] removes the dependency: for example, a merger
+/// collecting labels can push them in [`add`], append states in [`merge`],
+/// and sort the result once in [`finish`].
+///
+/// [`merge`] and [`finish`] take states by value, so they can move or reuse
+/// their content. All methods take `&self`, as a single merger is shared by
+/// all sorting threads.
+///
+/// Adding labels is the responsibility of the separate trait [`AddLabel`],
+/// as the merge stage never sees the type of the labels being sorted.
 ///
 /// # Examples
 ///
-/// A merger counting the occurrences of each arc:
+/// A merger counting the occurrences of each arc (see also
+/// [`CountRepeats`]), applied by hand to an arc appearing twice in a batch
+/// and once in another:
 ///
 /// ```rust
-/// use webgraph::traits::MergeLabel;
+/// use webgraph::traits::{AddLabel, MergeLabels};
 ///
 /// struct Count;
 ///
-/// impl<L> MergeLabel<L> for Count {
-///     type Merged = usize;
+/// impl MergeLabels for Count {
+///     type State = u64;
+///     type Output = u64;
 ///
-///     fn merge(&self, merged: &mut usize, _label: L) {
-///         *merged += 1;
+///     fn merge(&self, state: &mut u64, other: u64) {
+///         *state += other;
+///     }
+///
+///     fn finish(&self, state: u64) -> u64 {
+///         state
 ///     }
 /// }
 ///
-/// let mut merged = 0;
-/// for label in ["a", "b", "c"] {
-///     Count.merge(&mut merged, label);
+/// impl<L> AddLabel<L> for Count {
+///     fn add(&self, state: &mut u64, _label: L) {
+///         *state += 1;
+///     }
 /// }
-/// assert_eq!(merged, 3);
-/// // init() cannot infer the label type by itself
-/// MergeLabel::<&str>::init(&Count, &mut merged);
-/// assert_eq!(merged, 0);
+///
+/// // Batch stage
+/// let mut first = 0;
+/// Count.init(&mut first);
+/// Count.add(&mut first, 'a');
+/// Count.add(&mut first, 'b');
+/// let mut second = 0;
+/// Count.init(&mut second);
+/// Count.add(&mut second, 'c');
+/// // Merge stage
+/// Count.merge(&mut first, second);
+/// assert_eq!(Count.finish(first), 3);
+/// ```
+///
+/// A merger collecting the labels of each arc into a sorted boxed slice,
+/// reusing the allocation of the state in the batch stage:
+///
+/// ```rust
+/// use webgraph::traits::{AddLabel, MergeLabels};
+///
+/// struct Collect;
+///
+/// impl MergeLabels for Collect {
+///     type State = Vec<u32>;
+///     type Output = Box<[u32]>;
+///
+///     fn init(&self, state: &mut Vec<u32>) {
+///         state.clear();
+///     }
+///
+///     fn merge(&self, state: &mut Vec<u32>, mut other: Vec<u32>) {
+///         state.append(&mut other);
+///     }
+///
+///     fn finish(&self, mut state: Vec<u32>) -> Box<[u32]> {
+///         state.sort_unstable();
+///         state.into_boxed_slice()
+///     }
+/// }
+///
+/// impl AddLabel<u32> for Collect {
+///     fn add(&self, state: &mut Vec<u32>, label: u32) {
+///         state.push(label);
+///     }
+/// }
+///
+/// // Batch stage
+/// let mut first = Vec::new();
+/// Collect.init(&mut first);
+/// Collect.add(&mut first, 3);
+/// Collect.add(&mut first, 1);
+/// let mut second = Vec::new();
+/// Collect.init(&mut second);
+/// Collect.add(&mut second, 2);
+/// // Merge stage
+/// Collect.merge(&mut first, second);
+/// assert_eq!(&*Collect.finish(first), &[1, 2, 3]);
 /// ```
 ///
 /// [`init`]: Self::init
+/// [`add`]: AddLabel::add
 /// [`merge`]: Self::merge
-/// [`BvCompConf::merge_labels`]: crate::graphs::bvgraph::BvCompConf::merge_labels
-pub trait MergeLabel<L> {
-    /// The type of merged labels.
-    type Merged: Default;
+/// [`finish`]: Self::finish
+pub trait MergeLabels {
+    /// The type of states.
+    type State: Default;
+    /// The type of the merged labels.
+    type Output;
 
-    /// Resets `merged` to the empty merge.
+    /// Resets `state` to the empty state.
     ///
-    /// The default implementation assigns `Self::Merged::default()`.
-    /// Override it to reuse resources: for example, a merger
-    /// collecting labels into a `Vec` can call `merged.clear()`,
-    /// keeping the allocation across runs of equal successors.
-    fn init(&self, merged: &mut Self::Merged) {
-        *merged = Self::Merged::default();
+    /// The default implementation assigns `Self::State::default()`.
+    /// Override it to reuse resources: for example, a merger collecting
+    /// labels into a `Vec` can call `state.clear()`, keeping the allocation
+    /// across runs of equal arcs.
+    fn init(&self, state: &mut Self::State) {
+        *state = Self::State::default();
     }
 
-    /// Merges `label` into `merged`.
-    fn merge(&self, merged: &mut Self::Merged, label: L);
+    /// Merges into `state` another state `other`.
+    fn merge(&self, state: &mut Self::State, other: Self::State);
+
+    /// Turns a fully merged state into the label of the arc.
+    fn finish(&self, state: Self::State) -> Self::Output;
 }
 
-/// A [`MergeLabel`] keeping one of the labels of each run.
+/// Adds labels of type `L` to the states of a [`MergeLabels`].
 ///
-/// Which label is kept is unspecified, as the order of the labels within a
-/// run is unspecified. The merged type is the label type, which must
-/// implement [`Default`].
+/// See [`MergeLabels`] for the semantics and the examples.
+pub trait AddLabel<L>: MergeLabels {
+    /// Adds `label` to `state`.
+    fn add(&self, state: &mut Self::State, label: L);
+}
+
+/// A merger keeping one of the labels of each arc.
+///
+/// Which label is kept is unspecified, as the order of the labels of an arc
+/// is unspecified. The state and the output are the label type, which must
+/// implement [`Default`]. Deduplication while sorting keeps one label
+/// without this requirement.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use webgraph::traits::{KeepOne, MergeLabel};
+/// use webgraph::traits::{AddLabel, KeepOne, MergeLabels};
 ///
-/// let mut merged = 0_u32;
-/// MergeLabel::<u32>::init(&KeepOne, &mut merged);
-/// KeepOne.merge(&mut merged, 7);
-/// assert_eq!(merged, 7);
+/// let keep = KeepOne::new();
+/// let mut state = 0_u32;
+/// keep.init(&mut state);
+/// keep.add(&mut state, 7);
+/// assert_eq!(keep.finish(state), 7);
 /// ```
-#[derive(Debug, Clone, Copy, Default)]
-pub struct KeepOne;
+pub struct KeepOne<L>(core::marker::PhantomData<fn() -> L>);
 
-impl<L: Default> MergeLabel<L> for KeepOne {
-    type Merged = L;
+impl<L> KeepOne<L> {
+    /// Creates a new merger keeping one label.
+    pub const fn new() -> Self {
+        Self(core::marker::PhantomData)
+    }
+}
+
+impl<L> Default for KeepOne<L> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<L> Clone for KeepOne<L> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<L> Copy for KeepOne<L> {}
+
+impl<L> core::fmt::Debug for KeepOne<L> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("KeepOne")
+    }
+}
+
+impl<L: Default> MergeLabels for KeepOne<L> {
+    type State = L;
+    type Output = L;
 
     #[inline(always)]
-    fn merge(&self, merged: &mut L, label: L) {
-        *merged = label;
+    fn merge(&self, _state: &mut L, _other: L) {}
+
+    #[inline(always)]
+    fn finish(&self, state: L) -> L {
+        state
     }
 }
 
-/// A [`MergeLabel`] ignoring labels and counting the occurrences of each arc.
+impl<L: Default> AddLabel<L> for KeepOne<L> {
+    #[inline(always)]
+    fn add(&self, state: &mut L, label: L) {
+        *state = label;
+    }
+}
+
+/// A merger ignoring labels and counting the occurrences of each arc.
 ///
-/// The merged type is `u64`.
+/// The state and the output are `u64`.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use webgraph::traits::{CountRepeats, MergeLabel};
+/// use webgraph::traits::{AddLabel, CountRepeats, MergeLabels};
 ///
-/// let mut merged = 0;
-/// for label in ['x', 'y', 'z'] {
-///     CountRepeats.merge(&mut merged, label);
-/// }
-/// assert_eq!(merged, 3);
-/// MergeLabel::<char>::init(&CountRepeats, &mut merged);
-/// assert_eq!(merged, 0);
+/// let mut state = 0;
+/// CountRepeats.init(&mut state);
+/// CountRepeats.add(&mut state, 'x');
+/// CountRepeats.add(&mut state, 'y');
+/// CountRepeats.merge(&mut state, 3);
+/// assert_eq!(CountRepeats.finish(state), 5);
 /// ```
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CountRepeats;
 
-impl<L> MergeLabel<L> for CountRepeats {
-    type Merged = u64;
+impl MergeLabels for CountRepeats {
+    type State = u64;
+    type Output = u64;
 
     #[inline(always)]
-    fn merge(&self, merged: &mut u64, _label: L) {
-        *merged += 1;
+    fn merge(&self, state: &mut u64, other: u64) {
+        *state += other;
+    }
+
+    #[inline(always)]
+    fn finish(&self, state: u64) -> u64 {
+        state
+    }
+}
+
+impl<L> AddLabel<L> for CountRepeats {
+    #[inline(always)]
+    fn add(&self, state: &mut u64, _label: L) {
+        *state += 1;
     }
 }
 
