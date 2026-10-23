@@ -1100,6 +1100,7 @@ impl<PL, P> ParSortedLabeledGraphConf<PL, P> {
     ///
     /// ```rust
     /// # use dsi_bitstream::prelude::*;
+    /// # use lender::*;
     /// # use webgraph::prelude::*;
     /// # use webgraph::graphs::par_sorted_graph::ParSortedLabeledGraph;
     /// # use webgraph::labels::bitstream::BitStreamStoreLabelsConf;

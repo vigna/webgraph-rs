@@ -88,7 +88,7 @@ fn check_counted(graph: Counted) -> Result<()> {
         .mode::<LoadMem>()
         .load()?;
     let labeling = BitStreamLabelingSeq::<BE, _, _>::load(
-        &BvCompConf::default_labels_basename(&basename),
+        BvCompConf::default_labels_basename(&basename),
         FixedWidth::<u64>::new(),
     )?;
     graph::eq_labeled(&LabeledVecGraph::from_arcs(expected), &Zip(seq, labeling))?;
