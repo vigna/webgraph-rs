@@ -207,11 +207,12 @@ where
         while i < batch.len() {
             let ((src, dst), _) = batch[i];
             // The run of triples with this pair, if collapsing
-            let run_end = if P::COLLAPSES {
-                i + batch[i..].iter().take_while(|t| t.0 == (src, dst)).count()
-            } else {
-                i + 1
-            };
+            let mut run_end = i + 1;
+            if P::COLLAPSES {
+                while run_end < batch.len() && batch[run_end].0 == (src, dst) {
+                    run_end += 1;
+                }
+            }
             // write the source gap as gamma
             stats.src_bits += ConstCode::<SRC_CODE>
                 .write(&mut stream, (src - prev_src) as u64)

@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
-use super::{BitReader, BitWriter, create_batch, impl_batch_iter, num_distinct_pairs, open_batch};
+use super::{BitReader, BitWriter, create_batch, impl_batch_iter, open_batch};
 use crate::utils::Triple;
 use crate::{
     traits::{BitDeserializer, BitSerializer},
@@ -237,29 +237,33 @@ where
             stats.src_bits += ConstCode::<SRC_CODE>
                 .write(&mut stream, (src - prev_src) as _)
                 .with_context(|| format!("Could not write {src} after {prev_src}"))?;
-            // figure out how many edges have this source
-            let group_size = batch[i..].iter().take_while(|t| t.0.0 == src).count();
-            // compute outdegree (distinct destinations when collapsing)
-            let outdegree = if P::COLLAPSES {
-                num_distinct_pairs(&batch[i..i + group_size])
-            } else {
-                group_size
-            };
+            // find the end of the group of edges with this source and, in
+            // the same pass, the outdegree (distinct destinations when
+            // collapsing)
+            let mut end = i + 1;
+            let mut distinct = 1;
+            while end < batch.len() && batch[end].0.0 == src {
+                if P::COLLAPSES && batch[end].0.1 != batch[end - 1].0.1 {
+                    distinct += 1;
+                }
+                end += 1;
+            }
+            let outdegree = if P::COLLAPSES { distinct } else { end - i };
             // write the outdegree
             stats.outdegree_bits += ConstCode::<OUTDEGREE_CODE>
                 .write(&mut stream, outdegree as _)
                 .with_context(|| format!("Could not write outdegree {outdegree} for {src}"))?;
             // encode the destinations
             let mut prev_dst = 0;
-            let end = i + group_size;
             while i < end {
                 let ((_, dst), _) = batch[i];
                 // the run of triples with this destination, if collapsing
-                let run_end = if P::COLLAPSES {
-                    i + batch[i..end].iter().take_while(|t| t.0.1 == dst).count()
-                } else {
-                    i + 1
-                };
+                let mut run_end = i + 1;
+                if P::COLLAPSES {
+                    while run_end < end && batch[run_end].0.1 == dst {
+                        run_end += 1;
+                    }
+                }
                 // write the destination gap
                 stats.dst_bits += ConstCode::<DST_CODE>
                     .write(&mut stream, (dst - prev_dst) as _)
