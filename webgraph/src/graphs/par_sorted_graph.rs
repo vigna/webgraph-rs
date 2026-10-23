@@ -15,8 +15,13 @@
 //! implementation—hence the `ParSorted` prefix.
 //!
 //! The resulting graphs are only sequential, and are usually used directly for
-//! compression or other transformations. Optionally, you can [deduplicate]
-//! after sorting.
+//! compression or other transformations.
+//!
+//! By default, repeated arcs are kept. Optionally, you can [deduplicate]
+//! them or, in the labeled case, [merge their labels] using a
+//! [`MergeLabels`] (e.g., to count repeated arcs, or to collect their
+//! labels). Both happen while sorting, so the temporary files written by the
+//! sort contain each arc at most once per batch.
 //!
 //! # Examples
 //!
@@ -185,6 +190,7 @@
 //! [`par_from_pair_iters`]: ParSortedGraph::par_from_pair_iters
 //! [configuration]: ParSortedGraph::config
 //! [deduplicate]: ParSortedGraphConf::dedup
+//! [merge their labels]: ParSortedLabeledGraphConf::merge_labels
 use crate::graphs::{arc_list_graph, impl_into_lender};
 use crate::labels::proj::LeftIterator;
 use crate::prelude::*;
@@ -1028,12 +1034,13 @@ impl<PL: ProgressLog, P: AddPolicy<(), State = ()> + MergePolicy<(), Output = ()
 /// You can alternatively build an instance using the [`Default`] trait
 /// implementation.
 ///
-/// # Deduplication
+/// # Repeated arcs
 ///
-/// By default, duplicate arcs are preserved. Call [`.dedup()`] to enable
-/// deduplication.
+/// By default, repeated arcs are preserved. Call [`.dedup()`] to keep only
+/// one of them, or [`.merge_labels()`] to merge their labels.
 ///
 /// [`.dedup()`]: Self::dedup
+/// [`.merge_labels()`]: Self::merge_labels
 pub struct ParSortedLabeledGraphConf<PL = Option<ProgressLogger>, P = NoMerge> {
     num_partitions: usize,
     memory_usage: Option<MemoryUsage>,

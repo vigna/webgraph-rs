@@ -4,28 +4,52 @@
 
 ### New
 
-- New trait `MergeLabel`, with implementations `KeepOne` and `CountRepeats`,
-  describing how to merge the labels of repeated arcs into a single label,
-  possibly of a different type. `BvCompConf::merge_labels` sets a
-  `MergeLabel` for labeled compression, so that, for example, a
-  `ParSortedLabeledGraph` built without deduplication can be compressed.
+- New traits `MergeLabels` and `AddLabel<L>`, with implementations `KeepOne`
+  and `CountRepeats`, describing how to merge the labels of repeated arcs
+  into a single label, possibly of a different type: labels are added to
+  states, states are merged, and a final step turns a fully merged state
+  into a label.
 
-- New merge policies `NoMerge` and `WithMerge` for the compressors, and
-  sealed trait `MergePolicy` they implement.
+- `ParSortedLabeledGraphConf::merge_labels` merges the labels of repeated
+  arcs while sorting with a `MergeLabels`: states are merged both in the
+  batches written to disk, so that each batch contains each arc once, and
+  when batches are merged, so that the sorted graph has no repeated arcs.
+
+- New merge policies `NoMerge` (the default), `Dedup`, and `WithMerge`, and
+  sealed traits `MergePolicy` and `AddPolicy` they implement, describing how
+  sorting handles repeated pairs.
+
+- New serializer and deserializer `VecOf` for vectors of labels, writing
+  the length in γ code followed by the elements.
 
 ### Changed
 
-- `BvComp::new` and `BvCompZ::new` take a merge policy as additional last
-  argument, and `BvComp`, `BvCompZ`, and `BvCompConf` have a new type
-  parameter for it (by default, `NoMerge`).
+- The `const DEDUP: bool` parameter of `KMergeIters`, `GroupedGapsCodec`,
+  `GapsCodec`, `DefaultBatchCodec`, `ParSortIters`, `ParSortPairs`,
+  `ParSortedGraphConf`, `ParSortedLabeledGraphConf`, `SortedPairIter`, and
+  `SortedLabeledIter` has been replaced by a merge-policy type parameter:
+  `false` becomes `NoMerge` (the default) and `true` becomes `Dedup` (e.g.,
+  `SortedPairIter<true>` becomes `SortedPairIter<Dedup>`).
 
-- `BvCompConf::comp_labeled_lender` and `BvCompConf::par_comp_labeled` have
-  a new type parameter for the type of input labels, which can now be
-  different from the type of stored labels. Analogously, `push` and `extend`
-  of `BvComp` and `BvCompZ` have a new leading type parameter for the type
-  of input labels, and `BvCompConf::comp_labeled_graph` requires the merge
-  policy to be compatible with the input and stored labels, rather than the
-  two types to be equal.
+- `BatchCodec` has new associated types `State` (the type of the labels
+  written to batches, which can differ from `Label` when merging) and
+  `Policy`, and a new method `merge_policy`. `GroupedGapsCodec` and
+  `GapsCodec` have two new trailing type parameters, the merge policy and
+  the type of the labels to sort, and a new constructor `with_policy`.
+  `KMergeIters` has a new constructor `with_policy_and_anchor`, and its
+  label type is the output of the merge policy.
+
+- The labeled sorting methods of `ParSortIters` and `ParSortPairs` use the
+  merge policy of their codec, and are available only on sorters created by
+  `new`: instead of `ParSortIters::new_dedup(n)?.sort_labeled(codec, …)`,
+  use `ParSortIters::new(n)?.sort_labeled(DefaultBatchCodec::<Dedup>::default(), …)`.
+
+- The terminal methods of `ParSortedLabeledGraphConf` have a new type
+  parameter for the type of the labels to sort, which differs from the type
+  serialized when merging labels.
+
+- `LabelSerDeser` and the implementations of `ParSortedLabeledGraph` no
+  longer require labels to be `Copy`.
 
 - Repeated successors, or successors that are not sorted, now cause an
   error during compression instead of a panic (or, possibly, a corrupted
