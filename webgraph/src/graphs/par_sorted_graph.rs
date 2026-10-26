@@ -1241,8 +1241,6 @@ impl<PL: ProgressLog, P> ParSortedLabeledGraphConf<PL, P> {
         SD: LabelSerDeser,
         L: Copy + Send + Sync + 'static,
         P: AddPolicy<L, State = SD::SerType> + MergePolicy<SD::SerType>,
-        L: Copy + Send + Sync + 'static,
-        P: AddPolicy<L, State = SD::SerType> + MergePolicy<SD::SerType>,
         G: LabeledSequentialGraph<L>,
     {
         let num_nodes = graph.num_nodes();
@@ -1262,8 +1260,6 @@ impl<PL: ProgressLog, P> ParSortedLabeledGraphConf<PL, P> {
     ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, P>>>
     where
         SD: LabelSerDeser,
-        L: Copy + Send + Sync + 'static,
-        P: AddPolicy<L, State = SD::SerType> + MergePolicy<SD::SerType>,
         L: Copy + Send + Sync + 'static,
         P: AddPolicy<L, State = SD::SerType> + MergePolicy<SD::SerType>,
         G: LabeledSequentialGraph<L>

@@ -18,7 +18,7 @@ use webgraph::graphs::par_sorted_graph::{ParSortedLabeledGraphConf, SortedLabele
 use webgraph::graphs::vec_graph::LabeledVecGraph;
 use webgraph::labels::bitstream::BitStreamStoreLabelsConf;
 use webgraph::prelude::*;
-use webgraph::traits::{AddLabel, CountRepeats, FixedWidth, MergeLabels, VecOf};
+use webgraph::traits::{AddLabel, CountRepeats, FixedWidth, KeepOne, MergeLabels, VecOf};
 use webgraph::utils::{MemoryUsage, WithMerge};
 
 /// Multiplicities of the arcs of `common::TEST_GRAPH_ARCS`, in order: the
@@ -59,23 +59,37 @@ fn arcs<L>(graph: &impl SequentialLabeling<Label = (usize, L)>) -> Vec<((usize, 
     arcs
 }
 
-/// A configuration with three lenders and small batches.
-fn conf() -> ParSortedLabeledGraphConf {
+/// A configuration with three lenders whose sorter, using `num_threads`
+/// threads, has buffers of four pairs: each partition is sorted in several
+/// batches, and the repeated copies of some arcs end up in the same batch.
+fn conf(num_threads: usize) -> ParSortedLabeledGraphConf {
     ParSortedLabeledGraph::config()
         .num_lenders(3)
-        .memory_usage(MemoryUsage::BatchSize(4))
+        .memory_usage(MemoryUsage::BatchSize(4 * 3 * num_threads))
+}
+
+/// Runs `f` in a pool of two threads, so that the batches of parallel sorts
+/// do not depend on the number of cores.
+fn with_two_threads<T: Send>(f: impl FnOnce() -> T + Send) -> T {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(2)
+        .build()
+        .unwrap()
+        .install(f)
 }
 
 /// A sorted graph whose labels count the occurrences of each arc.
 type Counted = ParSortedLabeledGraph<SortedLabeledIter<FixedWidth<u64>, WithMerge<CountRepeats>>>;
 
-/// Checks that `graph` is the test graph labeled with multiplicities, both
-/// as it is and after compressing it and loading it back.
-fn check_counted(graph: Counted) -> Result<()> {
+/// Checks that `graph` is the test graph, with `num_nodes` nodes, labeled
+/// with multiplicities, both as it is and after compressing it and loading
+/// it back.
+fn check_counted(num_nodes: usize, graph: Counted) -> Result<()> {
     let expected: Vec<_> = common::TEST_GRAPH_ARCS
         .into_iter()
         .zip(MULTIPLICITIES)
         .collect();
+    assert_eq!(graph.num_nodes(), num_nodes);
     assert_eq!(arcs(&graph), expected);
 
     let (_dir, basename) = common::tmp_basename()?;
@@ -91,38 +105,66 @@ fn check_counted(graph: Counted) -> Result<()> {
         BvCompConf::default_labels_basename(&basename),
         FixedWidth::<u64>::new(),
     )?;
-    graph::eq_labeled(&LabeledVecGraph::from_arcs(expected), &Zip(seq, labeling))?;
+    let mut expected_graph = LabeledVecGraph::empty(num_nodes);
+    expected_graph.add_arcs(expected);
+    graph::eq_labeled(&expected_graph, &Zip(seq, labeling))?;
     Ok(())
 }
 
 #[test]
 fn test_count_repeats_sort_pairs() -> Result<()> {
-    check_counted(conf().merge_labels(CountRepeats).sort_pairs(
+    check_counted(
         8,
-        FixedWidth::<u64>::new(),
-        pairs(arc_label),
-    )?)
+        conf(1).merge_labels(CountRepeats).sort_pairs(
+            8,
+            FixedWidth::<u64>::new(),
+            pairs(arc_label),
+        )?,
+    )
 }
 
 #[test]
 fn test_count_repeats_par_sort_pair_iters() -> Result<()> {
     let pairs = pairs(arc_label);
-    let even: Vec<_> = pairs.iter().copied().step_by(2).collect();
-    let odd: Vec<_> = pairs.iter().copied().skip(1).step_by(2).collect();
-    check_counted(conf().merge_labels(CountRepeats).par_sort_pair_iters(
+    // Contiguous halves: the second contains the repeated copies, adjacent
+    let (first, second) = pairs.split_at(pairs.len() / 2);
+    check_counted(
         8,
-        FixedWidth::<u64>::new(),
-        [even.into_iter(), odd.into_iter()],
-    )?)
+        with_two_threads(|| {
+            conf(2).merge_labels(CountRepeats).par_sort_pair_iters(
+                8,
+                FixedWidth::<u64>::new(),
+                [first, second].map(|half| half.iter().copied()),
+            )
+        })?,
+    )
 }
 
 #[test]
 fn test_count_repeats_par_sort_pairs() -> Result<()> {
-    check_counted(conf().merge_labels(CountRepeats).par_sort_pairs(
+    check_counted(
         8,
-        FixedWidth::<u64>::new(),
-        pairs(arc_label).into_par_iter(),
-    )?)
+        with_two_threads(|| {
+            conf(2).merge_labels(CountRepeats).par_sort_pairs(
+                8,
+                FixedWidth::<u64>::new(),
+                pairs(arc_label).into_par_iter(),
+            )
+        })?,
+    )
+}
+
+#[test]
+fn test_count_repeats_empty_partition() -> Result<()> {
+    // Nodes 8 to 11 have no arcs, so the last partition gets no arcs
+    check_counted(
+        12,
+        conf(1).merge_labels(CountRepeats).sort_pairs(
+            12,
+            FixedWidth::<u64>::new(),
+            pairs(arc_label),
+        )?,
+    )
 }
 
 /// Collects the labels of each arc into a sorted boxed slice.
@@ -155,7 +197,7 @@ impl AddLabel<u32> for Names {
 
 #[test]
 fn test_collect_names() -> Result<()> {
-    let graph = conf().merge_labels(Names).sort_pairs(
+    let graph = conf(1).merge_labels(Names).sort_pairs(
         8,
         VecOf(FixedWidth::<u32>::new()),
         pairs(copy_label),
@@ -174,7 +216,7 @@ fn test_collect_names() -> Result<()> {
 #[test]
 fn test_no_merge_keeps_repeats() -> Result<()> {
     let mut expected = pairs(copy_label);
-    let graph = conf().sort_pairs(8, FixedWidth::<u32>::new(), expected.clone())?;
+    let graph = conf(1).sort_pairs(8, FixedWidth::<u32>::new(), expected.clone())?;
     let mut sorted = arcs(&graph);
     // The order of repeated arcs is unspecified
     sorted.sort_unstable();
@@ -183,15 +225,30 @@ fn test_no_merge_keeps_repeats() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_dedup_keeps_one() -> Result<()> {
-    let graph = conf()
-        .dedup()
-        .sort_pairs(8, FixedWidth::<u32>::new(), pairs(arc_label))?;
-    let expected: Vec<_> = common::TEST_GRAPH_ARCS
+/// Returns the arcs of the test graph, each labeled by [`arc_label`].
+fn arcs_once() -> Vec<((usize, usize), u32)> {
+    common::TEST_GRAPH_ARCS
         .into_iter()
         .map(|arc| (arc, arc_label(arc, 0)))
-        .collect();
-    assert_eq!(arcs(&graph), expected);
+        .collect()
+}
+
+#[test]
+fn test_dedup_keeps_one() -> Result<()> {
+    let graph = conf(1)
+        .dedup()
+        .sort_pairs(8, FixedWidth::<u32>::new(), pairs(arc_label))?;
+    assert_eq!(arcs(&graph), arcs_once());
+    Ok(())
+}
+
+#[test]
+fn test_keep_one() -> Result<()> {
+    let graph = conf(1).merge_labels(KeepOne::new()).sort_pairs(
+        8,
+        FixedWidth::<u32>::new(),
+        pairs(arc_label),
+    )?;
+    assert_eq!(arcs(&graph), arcs_once());
     Ok(())
 }
