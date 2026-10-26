@@ -1132,6 +1132,7 @@ impl<PL, P> ParSortedLabeledGraphConf<PL, P> {
     /// Counting the occurrences of each arc, and compressing the result:
     ///
     /// ```rust
+    /// # if cfg!(miri) { return Ok::<(), Box<dyn std::error::Error>>(()); }
     /// # use dsi_bitstream::prelude::*;
     /// # use lender::*;
     /// # use webgraph::prelude::*;
