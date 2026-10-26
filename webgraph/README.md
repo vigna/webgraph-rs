@@ -77,9 +77,9 @@ let graph = BvGraph::with_basename("BASENAME").load()?;
 ```
 
 [`BvGraph::with_basename`] returns a [`LoadConf`] that can be further
-customized, selecting endianness, type of memory access (memory mapping, full
-loading, etc.), and so on. By default you will get big endianness, memory
-mapping, and dynamic code dispatch.
+customized, selecting endianness, [type of memory access][`LoadMode`] (memory
+mapping, full loading, etc.), [code dispatch][`Dispatch`], and so on. By
+default you will get big endianness, memory mapping, and dynamic code dispatch.
 
 If you only need [sequential access][iteration] (e.g., scanning all arcs), use
 [`BvGraphSeq`], which does not require the `.ef` file:
@@ -115,10 +115,13 @@ Several structures are available for building graphs in memory:
 
 - [`CsrGraph`]: a classical immutable Compressed Sparse Row representation,
   useful for algorithms that need fast random access without compression
-  overhead. Serializable with [ε-serde].
+  overhead; [`CsrSortedGraph`] guarantees in addition that successors are
+  sorted. [`CompressedCsrGraph`] and [`CompressedCsrSortedGraph`] store the
+  degree cumulative function using Elias–Fano and the successors in a
+  bit-field vector. Serializable with [ε-serde].
 
-All these types (except `ArcListGraph`) can also be serialized with [serde]
-using the feature gate `serde`.
+All these types, except for the compressed CSR graphs, can also be serialized
+with [serde] using the feature gate `serde`.
 
 ## Importing your data
 
@@ -141,19 +144,20 @@ From code, you have several options depending on how your data is organized:
 
 In all cases the result implements [`IntoParLenders`], so it can be passed to
 [`BvCompConf::par_comp`] for parallel compression. For full control over
-deduplication, memory budget, and progress logging, use the
+deduplication, [memory budget][`MemoryUsage`], and progress logging, use the
 [`ParSortedGraphConf`] builder obtained via [`ParSortedGraph::config()`].
 
 All of the above also works for labeled graphs: just use `((usize, usize), L)`
 pairs instead of `(usize, usize)` and the corresponding
-[`ParSortedLabeledGraph`] methods.
+[`ParSortedLabeledGraph`] methods. The labels of repeated arcs can also be
+merged (see [the section on labels](#merging-the-labels-of-repeated-arcs)).
 
 ## Compressing graphs
 
 The entry point for compression is [`BvComp::with_basename`], which returns a
 [`BvCompConf`] builder. Compression parameters (window size, codes for
-different components, etc.) are controlled by [`CompFlags`]. compression
-paramters are described in detail in the [`bvgraph`] module documentation.
+different components, etc.) are controlled by [`CompFlags`], and they are
+described in detail in the [`bvgraph`] module documentation.
 
 To compress sequentially a graph that implements [`SequentialGraph`]:
 
@@ -164,7 +168,7 @@ BvComp::with_basename("BASENAME")
 
 For better compression ratios at the cost of a longer compression time, use
 [`BvCompConf::bvgraphz`], which enables Zuckerli-like
-dynamic-programming reference selection.
+dynamic-programming reference selection ([`BvCompZ`]).
 
 ### Parallel compression
 
@@ -176,19 +180,15 @@ BvComp::with_basename("BASENAME")
 ```
 
 All common graph types implement [`IntoParLenders`] automatically via
-[`SplitLabeling`]. Transparent wrappers can adjust the splitting:
+[`SplitLabeling`]. The transparent wrapper [`ParGraph`] can adjust the
+splitting, using a given number of parts ([`ParGraph::new`]), explicit
+cutpoints ([`ParGraph::with_cutpoints`]), or a precomputed [degree cumulative
+function][DCF] to balance work by arcs rather than by nodes
+([`ParGraph::with_dcf`]). Cutpoints can be computed with
+[`uniform_cutpoints`] and [`dcf_cutpoints`].
 
-- [`ParGraph`]: overrides the number of parallel parts.
-- [`ParDcfGraph`]: uses a precomputed [degree cumulative function][DCF] to
-  balance work by arcs rather than by nodes.
-
-### Labeled compression
-
-Graphs with labels can be compressed with
-[`BvCompConf::comp_labeled_graph`] (sequential) or
-[`BvCompConf::par_comp_labeled`] (parallel). Label storage is controlled by a
-[`StoreLabelsConf`] implementation; [`BitStreamStoreLabelsConf`] provides
-bitstream-based storage with optional Zstandard compression.
+Labeled graphs can be compressed, too (see [the section on
+labels](#compressing-labeled-graphs)).
 
 ## Graph transforms
 
@@ -199,7 +199,9 @@ sequential (`_seq`) and parallel (`_par`) variants:
   ([`transpose_par`] for parallel, [`transpose_labeled_seq`] and
   [`transpose_labeled_par`] for labeled graphs).
 - [**Symmetrize**][`symmetrize_seq`]: add missing reverse arcs, optionally removing
-  self-loops ([`symmetrize_par`] for parallel).
+  self-loops ([`symmetrize_par`] for parallel; [`symmetrize_sorted_seq`] and
+  [`symmetrize_sorted_par`] sort only the reverse arcs of graphs with sorted
+  successors).
 - [**Permute**][`permute_seq`]: renumber nodes according to a permutation
   ([`permute_par`] for parallel).
 - [**Map**][`map_seq`]: renumber nodes through an arbitrary function, with
@@ -220,14 +222,48 @@ Lightweight wrappers combine or modify data without copying:
 ## Labels
 
 Graphs are a special case of _labelings_: a [`SequentialLabeling`] assigns a
-sequence of labels to each node, and a graph is simply a labeling whose labels
-are `usize` successors. You can attach additional labels to a graph by
-[zipping][`Zip`] it with a labeling.
+sequence of labels to each node, returning a [`NodeLabelsLender`] that
+enumerates nodes and their labels, and a [`RandomAccessLabeling`] provides in
+addition access to the labels of any node. A graph ([`SequentialGraph`],
+[`RandomAccessGraph`]) is simply a labeling whose labels are `usize`
+successors, whereas the labels of a labeled graph
+([`LabeledSequentialGraph`], [`LabeledRandomAccessGraph`]) are pairs made of
+a successor and a label. You can attach labels to a graph by [zipping][`Zip`]
+it with a labeling, and the [`Left`] and [`Right`] projections extract one
+component from a zipped labeling. [`UnitLabelGraph`] turns a graph into a
+labeled graph with labels `()`.
+
+Lenders can be turned into iterators on pairs ([`into_pairs`]) or on labeled
+pairs ([`into_labeled_pairs`]).
 
 Bitstream-based labelings are provided by [`BitStreamLabeling`] (random access)
 and [`BitStreamLabelingSeq`] (sequential). Custom label (de)serializers
-implement the [`BitDeserializer`]/[`BitSerializer`] traits. The [`Left`] and
-[`Right`] projections extract one component from a zipped labeling.
+implement the [`BitDeserializer`]/[`BitSerializer`] traits, and
+[`BitSerDeser`] combines a serializer and a deserializer into a single type.
+[`FixedWidth`] stores integers using a fixed number of bits, and [`VecOf`]
+stores vectors of labels.
+
+### Merging the labels of repeated arcs
+
+When sorting labeled pairs with the [`ParSortedLabeledGraphConf`] builder
+obtained via [`ParSortedLabeledGraph::config()`], repeated arcs are kept by
+default. [`dedup`] keeps only one of their labels, whereas [`merge_labels`]
+combines their labels using a [`MergeLabels`] implementation, possibly into a
+label of a different type: for example, [`CountRepeats`] counts the
+occurrences of each arc, and [`KeepOne`] keeps one of the labels. Mergers must
+also implement [`AddLabel`] for the type of the labels to sort. Merging
+happens while sorting, so each batch of pairs written to disk contains each
+arc once. The serializers used while sorting labeled pairs must implement
+[`LabelSerDeser`].
+
+### Compressing labeled graphs
+
+Graphs with labels can be compressed with
+[`BvCompConf::comp_labeled_graph`] (sequential) or
+[`BvCompConf::par_comp_labeled`] (parallel). Label storage is controlled by a
+[`StoreLabelsConf`] implementation; [`BitStreamStoreLabelsConf`] provides
+bitstream-based storage, optionally compressing with [Zstandard][`Zstd`] the
+temporary files written by each thread during parallel compression.
 
 ## Graph traversals
 
@@ -236,10 +272,15 @@ sequential and parallel:
 
 - **BFS**: [`breadth_first::Seq`], [`breadth_first::ParFair`] (fair division of
   work) and [`breadth_first::ParLowMem`] (memory-efficient).
-- **DFS**: [`depth_first::SeqIter`].
+- **DFS**: [`depth_first::SeqNoPred`], [`depth_first::SeqPred`] (keeping
+  track of predecessors), and [`depth_first::SeqPath`] (keeping track also of
+  the nodes on the visit path, as needed, for example, by acyclicity tests),
+  all instances of [`depth_first::SeqIter`].
 
 Visits use a callback-based API with event types ([`EventPred`]/[`EventNoPred`])
-that carry predecessor/parent information when requested.
+that carry predecessor/parent information when requested. Callbacks can stop a
+visit early, for example signaling that it was [interrupted][`Interrupted`],
+or that its result was [computed without completing it][`StoppedWhenDone`].
 
 ## Graph iterators
 
@@ -254,8 +295,23 @@ and edge probability, useful for testing and benchmarking.
 
 ## Utilities
 
+- [`ParSortPairs`] and [`ParSortIters`]: parallel external sorting of
+  (labeled) pairs, coming from a Rayon parallel iterator or from a sequence of
+  iterators, respectively, within the memory budget given by a
+  [`MemoryUsage`]; they are the engine of [`ParSortedGraph`] and
+  [`ParSortedLabeledGraph`]. Sorted batches are written to disk using a
+  [`BatchCodec`] ([`DefaultBatchCodec`], [`GroupedGapsCodec`],
+  [`GapsCodec`]), and merged by [`KMergeIters`]; repeated pairs are kept,
+  deduplicated, or merged following the codec's policy ([`NoMerge`],
+  [`Dedup`], [`WithMerge`]). The result is a [`SplitIters`], holding an
+  iterator on the sorted pairs of each partition and the partition boundaries.
 - [`par_map_fold`]: parallel map-fold over iterators, an alternative to Rayon's
   [`ParallelBridge`] that avoids some of its bottlenecks.
+- [`Granularity`]: the granularity of parallel tasks, expressed either in nodes
+  or in arcs.
+- [`RaggedArray`]: an append-only [ragged array].
+- [`MmapHelper`] and [`ArcMmapHelper`]: convenient access to memory-mapped
+  files.
 - [`graph::eq`], [`graph::eq_labeled`], [`labels::eq_sorted`]: equality checks
   for graphs and labelings, useful in tests.
 - [`labels::check_impl`]: verifies that the sequential and random-access
@@ -289,23 +345,22 @@ Union nor the Italian MUR can be held responsible for them.
 [`BvGraph::with_basename`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html#method.with_basename
 [`BvGraphSeq`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/sequential/struct.BvGraphSeq.html
 [`LoadConf`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/load/struct.LoadConf.html
-[`BvComp::with_basename`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvComp.html#method.with_basename
-[`BvCompConf`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConf.html
-[`BvCompConf::bvgraphz`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConf.html#method.bvgraphz
-[`BvCompConf::comp_labeled_graph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConf.html#method.comp_labeled_graph
-[`BvCompConf::par_comp_labeled`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConf.html#method.par_comp_labeled
-[`CompFlags`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.CompFlags.html
+[`BvComp::with_basename`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/struct.BvComp.html#method.with_basename
+[`BvCompConf`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/struct.BvCompConf.html
+[`BvCompConf::bvgraphz`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/struct.BvCompConf.html#method.bvgraphz
+[`BvCompConf::comp_labeled_graph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/struct.BvCompConf.html#method.comp_labeled_graph
+[`BvCompConf::par_comp_labeled`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/struct.BvCompConf.html#method.par_comp_labeled
+[`CompFlags`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/struct.CompFlags.html
 [`store_ef`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/fn.store_ef.html
-[`IntoParLenders`]: https://docs.rs/webgraph/latest/webgraph/traits/trait.IntoParLenders.html
-[`SplitLabeling`]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SplitLabeling.html
+[`IntoParLenders`]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.IntoParLenders.html
+[`SplitLabeling`]: https://docs.rs/webgraph/latest/webgraph/traits/split/trait.SplitLabeling.html
 [`ParGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_graphs/struct.ParGraph.html
-[`ParDcfGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_graphs/struct.ParDcfGraph.html
 [DCF]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.build_dcf
 [`ParSortedGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedGraph.html
 [`ParSortedGraphConf`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedGraphConf.html
 [`MemoryUsage`]: https://docs.rs/webgraph/latest/webgraph/utils/enum.MemoryUsage.html
 [`StoreLabelsConf`]: https://docs.rs/webgraph/latest/webgraph/traits/store/trait.StoreLabelsConf.html
-[`BitStreamStoreLabelsConf`]: https://docs.rs/webgraph/latest/webgraph/labels/bitstream/struct.BitStreamStoreLabelsConf.html
+[`BitStreamStoreLabelsConf`]: https://docs.rs/webgraph/latest/webgraph/labels/bitstream/store/struct.BitStreamStoreLabelsConf.html
 [`SequentialGraph`]: https://docs.rs/webgraph/latest/webgraph/traits/graph/trait.SequentialGraph.html
 [`SequentialLabeling`]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html
 [iterate on the whole graph]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter
@@ -314,8 +369,8 @@ Union nor the Italian MUR can be held responsible for them.
 [`Zip`]: https://docs.rs/webgraph/latest/webgraph/labels/zip/struct.Zip.html
 [`BitStreamLabeling`]: https://docs.rs/webgraph/latest/webgraph/labels/bitstream/labeling/struct.BitStreamLabeling.html
 [`BitStreamLabelingSeq`]: https://docs.rs/webgraph/latest/webgraph/labels/bitstream/labeling/struct.BitStreamLabelingSeq.html
-[`BitDeserializer`]: https://docs.rs/webgraph/latest/webgraph/traits/serde/trait.BitDeserializer.html
-[`BitSerializer`]: https://docs.rs/webgraph/latest/webgraph/traits/serde/trait.BitSerializer.html
+[`BitDeserializer`]: https://docs.rs/webgraph/latest/webgraph/traits/bit_serde/trait.BitDeserializer.html
+[`BitSerializer`]: https://docs.rs/webgraph/latest/webgraph/traits/bit_serde/trait.BitSerializer.html
 [`PermutedGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/permuted_graph/struct.PermutedGraph.html
 [`UnionGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/union_graph/struct.UnionGraph.html
 [`NoSelfLoopsGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/no_selfloops_graph/struct.NoSelfLoopsGraph.html
@@ -336,8 +391,8 @@ Union nor the Italian MUR can be held responsible for them.
 [`LabeledBTreeGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.LabeledBTreeGraph.html
 [`CsrGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/csr_graph/struct.CsrGraph.html
 [`ArcListGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/arc_list_graph/struct.ArcListGraph.html
-[`BvCompConf::comp_graph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConf.html#method.comp_graph
-[`BvCompConf::par_comp`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/comp/struct.BvCompConf.html#method.par_comp
+[`BvCompConf::comp_graph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/struct.BvCompConf.html#method.comp_graph
+[`BvCompConf::par_comp`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/struct.BvCompConf.html#method.par_comp
 [`ParSortedGraph::from_pairs`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedGraph.html#method.from_pairs
 [`ParSortedGraph::par_from_pairs`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedGraph.html#method.par_from_pairs
 [`ParSortedGraph::config()`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedGraph.html#method.config
@@ -384,3 +439,58 @@ Union nor the Italian MUR can be held responsible for them.
 [coveralls]: https://coveralls.io/github/vigna/webgraph-rs?branch=main
 [`bvgraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/index.html
 [`ParallelBridge`]: https://docs.rs/rayon/latest/rayon/iter/trait.ParallelBridge.html
+[`LoadMode`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/trait.LoadMode.html
+[`Dispatch`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/trait.Dispatch.html
+[`CsrSortedGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/csr_graph/struct.CsrSortedGraph.html
+[`CompressedCsrGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/csr_graph/type.CompressedCsrGraph.html
+[`CompressedCsrSortedGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/csr_graph/type.CompressedCsrSortedGraph.html
+[`BvCompZ`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/struct.BvCompZ.html
+[`ParGraph::new`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_graphs/struct.ParGraph.html#method.new
+[`ParGraph::with_cutpoints`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_graphs/struct.ParGraph.html#method.with_cutpoints
+[`ParGraph::with_dcf`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_graphs/struct.ParGraph.html#method.with_dcf
+[`uniform_cutpoints`]: https://docs.rs/webgraph/latest/webgraph/traits/split/fn.uniform_cutpoints.html
+[`dcf_cutpoints`]: https://docs.rs/webgraph/latest/webgraph/traits/split/fn.dcf_cutpoints.html
+[`symmetrize_sorted_seq`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.symmetrize_sorted_seq.html
+[`symmetrize_sorted_par`]: https://docs.rs/webgraph/latest/webgraph/transform/fn.symmetrize_sorted_par.html
+[`NodeLabelsLender`]: https://docs.rs/webgraph/latest/webgraph/traits/lenders/trait.NodeLabelsLender.html
+[`RandomAccessLabeling`]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.RandomAccessLabeling.html
+[`RandomAccessGraph`]: https://docs.rs/webgraph/latest/webgraph/traits/graph/trait.RandomAccessGraph.html
+[`LabeledSequentialGraph`]: https://docs.rs/webgraph/latest/webgraph/traits/graph/trait.LabeledSequentialGraph.html
+[`LabeledRandomAccessGraph`]: https://docs.rs/webgraph/latest/webgraph/traits/graph/trait.LabeledRandomAccessGraph.html
+[`UnitLabelGraph`]: https://docs.rs/webgraph/latest/webgraph/traits/graph/struct.UnitLabelGraph.html
+[`into_pairs`]: https://docs.rs/webgraph/latest/webgraph/traits/lenders/trait.NodeLabelsLender.html#method.into_pairs
+[`into_labeled_pairs`]: https://docs.rs/webgraph/latest/webgraph/traits/lenders/trait.NodeLabelsLender.html#method.into_labeled_pairs
+[`BitSerDeser`]: https://docs.rs/webgraph/latest/webgraph/traits/bit_serde/struct.BitSerDeser.html
+[`FixedWidth`]: https://docs.rs/webgraph/latest/webgraph/traits/bit_serde/struct.FixedWidth.html
+[`VecOf`]: https://docs.rs/webgraph/latest/webgraph/traits/bit_serde/struct.VecOf.html
+[`LabelSerDeser`]: https://docs.rs/webgraph/latest/webgraph/traits/bit_serde/trait.LabelSerDeser.html
+[`ParSortedLabeledGraphConf`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedLabeledGraphConf.html
+[`ParSortedLabeledGraph::config()`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedLabeledGraph.html#method.config
+[`dedup`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedLabeledGraphConf.html#method.dedup
+[`merge_labels`]: https://docs.rs/webgraph/latest/webgraph/graphs/par_sorted_graph/struct.ParSortedLabeledGraphConf.html#method.merge_labels
+[`MergeLabels`]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.MergeLabels.html
+[`AddLabel`]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.AddLabel.html
+[`CountRepeats`]: https://docs.rs/webgraph/latest/webgraph/traits/labels/struct.CountRepeats.html
+[`KeepOne`]: https://docs.rs/webgraph/latest/webgraph/traits/labels/struct.KeepOne.html
+[`Zstd`]: https://docs.rs/webgraph/latest/webgraph/labels/bitstream/store/struct.Zstd.html
+[`depth_first::SeqNoPred`]: https://docs.rs/webgraph/latest/webgraph/visits/depth_first/type.SeqNoPred.html
+[`depth_first::SeqPred`]: https://docs.rs/webgraph/latest/webgraph/visits/depth_first/type.SeqPred.html
+[`depth_first::SeqPath`]: https://docs.rs/webgraph/latest/webgraph/visits/depth_first/type.SeqPath.html
+[`Interrupted`]: https://docs.rs/webgraph/latest/webgraph/visits/struct.Interrupted.html
+[`StoppedWhenDone`]: https://docs.rs/webgraph/latest/webgraph/visits/struct.StoppedWhenDone.html
+[`ParSortPairs`]: https://docs.rs/webgraph/latest/webgraph/utils/par_sort_pairs/struct.ParSortPairs.html
+[`ParSortIters`]: https://docs.rs/webgraph/latest/webgraph/utils/par_sort_iters/struct.ParSortIters.html
+[`BatchCodec`]: https://docs.rs/webgraph/latest/webgraph/utils/trait.BatchCodec.html
+[`DefaultBatchCodec`]: https://docs.rs/webgraph/latest/webgraph/utils/type.DefaultBatchCodec.html
+[`GroupedGapsCodec`]: https://docs.rs/webgraph/latest/webgraph/utils/grouped_gaps/struct.GroupedGapsCodec.html
+[`GapsCodec`]: https://docs.rs/webgraph/latest/webgraph/utils/gaps/struct.GapsCodec.html
+[`KMergeIters`]: https://docs.rs/webgraph/latest/webgraph/utils/kmerge_iters/struct.KMergeIters.html
+[`NoMerge`]: https://docs.rs/webgraph/latest/webgraph/utils/merge_policy/struct.NoMerge.html
+[`Dedup`]: https://docs.rs/webgraph/latest/webgraph/utils/merge_policy/struct.Dedup.html
+[`WithMerge`]: https://docs.rs/webgraph/latest/webgraph/utils/merge_policy/struct.WithMerge.html
+[`SplitIters`]: https://docs.rs/webgraph/latest/webgraph/utils/struct.SplitIters.html
+[`Granularity`]: https://docs.rs/webgraph/latest/webgraph/utils/enum.Granularity.html
+[`RaggedArray`]: https://docs.rs/webgraph/latest/webgraph/utils/struct.RaggedArray.html
+[ragged array]: https://en.wikipedia.org/wiki/Ragged_array
+[`MmapHelper`]: https://docs.rs/webgraph/latest/webgraph/utils/struct.MmapHelper.html
+[`ArcMmapHelper`]: https://docs.rs/webgraph/latest/webgraph/utils/struct.ArcMmapHelper.html
