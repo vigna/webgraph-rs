@@ -11,29 +11,13 @@ use sux::bits::AtomicBitVec;
 use webgraph::traits::RandomAccessGraph;
 use webgraph::visits::{Parallel, breadth_first::EventNoPred};
 
-macro_rules! dispatch {
-    ($method:ident($($args:expr),+ $(,)?), $use_tot:expr, $pl:expr, |$computer:ident| $body:expr) => {
-        if $use_tot {
-            let mut $computer = ExactSumSweep::<_, _, _, _, Self, true>::$method($($args),+);
-            $computer.compute($pl);
-            $body
-        } else {
-            let mut $computer = ExactSumSweep::<_, _, _, _, Self, false>::$method($($args),+);
-            $computer.compute($pl);
-            $body
-        }
-    };
-}
-
 /// Extraction of the results shared by the directed and symmetric cases.
 impl<
     G1: RandomAccessGraph + Sync,
     G2: RandomAccessGraph + Sync,
     V1: Parallel<EventNoPred> + Sync,
     V2: Parallel<EventNoPred> + Sync,
-    OL: Level,
-    const USE_TOT: bool,
-> ExactSumSweep<'_, G1, G2, V1, V2, OL, USE_TOT>
+> ExactSumSweep<'_, G1, G2, V1, V2>
 {
     fn radius_diameter_output(&self) -> output::RadiusDiameter {
         assert!(self.diameter_iterations.is_some());
@@ -209,30 +193,25 @@ impl Level for All {
         use_tot: bool,
         pl: &mut impl ProgressLog,
     ) -> Self::Output {
-        dispatch!(
-            new(&graph, &transpose, radial_vertices, pl),
-            use_tot,
-            pl,
-            |computer| {
-                assert!(computer.all_iter.is_some());
-                assert!(computer.forward_iter.is_some());
-                assert!(computer.diameter_iterations.is_some());
-                assert!(computer.radius_iterations.is_some());
+        let mut computer = ExactSumSweep::new(&graph, &transpose, radial_vertices, use_tot, pl);
+        computer.compute(Self::missing_nodes, pl);
+        assert!(computer.all_iter.is_some());
+        assert!(computer.forward_iter.is_some());
+        assert!(computer.diameter_iterations.is_some());
+        assert!(computer.radius_iterations.is_some());
 
-                output::All {
-                    forward_eccentricities: computer.forward_low,
-                    backward_eccentricities: computer.backward_high,
-                    diameter: computer.diameter_low,
-                    radius: computer.radius_high,
-                    diametral_vertex: computer.diameter_vertex,
-                    radial_vertex: computer.radius_vertex,
-                    radius_iterations: computer.radius_iterations.unwrap(),
-                    diameter_iterations: computer.diameter_iterations.unwrap(),
-                    forward_iterations: computer.forward_iter.unwrap(),
-                    all_iterations: computer.all_iter.unwrap(),
-                }
-            }
-        )
+        output::All {
+            forward_eccentricities: computer.forward_low,
+            backward_eccentricities: computer.backward_high,
+            diameter: computer.diameter_low,
+            radius: computer.radius_high,
+            diametral_vertex: computer.diameter_vertex,
+            radial_vertex: computer.radius_vertex,
+            radius_iterations: computer.radius_iterations.unwrap(),
+            diameter_iterations: computer.diameter_iterations.unwrap(),
+            forward_iterations: computer.forward_iter.unwrap(),
+            all_iterations: computer.all_iter.unwrap(),
+        }
     }
 
     fn run_symm(
@@ -240,22 +219,22 @@ impl Level for All {
         use_tot: bool,
         pl: &mut impl ProgressLog,
     ) -> Self::OutputSymm {
-        dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| {
-            assert!(computer.forward_iter.is_some());
-            assert!(computer.diameter_iterations.is_some());
-            assert!(computer.radius_iterations.is_some());
+        let mut computer = ExactSumSweep::new_symm(&graph, use_tot, pl);
+        computer.compute(Self::missing_nodes, pl);
+        assert!(computer.forward_iter.is_some());
+        assert!(computer.diameter_iterations.is_some());
+        assert!(computer.radius_iterations.is_some());
 
-            output_symm::All {
-                eccentricities: computer.forward_low,
-                diameter: computer.diameter_low,
-                radius: computer.radius_high,
-                diametral_vertex: computer.diameter_vertex,
-                radial_vertex: computer.radius_vertex,
-                radius_iterations: computer.radius_iterations.unwrap(),
-                diameter_iterations: computer.diameter_iterations.unwrap(),
-                iterations: computer.forward_iter.unwrap(),
-            }
-        })
+        output_symm::All {
+            eccentricities: computer.forward_low,
+            diameter: computer.diameter_low,
+            radius: computer.radius_high,
+            diametral_vertex: computer.diameter_vertex,
+            radial_vertex: computer.radius_vertex,
+            radius_iterations: computer.radius_iterations.unwrap(),
+            diameter_iterations: computer.diameter_iterations.unwrap(),
+            iterations: computer.forward_iter.unwrap(),
+        }
     }
 
     fn missing_nodes(missing: &Missing) -> usize {
@@ -278,27 +257,22 @@ impl Level for AllForward {
         use_tot: bool,
         pl: &mut impl ProgressLog,
     ) -> Self::Output {
-        dispatch!(
-            new(&graph, &transpose, radial_vertices, pl),
-            use_tot,
-            pl,
-            |computer| {
-                assert!(computer.forward_iter.is_some());
-                assert!(computer.diameter_iterations.is_some());
-                assert!(computer.radius_iterations.is_some());
+        let mut computer = ExactSumSweep::new(&graph, &transpose, radial_vertices, use_tot, pl);
+        computer.compute(Self::missing_nodes, pl);
+        assert!(computer.forward_iter.is_some());
+        assert!(computer.diameter_iterations.is_some());
+        assert!(computer.radius_iterations.is_some());
 
-                output::AllForward {
-                    forward_eccentricities: computer.forward_low,
-                    diameter: computer.diameter_low,
-                    radius: computer.radius_high,
-                    diametral_vertex: computer.diameter_vertex,
-                    radial_vertex: computer.radius_vertex,
-                    radius_iterations: computer.radius_iterations.unwrap(),
-                    diameter_iterations: computer.diameter_iterations.unwrap(),
-                    forward_iterations: computer.forward_iter.unwrap(),
-                }
-            }
-        )
+        output::AllForward {
+            forward_eccentricities: computer.forward_low,
+            diameter: computer.diameter_low,
+            radius: computer.radius_high,
+            diametral_vertex: computer.diameter_vertex,
+            radial_vertex: computer.radius_vertex,
+            radius_iterations: computer.radius_iterations.unwrap(),
+            diameter_iterations: computer.diameter_iterations.unwrap(),
+            forward_iterations: computer.forward_iter.unwrap(),
+        }
     }
 
     #[inline(always)]
@@ -330,12 +304,9 @@ impl Level for RadiusDiameter {
         use_tot: bool,
         pl: &mut impl ProgressLog,
     ) -> Self::Output {
-        dispatch!(
-            new(&graph, &transpose, radial_vertices, pl),
-            use_tot,
-            pl,
-            |computer| computer.radius_diameter_output()
-        )
+        let mut computer = ExactSumSweep::new(&graph, &transpose, radial_vertices, use_tot, pl);
+        computer.compute(Self::missing_nodes, pl);
+        computer.radius_diameter_output()
     }
 
     fn run_symm(
@@ -343,8 +314,9 @@ impl Level for RadiusDiameter {
         use_tot: bool,
         pl: &mut impl ProgressLog,
     ) -> Self::OutputSymm {
-        dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| computer
-            .radius_diameter_output())
+        let mut computer = ExactSumSweep::new_symm(&graph, use_tot, pl);
+        computer.compute(Self::missing_nodes, pl);
+        computer.radius_diameter_output()
     }
 
     fn missing_nodes(missing: &Missing) -> usize {
@@ -367,12 +339,9 @@ impl Level for Diameter {
         use_tot: bool,
         pl: &mut impl ProgressLog,
     ) -> Self::Output {
-        dispatch!(
-            new(&graph, &transpose, radial_vertices, pl),
-            use_tot,
-            pl,
-            |computer| computer.diameter_output()
-        )
+        let mut computer = ExactSumSweep::new(&graph, &transpose, radial_vertices, use_tot, pl);
+        computer.compute(Self::missing_nodes, pl);
+        computer.diameter_output()
     }
 
     fn run_symm(
@@ -380,8 +349,9 @@ impl Level for Diameter {
         use_tot: bool,
         pl: &mut impl ProgressLog,
     ) -> Self::OutputSymm {
-        dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| computer
-            .diameter_output())
+        let mut computer = ExactSumSweep::new_symm(&graph, use_tot, pl);
+        computer.compute(Self::missing_nodes, pl);
+        computer.diameter_output()
     }
 
     fn missing_nodes(missing: &Missing) -> usize {
@@ -404,12 +374,9 @@ impl Level for Radius {
         use_tot: bool,
         pl: &mut impl ProgressLog,
     ) -> Self::Output {
-        dispatch!(
-            new(&graph, &transpose, radial_vertices, pl),
-            use_tot,
-            pl,
-            |computer| computer.radius_output()
-        )
+        let mut computer = ExactSumSweep::new(&graph, &transpose, radial_vertices, use_tot, pl);
+        computer.compute(Self::missing_nodes, pl);
+        computer.radius_output()
     }
 
     fn run_symm(
@@ -417,8 +384,9 @@ impl Level for Radius {
         use_tot: bool,
         pl: &mut impl ProgressLog,
     ) -> Self::OutputSymm {
-        dispatch!(new_symm(&graph, pl), use_tot, pl, |computer| computer
-            .radius_output())
+        let mut computer = ExactSumSweep::new_symm(&graph, use_tot, pl);
+        computer.compute(Self::missing_nodes, pl);
+        computer.radius_output()
     }
 
     fn missing_nodes(missing: &Missing) -> usize {

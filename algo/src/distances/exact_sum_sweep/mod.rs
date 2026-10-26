@@ -248,8 +248,6 @@ struct ExactSumSweep<
     G2: RandomAccessGraph + Sync,
     V1: Parallel<EventNoPred> + Sync,
     V2: Parallel<EventNoPred> + Sync,
-    OL: Level,
-    const USE_TOT: bool,
 > {
     pub graph: &'a G1,
     pub transpose: &'a G2,
@@ -297,17 +295,18 @@ struct ExactSumSweep<
     pub backward_tot: Box<[usize]>,
     pub compute_radial_vertices: bool,
     pub symmetric: bool,
+    /// Whether to keep total-distance accumulators for tie-breaking.
+    pub use_tot: bool,
     pub visit: V1,
     pub transposed_visit: V2,
-    _marker: std::marker::PhantomData<OL>,
 }
 
-impl<'a, G: RandomAccessGraph + Sync, OL: Level, const USE_TOT: bool>
-    ExactSumSweep<'a, G, G, ParFairNoPred<&'a G>, ParFairNoPred<&'a G>, OL, USE_TOT>
+impl<'a, G: RandomAccessGraph + Sync>
+    ExactSumSweep<'a, G, G, ParFairNoPred<&'a G>, ParFairNoPred<&'a G>>
 {
     /// Builds a new instance to compute the *ExactSumSweep* algorithm on
     /// symmetric (i.e., undirected) graphs.
-    pub(super) fn new_symm(graph: &'a G, pl: &mut impl ProgressLog) -> Self {
+    pub(super) fn new_symm(graph: &'a G, use_tot: bool, pl: &mut impl ProgressLog) -> Self {
         assert!(graph.num_nodes() > 0, "The graph must be nonempty");
         // TODO debug_assert!(check_symmetric(graph), "graph should be symmetric");
         let scc = sccs::symm_par(graph, &mut pl.concurrent());
@@ -323,13 +322,14 @@ impl<'a, G: RandomAccessGraph + Sync, OL: Level, const USE_TOT: bool>
             SccGraph::default(),
             visit,
             transposed_visit,
+            use_tot,
             pl,
         )
     }
 }
 
-impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level, const USE_TOT: bool>
-    ExactSumSweep<'a, G1, G2, ParFairNoPred<&'a G1>, ParFairNoPred<&'a G2>, OL, USE_TOT>
+impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync>
+    ExactSumSweep<'a, G1, G2, ParFairNoPred<&'a G1>, ParFairNoPred<&'a G2>>
 {
     /// Builds a new instance to compute the *ExactSumSweep* algorithm on
     /// directed graphs.
@@ -337,15 +337,17 @@ impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level, 
     /// # Arguments
     /// * `graph` - the directed graph.
     /// * `transpose` - the transpose of `graph`.
-    /// * `output` - the desired output of the algorithm.
     /// * `radial_vertices` - an [`AtomicBitVec`] where `v[i]` is true if node
     ///   `i` is to be considered radial vertex. If [`None`] the algorithm will
     ///   use the largest connected component.
+    /// * `use_tot` - whether to keep total-distance accumulators for
+    ///   tie-breaking.
     /// * `pl` - a progress logger.
     pub(super) fn new(
         graph: &'a G1,
         transpose: &'a G2,
         radial_vertices: Option<AtomicBitVec>,
+        use_tot: bool,
         pl: &mut impl ProgressLog,
     ) -> Self {
         assert!(graph.num_nodes() > 0, "The graph must be nonempty");
@@ -369,6 +371,7 @@ impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level, 
             scc_graph,
             visit,
             transposed_visit,
+            use_tot,
             pl,
         )
     }
@@ -380,9 +383,7 @@ impl<
     G2: RandomAccessGraph + Sync,
     V1: Parallel<EventNoPred> + Sync,
     V2: Parallel<EventNoPred> + Sync,
-    OL: Level,
-    const USE_TOT: bool,
-> ExactSumSweep<'a, G1, G2, V1, V2, OL, USE_TOT>
+> ExactSumSweep<'a, G1, G2, V1, V2>
 {
     #[allow(clippy::too_many_arguments)]
     fn _new(
@@ -394,6 +395,7 @@ impl<
         scc_graph: SccGraph<G1, G2>,
         visit: V1,
         transposed_visit: V2,
+        use_tot: bool,
         pl: &mut impl ProgressLog,
     ) -> Self {
         let num_nodes = graph.num_nodes();
@@ -405,7 +407,7 @@ impl<
             humanize(
                 ((num_nodes
                     * std::mem::size_of::<usize>()
-                    * (2 + (USE_TOT as usize))
+                    * (2 + (use_tot as usize))
                     * (1 + (!symmetric as usize)))
                     + (num_nodes / 8) * compute_radial_vertices as usize) as f64
             )
@@ -428,12 +430,12 @@ impl<
             graph,
             transpose,
             num_nodes,
-            forward_tot: if USE_TOT {
+            forward_tot: if use_tot {
                 vec![0; num_nodes].into()
             } else {
                 Box::default()
             },
-            backward_tot: if USE_TOT && !symmetric {
+            backward_tot: if use_tot && !symmetric {
                 vec![0; num_nodes].into()
             } else {
                 Box::default()
@@ -470,9 +472,9 @@ impl<
             diameter_vertex: 0,
             compute_radial_vertices,
             symmetric,
+            use_tot,
             visit,
             transposed_visit,
-            _marker: std::marker::PhantomData,
         }
     }
 }
@@ -482,9 +484,7 @@ impl<
     G2: RandomAccessGraph + Sync,
     V1: Parallel<EventNoPred> + Sync,
     V2: Parallel<EventNoPred> + Sync,
-    OL: Level,
-    const USE_TOT: bool,
-> ExactSumSweep<'_, G1, G2, V1, V2, OL, USE_TOT>
+> ExactSumSweep<'_, G1, G2, V1, V2>
 {
     #[inline(always)]
     fn incomplete_forward(&self, index: usize) -> bool {
@@ -536,16 +536,17 @@ impl<
     /// Returns the node maximizing `key` among those for which `filter` is
     /// true, or [`None`] if there is no such node.
     ///
-    /// If `USE_TOT` is true, ties are broken by maximizing `tot`, or, if
+    /// If `use_tot` is true, ties are broken by maximizing `tot`, or, if
     /// `tot_first` is true, `tot` is maximized first, and ties are broken by
     /// maximizing `key`.
     fn argmax_with_tot(
+        &self,
         key: &[usize],
         tot: &[usize],
         tot_first: bool,
         filter: impl Fn(usize) -> bool,
     ) -> Option<usize> {
-        if !USE_TOT {
+        if !self.use_tot {
             math::argmax_filtered(key, std::iter::repeat(0usize), |i, _| filter(i))
         } else if tot_first {
             math::argmax_filtered(tot, key, |i, _| filter(i))
@@ -557,13 +558,14 @@ impl<
     /// Returns the node minimizing `key` among those for which `filter` is
     /// true, or [`None`] if there is no such node.
     ///
-    /// If `USE_TOT` is true, ties are broken by minimizing `tot`.
+    /// If `use_tot` is true, ties are broken by minimizing `tot`.
     fn argmin_with_tot(
+        &self,
         key: &[usize],
         tot: &[usize],
         filter: impl Fn(usize) -> bool,
     ) -> Option<usize> {
-        if USE_TOT {
+        if self.use_tot {
             math::argmin_filtered(key, tot, |i, _| filter(i))
         } else {
             math::argmin_filtered(key, std::iter::repeat(0usize), |i, _| filter(i))
@@ -598,7 +600,7 @@ impl<
 
         for i in 2..iterations {
             if i % 2 == 0 {
-                let v = Self::argmax_with_tot(self.bw_low(), self.bw_tot(), true, |i| {
+                let v = self.argmax_with_tot(self.bw_low(), self.bw_tot(), true, |i| {
                     self.incomplete_backward(i)
                 });
                 self.step_sum_sweep(v, false, pl, |node| {
@@ -608,7 +610,7 @@ impl<
                     )
                 });
             } else {
-                let v = Self::argmax_with_tot(&self.forward_low, &self.forward_tot, true, |i| {
+                let v = self.argmax_with_tot(&self.forward_low, &self.forward_tot, true, |i| {
                     self.incomplete_forward(i)
                 });
                 self.step_sum_sweep(v, true, pl, |node| {
@@ -624,8 +626,14 @@ impl<
     /// Computes diameter, radius, and/or all eccentricities.
     ///
     /// # Arguments
+    /// * `count_missing` - the [`Level::missing_nodes`] of the desired
+    ///   level, which decides when the computation is complete.
     /// * `pl` - A progress logger.
-    pub(super) fn compute(&mut self, pl: &mut impl ProgressLog) {
+    pub(super) fn compute(
+        &mut self,
+        count_missing: fn(&Missing) -> usize,
+        pl: &mut impl ProgressLog,
+    ) {
         if self.num_nodes == 0 {
             return;
         }
@@ -649,7 +657,7 @@ impl<
         self.sum_sweep_heuristic(max_outdegree_vertex, 6, &mut cpl);
 
         let mut points = [self.graph.num_nodes() as f64; 6];
-        let mut missing_nodes = self.find_missing_nodes(&mut cpl);
+        let mut missing_nodes = self.find_missing_nodes(count_missing, &mut cpl);
         let mut old_missing_nodes;
 
         self.log_status(pl, missing_nodes);
@@ -661,7 +669,7 @@ impl<
                 0 => self.all_cc_upper_bound(&mut cpl),
                 1 => {
                     let v =
-                        Self::argmax_with_tot(&self.forward_high, &self.forward_tot, false, |i| {
+                        self.argmax_with_tot(&self.forward_high, &self.forward_tot, false, |i| {
                             self.incomplete_forward(i)
                         });
                     self.step_sum_sweep(v, true, &mut cpl, |node| {
@@ -672,7 +680,7 @@ impl<
                     })
                 }
                 2 => {
-                    let v = Self::argmin_with_tot(&self.forward_low, &self.forward_tot, |i| {
+                    let v = self.argmin_with_tot(&self.forward_low, &self.forward_tot, |i| {
                         self.radial_vertices[i]
                     });
                     self.step_sum_sweep(v, true, &mut cpl, |node| {
@@ -683,7 +691,7 @@ impl<
                     })
                 }
                 3 => {
-                    let v = Self::argmax_with_tot(self.bw_high(), self.bw_tot(), false, |i| {
+                    let v = self.argmax_with_tot(self.bw_high(), self.bw_tot(), false, |i| {
                         self.incomplete_backward(i)
                     });
                     self.step_sum_sweep(v, false, &mut cpl, |node| {
@@ -694,7 +702,7 @@ impl<
                     })
                 }
                 4 => {
-                    let v = Self::argmax_with_tot(self.bw_high(), self.bw_tot(), true, |i| {
+                    let v = self.argmax_with_tot(self.bw_high(), self.bw_tot(), true, |i| {
                         self.incomplete_backward(i)
                     });
                     self.step_sum_sweep(v, false, &mut cpl, |node| {
@@ -706,7 +714,7 @@ impl<
                 }
                 5 => {
                     let v =
-                        Self::argmax_with_tot(&self.forward_high, &self.forward_tot, true, |i| {
+                        self.argmax_with_tot(&self.forward_high, &self.forward_tot, true, |i| {
                             self.incomplete_forward(i)
                         });
                     self.step_sum_sweep(v, true, &mut cpl, |node| {
@@ -726,7 +734,7 @@ impl<
             let had_radius = self.radius_iterations.is_some();
             let had_diameter = self.diameter_iterations.is_some();
 
-            missing_nodes = self.find_missing_nodes(&mut cpl);
+            missing_nodes = self.find_missing_nodes(count_missing, &mut cpl);
             points[step_to_perform] = (old_missing_nodes - missing_nodes) as f64;
 
             // This is to make rust-analyzer happy as it cannot recognize mut reference
@@ -819,7 +827,7 @@ impl<
                 let best = score(p);
 
                 if current < best
-                    || (USE_TOT
+                    || (self.use_tot
                         && current == best
                         && self.forward_tot[v] + bw_tot[v] <= self.forward_tot[p] + bw_tot[p])
                 {
@@ -940,7 +948,7 @@ impl<
                     let node_forward_low = unsafe { forward_low[node].get() };
                     let node_forward_high = self.forward_high[node];
 
-                    if USE_TOT {
+                    if self.use_tot {
                         unsafe { forward_tot[node].set(forward_tot[node].get() + distance) };
                     }
 
@@ -1025,7 +1033,7 @@ impl<
                     let node_backward_high = bw_high[node];
                     let node_backward_low = unsafe { backward_low[node].get() };
 
-                    if USE_TOT {
+                    if self.use_tot {
                         unsafe { backward_tot[node].set(backward_tot[node].get() + distance) };
                     }
 
@@ -1278,7 +1286,11 @@ impl<
     ///
     /// # Arguments
     /// * `pl` - A progress logger.
-    fn find_missing_nodes(&mut self, pl: &mut impl ProgressLog) -> usize {
+    fn find_missing_nodes(
+        &mut self,
+        count_missing: fn(&Missing) -> usize,
+        pl: &mut impl ProgressLog,
+    ) -> usize {
         pl.item_name("node");
         pl.expected_updates(self.num_nodes);
         pl.start("Computing missing bounds...");
@@ -1339,6 +1351,6 @@ impl<
 
         pl.done();
 
-        OL::missing_nodes(&missing)
+        count_missing(&missing)
     }
 }

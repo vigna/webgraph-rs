@@ -1,5 +1,15 @@
 # Change Log
 
+## [0.8.0] - unreleased
+
+### Changed
+
+- ExactSumSweep is now compiled once for each pair of graph types, rather
+  than once for each level and value of `use_tot`. This reduces
+  significantly code size, compile time, and compile memory of code using
+  several levels: the `webgraph-cli` library, for example, is about a third
+  of its previous size.
+
 ## [0.7.0] - 2026-10-12
 
 ### Changed
