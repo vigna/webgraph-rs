@@ -214,7 +214,7 @@ where
 macro_rules! impl_batch_iter {
     ($ty:ident<$($code:ident),*>) => {
         // SAFETY: batches are decoded in non-decreasing (src, dst) order.
-        unsafe impl<E: Endianness, D: BitDeserializer<E, BitReader<E>>, $(const $code: usize),*>
+        unsafe impl<E: Endianness, D: BitDeserializer<E, BitReader<E>, Error: core::fmt::Display>, $(const $code: usize),*>
             $crate::traits::SortedIterator for $ty<E, D, $($code),*>
         where
             BitReader<E>: BitRead<E> + CodesRead<E>,
@@ -222,7 +222,7 @@ macro_rules! impl_batch_iter {
         {
         }
 
-        impl<E: Endianness, D: BitDeserializer<E, BitReader<E>>, $(const $code: usize),*>
+        impl<E: Endianness, D: BitDeserializer<E, BitReader<E>, Error: core::fmt::Display>, $(const $code: usize),*>
             ExactSizeIterator for $ty<E, D, $($code),*>
         where
             BitReader<E>: BitRead<E> + CodesRead<E>,
@@ -233,7 +233,7 @@ macro_rules! impl_batch_iter {
             }
         }
 
-        impl<E: Endianness, D: BitDeserializer<E, BitReader<E>>, $(const $code: usize),*>
+        impl<E: Endianness, D: BitDeserializer<E, BitReader<E>, Error: core::fmt::Display>, $(const $code: usize),*>
             core::iter::FusedIterator for $ty<E, D, $($code),*>
         where
             BitReader<E>: BitRead<E> + CodesRead<E>,

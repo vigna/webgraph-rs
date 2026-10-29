@@ -235,10 +235,10 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>, P: MergePolicy<T>, A: Send + Sy
             {
                 // The heap is not empty, as we just peeked
                 let (_, other) = take_head(self.heap.peek_mut().unwrap());
-                self.policy.merge(&mut state, other);
+                self.policy.merge(pair, &mut state, other);
             }
         }
-        Some((pair, self.policy.finish(state)))
+        Some((pair, self.policy.finish(pair, state)))
     }
 
     fn count(self) -> usize {

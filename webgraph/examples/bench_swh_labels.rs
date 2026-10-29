@@ -46,11 +46,9 @@ impl SwhDeserializer {
 
 impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> BitDeserializer<BE, BR> for SwhDeserializer {
     type DeserType = Vec<u64>;
+    type Error = <BR as BitRead<BE>>::Error;
 
-    fn deserialize(
-        &self,
-        bitstream: &mut BR,
-    ) -> std::result::Result<Self::DeserType, <BR as BitRead<BE>>::Error> {
+    fn deserialize(&self, bitstream: &mut BR) -> std::result::Result<Self::DeserType, Self::Error> {
         let num_labels = bitstream.read_gamma().unwrap() as usize;
         let mut labels = Vec::with_capacity(num_labels);
         for _ in 0..num_labels {

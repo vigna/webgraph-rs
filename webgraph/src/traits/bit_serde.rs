@@ -19,17 +19,31 @@
 //! [`BitStreamLabelingSeq`]: crate::labels::BitStreamLabelingSeq
 
 use crate::utils::{BitReader, BitWriter};
+use core::fmt::Display;
 use dsi_bitstream::prelude::*;
 use num_primitive::PrimitiveInteger;
 use std::marker::PhantomData;
 
 /// A trait for types implementing logic for serializing another type to a
 /// bitstream with code-writing capabilities.
+///
+/// The [error type] must be convertible from the error type of the bitstream.
+/// Usually, it is either the error type of the bitstream or
+/// [`anyhow::Error`]: the latter makes it possible to report errors that are
+/// not errors of the bitstream (e.g., invalid values), even when the bitstream
+/// cannot fail. Code using serializers might require additional bounds on the
+/// error type (see, e.g., [`LabelSerDeser`]).
+///
+/// [error type]: Self::Error
 pub trait BitSerializer<E: Endianness, BW: BitWrite<E>> {
     /// The type that implementations of this trait can serialize.
     type SerType;
+    /// The type of the errors returned by [`serialize`].
+    ///
+    /// [`serialize`]: Self::serialize
+    type Error: From<BW::Error>;
     /// Serializes the given value to a [`BitWrite`].
-    fn serialize(&self, value: &Self::SerType, bitstream: &mut BW) -> Result<usize, BW::Error>;
+    fn serialize(&self, value: &Self::SerType, bitstream: &mut BW) -> Result<usize, Self::Error>;
     /// Returns a stable, human-readable name for this codec.
     ///
     /// The name is written to the `.properties` file during compression
@@ -44,11 +58,19 @@ pub trait BitSerializer<E: Endianness, BW: BitWrite<E>> {
 
 /// A trait for types implementing logic for deserializing another type from a
 /// bitstream with code-reading capabilities.
+///
+/// See [`BitSerializer`] for the requirements on the [error type].
+///
+/// [error type]: Self::Error
 pub trait BitDeserializer<E: Endianness, BR: BitRead<E>> {
     /// The type that implementations of this trait can deserialize.
     type DeserType;
+    /// The type of the errors returned by [`deserialize`].
+    ///
+    /// [`deserialize`]: Self::deserialize
+    type Error: From<BR::Error>;
     /// Deserializes the given value from a [`BitRead`].
-    fn deserialize(&self, bitstream: &mut BR) -> Result<Self::DeserType, BR::Error>;
+    fn deserialize(&self, bitstream: &mut BR) -> Result<Self::DeserType, Self::Error>;
     /// Returns a stable, human-readable name for this codec.
     ///
     /// See [`BitSerializer::name`] for the naming convention.
@@ -68,8 +90,9 @@ impl<E: Endianness, BW: BitWrite<E>, S: BitSerializer<E, BW>, D> BitSerializer<E
     for BitSerDeser<S, D>
 {
     type SerType = S::SerType;
+    type Error = S::Error;
     #[inline(always)]
-    fn serialize(&self, value: &Self::SerType, bitstream: &mut BW) -> Result<usize, BW::Error> {
+    fn serialize(&self, value: &Self::SerType, bitstream: &mut BW) -> Result<usize, Self::Error> {
         self.0.serialize(value, bitstream)
     }
     fn name(&self) -> String {
@@ -81,8 +104,9 @@ impl<E: Endianness, BR: BitRead<E>, S, D: BitDeserializer<E, BR>> BitDeserialize
     for BitSerDeser<S, D>
 {
     type DeserType = D::DeserType;
+    type Error = D::Error;
     #[inline(always)]
-    fn deserialize(&self, bitstream: &mut BR) -> Result<Self::DeserType, BR::Error> {
+    fn deserialize(&self, bitstream: &mut BR) -> Result<Self::DeserType, Self::Error> {
         self.1.deserialize(bitstream)
     }
     fn name(&self) -> String {
@@ -102,15 +126,20 @@ impl<E: Endianness, BR: BitRead<E>, S, D: BitDeserializer<E, BR>> BitDeserialize
 /// vector (see [`VecOf`]). It need not even be [`Clone`], but then the
 /// sorted graph can only be consumed by value (see [merging labels]).
 ///
+/// Errors of the serializer are returned as an [`anyhow::Error`], so they
+/// must be convertible into one; errors of the deserializer happen while
+/// iterating, so they cause a panic, and must implement [`Display`].
+///
 /// [merging labels]: crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf::merge_labels
 /// [`ParSortedLabeledGraph`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraph
 /// [`transpose_labeled_par`]: crate::transform::transpose_labeled_par
 pub trait LabelSerDeser:
-    BitSerializer<NE, BitWriter<NE>, SerType: Send + Sync + 'static>
+    BitSerializer<NE, BitWriter<NE>, SerType: Send + Sync + 'static, Error: Into<anyhow::Error>>
     + BitDeserializer<
         NE,
         BitReader<NE>,
         DeserType = <Self as BitSerializer<NE, BitWriter<NE>>>::SerType,
+        Error: Display,
     > + Send
     + Sync
     + Clone
@@ -118,11 +147,12 @@ pub trait LabelSerDeser:
 }
 
 impl<T> LabelSerDeser for T where
-    T: BitSerializer<NE, BitWriter<NE>, SerType: Send + Sync + 'static>
+    T: BitSerializer<NE, BitWriter<NE>, SerType: Send + Sync + 'static, Error: Into<anyhow::Error>>
         + BitDeserializer<
             NE,
             BitReader<NE>,
             DeserType = <T as BitSerializer<NE, BitWriter<NE>>>::SerType,
+            Error: Display,
         > + Send
         + Sync
         + Clone
@@ -132,8 +162,9 @@ impl<T> LabelSerDeser for T where
 /// No-op implementation of [`BitSerializer`] for `()`.
 impl<E: Endianness, BW: BitWrite<E>> BitSerializer<E, BW> for () {
     type SerType = ();
+    type Error = BW::Error;
     #[inline(always)]
-    fn serialize(&self, _value: &Self::SerType, _bitstream: &mut BW) -> Result<usize, BW::Error> {
+    fn serialize(&self, _value: &Self::SerType, _bitstream: &mut BW) -> Result<usize, Self::Error> {
         Ok(0)
     }
     fn name(&self) -> String {
@@ -144,8 +175,9 @@ impl<E: Endianness, BW: BitWrite<E>> BitSerializer<E, BW> for () {
 /// No-op implementation of [`BitDeserializer`] for `()`.
 impl<E: Endianness, BR: BitRead<E>> BitDeserializer<E, BR> for () {
     type DeserType = ();
+    type Error = BR::Error;
     #[inline(always)]
-    fn deserialize(&self, _bitstream: &mut BR) -> Result<Self::DeserType, BR::Error> {
+    fn deserialize(&self, _bitstream: &mut BR) -> Result<Self::DeserType, Self::Error> {
         Ok(())
     }
     fn name(&self) -> String {
@@ -249,8 +281,9 @@ impl<T: PrimitiveInteger> FixedWidth<T> {
 
 impl<E: Endianness, BW: BitWrite<E>, T: PrimitiveInteger> BitSerializer<E, BW> for FixedWidth<T> {
     type SerType = T;
+    type Error = BW::Error;
     #[inline(always)]
-    fn serialize(&self, value: &T, bitstream: &mut BW) -> Result<usize, BW::Error> {
+    fn serialize(&self, value: &T, bitstream: &mut BW) -> Result<usize, Self::Error> {
         bitstream.write_bits(value.as_to::<u64>(), self.bits)
     }
     fn name(&self) -> String {
@@ -260,8 +293,9 @@ impl<E: Endianness, BW: BitWrite<E>, T: PrimitiveInteger> BitSerializer<E, BW> f
 
 impl<E: Endianness, BR: BitRead<E>, T: PrimitiveInteger> BitDeserializer<E, BR> for FixedWidth<T> {
     type DeserType = T;
+    type Error = BR::Error;
     #[inline(always)]
-    fn deserialize(&self, bitstream: &mut BR) -> Result<T, BR::Error> {
+    fn deserialize(&self, bitstream: &mut BR) -> Result<T, Self::Error> {
         let raw = bitstream.read_bits(self.bits)?;
         if T::MIN < T::default() && self.bits > 0 && self.bits < 64 {
             // Sign-extend from self.bits to 64 bits
@@ -310,9 +344,10 @@ impl<E: Endianness, BW: BitWrite<E> + GammaWrite<E>, S: BitSerializer<E, BW>> Bi
     for VecOf<S>
 {
     type SerType = Vec<S::SerType>;
+    type Error = S::Error;
 
     #[inline]
-    fn serialize(&self, value: &Self::SerType, bitstream: &mut BW) -> Result<usize, BW::Error> {
+    fn serialize(&self, value: &Self::SerType, bitstream: &mut BW) -> Result<usize, Self::Error> {
         let mut bits = bitstream.write_gamma(value.len() as u64)?;
         for v in value {
             bits += self.0.serialize(v, bitstream)?;
@@ -329,9 +364,10 @@ impl<E: Endianness, BR: BitRead<E> + GammaRead<E>, D: BitDeserializer<E, BR>> Bi
     for VecOf<D>
 {
     type DeserType = Vec<D::DeserType>;
+    type Error = D::Error;
 
     #[inline]
-    fn deserialize(&self, bitstream: &mut BR) -> Result<Self::DeserType, BR::Error> {
+    fn deserialize(&self, bitstream: &mut BR) -> Result<Self::DeserType, Self::Error> {
         let len = bitstream.read_gamma()? as usize;
         let mut value = Vec::with_capacity(len);
         for _ in 0..len {

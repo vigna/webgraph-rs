@@ -157,7 +157,11 @@ where
     E: Endianness,
     S: Clone,
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: BitWrite<E>,
-    S: BitSerializer<E, BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>>,
+    S: BitSerializer<
+            E,
+            BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>,
+            Error: Into<anyhow::Error>,
+        >,
     BufBitReader<E, WordAdapter<u32, BufReader<File>>>: BitRead<E>,
 {
     type StoreLabels = BitStreamStoreLabels<E, S, File>;
@@ -210,6 +214,7 @@ where
     S: BitSerializer<
             E,
             BufBitWriter<E, WordAdapter<usize, BufWriter<zstd::Encoder<'static, BufWriter<File>>>>>,
+            Error: Into<anyhow::Error>,
         >,
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: BitWrite<E>,
     BufBitReader<E, WordAdapter<u32, zstd::Decoder<'static, BufReader<File>>>>: BitRead<E>,
@@ -327,7 +332,11 @@ impl<E: Endianness, S, W: std::io::Write> BitStreamStoreLabels<E, S, W> {
 impl<E: Endianness, S, W: std::io::Write> StoreLabels for BitStreamStoreLabels<E, S, W>
 where
     BufBitWriter<E, WordAdapter<usize, BufWriter<W>>>: BitWrite<E>,
-    S: BitSerializer<E, BufBitWriter<E, WordAdapter<usize, BufWriter<W>>>>,
+    S: BitSerializer<
+            E,
+            BufBitWriter<E, WordAdapter<usize, BufWriter<W>>>,
+            Error: Into<anyhow::Error>,
+        >,
 {
     type Label = S::SerType;
 
@@ -346,7 +355,10 @@ where
     }
 
     fn push_label(&mut self, label: &Self::Label) -> Result<()> {
-        let bits = self.serializer.serialize(label, &mut self.bitstream)?;
+        let bits = self
+            .serializer
+            .serialize(label, &mut self.bitstream)
+            .map_err(Into::<anyhow::Error>::into)?;
         self.bits_for_curr_node += bits as u64;
         self.total_label_bits += bits as u64;
         Ok(())

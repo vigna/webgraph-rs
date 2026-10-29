@@ -31,11 +31,12 @@ fn test_transpose_labeled_seq() -> anyhow::Result<()> {
         BitReader<E>: GammaRead<E>,
     {
         type DeserType = Payload;
+        type Error = <BitReader<E> as BitRead<E>>::Error;
 
         fn deserialize(
             &self,
             bitstream: &mut BitReader<E>,
-        ) -> Result<Self::DeserType, <BitReader<E> as BitRead<E>>::Error> {
+        ) -> Result<Self::DeserType, Self::Error> {
             let mantissa = bitstream.read_gamma()?;
             let exponent = bitstream.read_gamma()?;
             let result = f64::from_bits((exponent << 53) | mantissa);
@@ -55,12 +56,13 @@ fn test_transpose_labeled_seq() -> anyhow::Result<()> {
         BitWriter<E>: GammaWrite<E>,
     {
         type SerType = Payload;
+        type Error = <BitWriter<E> as BitWrite<E>>::Error;
 
         fn serialize(
             &self,
             value: &Self::SerType,
             bitstream: &mut BitWriter<E>,
-        ) -> Result<usize, <BitWriter<E> as BitWrite<E>>::Error> {
+        ) -> Result<usize, Self::Error> {
             let value = value.0.to_bits();
             let mantissa = value & ((1 << 53) - 1);
             let exponent = value >> 53;

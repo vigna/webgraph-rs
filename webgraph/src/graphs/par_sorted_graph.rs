@@ -1119,11 +1119,11 @@ impl<PL, P> ParSortedLabeledGraphConf<PL, P> {
     ///     type State = u64;
     ///     type Output = u64;
     ///
-    ///     fn merge(&self, state: &mut u64, other: u64) {
+    ///     fn merge(&self, _arc: (usize, usize), state: &mut u64, other: u64) {
     ///         *state += other;
     ///     }
     ///
-    ///     fn finish(&self, state: u64) -> u64 {
+    ///     fn finish(&self, _arc: (usize, usize), state: u64) -> u64 {
     ///         state
     ///     }
     /// }

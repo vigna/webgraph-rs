@@ -189,8 +189,9 @@ struct OccurrencesSD;
 
 impl<E: Endianness, BW: BitWrite<E>> BitSerializer<E, BW> for OccurrencesSD {
     type SerType = Occurrences;
+    type Error = BW::Error;
 
-    fn serialize(&self, value: &Occurrences, bitstream: &mut BW) -> Result<usize, BW::Error> {
+    fn serialize(&self, value: &Occurrences, bitstream: &mut BW) -> Result<usize, Self::Error> {
         bitstream.write_bits(value.0, 64)
     }
 
@@ -201,8 +202,9 @@ impl<E: Endianness, BW: BitWrite<E>> BitSerializer<E, BW> for OccurrencesSD {
 
 impl<E: Endianness, BR: BitRead<E>> BitDeserializer<E, BR> for OccurrencesSD {
     type DeserType = Occurrences;
+    type Error = BR::Error;
 
-    fn deserialize(&self, bitstream: &mut BR) -> Result<Occurrences, BR::Error> {
+    fn deserialize(&self, bitstream: &mut BR) -> Result<Occurrences, Self::Error> {
         Ok(Occurrences(bitstream.read_bits(64)?))
     }
 
@@ -220,17 +222,17 @@ impl MergeLabels for CountOccurrences {
     type State = Occurrences;
     type Output = u64;
 
-    fn merge(&self, state: &mut Occurrences, other: Occurrences) {
+    fn merge(&self, _arc: (usize, usize), state: &mut Occurrences, other: Occurrences) {
         state.0 += other.0;
     }
 
-    fn finish(&self, state: Occurrences) -> u64 {
+    fn finish(&self, _arc: (usize, usize), state: Occurrences) -> u64 {
         state.0
     }
 }
 
 impl AddLabel<u32> for CountOccurrences {
-    fn add(&self, state: &mut Occurrences, _label: u32) {
+    fn add(&self, _arc: (usize, usize), state: &mut Occurrences, _label: u32) {
         state.0 += 1;
     }
 }
@@ -257,18 +259,18 @@ impl MergeLabels for Names {
         state.clear();
     }
 
-    fn merge(&self, state: &mut Vec<u32>, mut other: Vec<u32>) {
+    fn merge(&self, _arc: (usize, usize), state: &mut Vec<u32>, mut other: Vec<u32>) {
         state.append(&mut other);
     }
 
-    fn finish(&self, mut state: Vec<u32>) -> Box<[u32]> {
+    fn finish(&self, _arc: (usize, usize), mut state: Vec<u32>) -> Box<[u32]> {
         state.sort_unstable();
         state.into_boxed_slice()
     }
 }
 
 impl AddLabel<u32> for Names {
-    fn add(&self, state: &mut Vec<u32>, label: u32) {
+    fn add(&self, _arc: (usize, usize), state: &mut Vec<u32>, label: u32) {
         state.push(label);
     }
 }
@@ -287,6 +289,59 @@ fn test_collect_names() -> Result<()> {
         .collect();
     // Twice, as iterating clones the iterators and their states
     assert_eq!(arcs(&graph), expected);
+    assert_eq!(arcs(&graph), expected);
+    Ok(())
+}
+
+/// Returns `arc` packed into a `u64`.
+fn pack((src, dst): (usize, usize)) -> u64 {
+    ((src as u64) << 32) | dst as u64
+}
+
+/// Collects the (packed) arcs passed to the methods of the merger into a
+/// sorted boxed slice without duplicates, which, for each arc, must contain
+/// just the arc itself.
+#[derive(Debug, Clone, Copy)]
+struct SeenArcs;
+
+impl MergeLabels for SeenArcs {
+    type State = Vec<u64>;
+    type Output = Box<[u64]>;
+
+    fn init(&self, state: &mut Vec<u64>) {
+        state.clear();
+    }
+
+    fn merge(&self, arc: (usize, usize), state: &mut Vec<u64>, mut other: Vec<u64>) {
+        state.append(&mut other);
+        state.push(pack(arc));
+    }
+
+    fn finish(&self, arc: (usize, usize), mut state: Vec<u64>) -> Box<[u64]> {
+        state.push(pack(arc));
+        state.sort_unstable();
+        state.dedup();
+        state.into_boxed_slice()
+    }
+}
+
+impl AddLabel<u32> for SeenArcs {
+    fn add(&self, arc: (usize, usize), state: &mut Vec<u64>, _label: u32) {
+        state.push(pack(arc));
+    }
+}
+
+#[test]
+fn test_merger_sees_arcs() -> Result<()> {
+    let graph = conf(1).merge_labels(SeenArcs).sort_pairs(
+        8,
+        VecOf(FixedWidth::<u64>::new()),
+        pairs(arc_label),
+    )?;
+    let expected: Vec<(_, Box<[u64]>)> = common::TEST_GRAPH_ARCS
+        .into_iter()
+        .map(|arc| (arc, Box::new([pack(arc)]) as Box<[u64]>))
+        .collect();
     assert_eq!(arcs(&graph), expected);
     Ok(())
 }

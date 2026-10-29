@@ -108,6 +108,7 @@
 //! [`store_ef_with_data`]: crate::graphs::bvgraph::store_ef_with_data
 //! [`build_ef_with_data`]: crate::graphs::bvgraph::build_ef_with_data
 
+use core::fmt::Display;
 use std::borrow::BorrowMut;
 use std::iter::FusedIterator;
 use std::path::Path;
@@ -241,20 +242,20 @@ pub struct NodeLabelsSeq<'a, E, BR, D> {
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>>
+impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR, Error: Display>>
     NodeLabelsLender<'succ> for NodeLabelsSeq<'_, E, BR, D>
 {
     type Label = D::DeserType;
     type IntoIterator = LabelsSeq<'succ, E, BR, D>;
 }
 
-impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Lending<'succ>
-    for NodeLabelsSeq<'_, E, BR, D>
+impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR, Error: Display>>
+    Lending<'succ> for NodeLabelsSeq<'_, E, BR, D>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Lender
+impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR, Error: Display>> Lender
     for NodeLabelsSeq<'_, E, BR, D>
 {
     check_covariance!();
@@ -282,8 +283,8 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Lender
     }
 }
 
-unsafe impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> SortedLender
-    for NodeLabelsSeq<'_, E, BR, D>
+unsafe impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR, Error: Display>>
+    SortedLender for NodeLabelsSeq<'_, E, BR, D>
 {
 }
 
@@ -291,7 +292,7 @@ impl<L, E: Endianness, S: CodesReaderFactory<E>, D> SequentialLabeling
     for BitStreamLabelingSeq<E, S, D>
 where
     for<'a> S::CodesReader<'a>: BitRead<E> + BitSeek,
-    for<'a> D: BitDeserializer<E, S::CodesReader<'a>, DeserType = L>,
+    for<'a> D: BitDeserializer<E, S::CodesReader<'a>, DeserType = L, Error: Display>,
 {
     type Label = L;
     type Lender<'node>
@@ -422,21 +423,31 @@ pub struct NodeLabels<'a, 'b, E, BR, D, O: Offsets> {
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets>
-    NodeLabelsLender<'succ> for NodeLabels<'_, '_, E, BR, D, O>
+impl<
+    'succ,
+    E: Endianness,
+    BR: BitRead<E> + BitSeek,
+    D: BitDeserializer<E, BR, Error: Display>,
+    O: Offsets,
+> NodeLabelsLender<'succ> for NodeLabels<'_, '_, E, BR, D, O>
 {
     type Label = D::DeserType;
     type IntoIterator = LabelsSeq<'succ, E, BR, D>;
 }
 
-impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets>
-    Lending<'succ> for NodeLabels<'_, '_, E, BR, D, O>
+impl<
+    'succ,
+    E: Endianness,
+    BR: BitRead<E> + BitSeek,
+    D: BitDeserializer<E, BR, Error: Display>,
+    O: Offsets,
+> Lending<'succ> for NodeLabels<'_, '_, E, BR, D, O>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets> Lender
-    for NodeLabels<'_, '_, E, BR, D, O>
+impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR, Error: Display>, O: Offsets>
+    Lender for NodeLabels<'_, '_, E, BR, D, O>
 {
     check_covariance!();
 
@@ -481,8 +492,12 @@ pub type LabelsSeq<'a, E, BR, D> = LabelsImpl<'a, E, BR, D, &'a mut BR>;
 #[doc(hidden)]
 pub type Labels<'a, E, BR, D> = LabelsImpl<'a, E, BR, D, BR>;
 
-impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, R: BorrowMut<BR>> Iterator
-    for LabelsImpl<'_, E, BR, D, R>
+impl<
+    E: Endianness,
+    BR: BitRead<E> + BitSeek,
+    D: BitDeserializer<E, BR, Error: Display>,
+    R: BorrowMut<BR>,
+> Iterator for LabelsImpl<'_, E, BR, D, R>
 {
     type Item = D::DeserType;
 
@@ -491,25 +506,41 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, R: Borr
         if reader.bit_pos().unwrap() >= self.end_pos {
             None
         } else {
-            Some(self.bit_deser.deserialize(reader).unwrap())
+            Some(
+                self.bit_deser
+                    .deserialize(reader)
+                    .unwrap_or_else(|err| panic!("Could not deserialize label: {err:#}")),
+            )
         }
     }
 }
 
-impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, R: BorrowMut<BR>>
-    FusedIterator for LabelsImpl<'_, E, BR, D, R>
+impl<
+    E: Endianness,
+    BR: BitRead<E> + BitSeek,
+    D: BitDeserializer<E, BR, Error: Display>,
+    R: BorrowMut<BR>,
+> FusedIterator for LabelsImpl<'_, E, BR, D, R>
 {
 }
 
 // SAFETY: nodes are visited in order.
-unsafe impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets>
-    SortedLender for NodeLabels<'_, '_, E, BR, D, O>
+unsafe impl<
+    E: Endianness,
+    BR: BitRead<E> + BitSeek,
+    D: BitDeserializer<E, BR, Error: Display>,
+    O: Offsets,
+> SortedLender for NodeLabels<'_, '_, E, BR, D, O>
 {
 }
 
 // SAFETY: labels within a node are read sequentially from the bitstream.
-unsafe impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, R: BorrowMut<BR>>
-    SortedIterator for LabelsImpl<'_, E, BR, D, R>
+unsafe impl<
+    E: Endianness,
+    BR: BitRead<E> + BitSeek,
+    D: BitDeserializer<E, BR, Error: Display>,
+    R: BorrowMut<BR>,
+> SortedIterator for LabelsImpl<'_, E, BR, D, R>
 {
 }
 
@@ -517,7 +548,7 @@ impl<L, E: Endianness, S: CodesReaderFactory<E>, D, O: Offsets> SequentialLabeli
     for BitStreamLabeling<E, S, D, O>
 where
     for<'a> S::CodesReader<'a>: BitRead<E> + BitSeek,
-    for<'a> D: BitDeserializer<E, S::CodesReader<'a>, DeserType = L>,
+    for<'a> D: BitDeserializer<E, S::CodesReader<'a>, DeserType = L, Error: Display>,
 {
     type Label = L;
     type Lender<'node>
@@ -551,7 +582,7 @@ impl<L, E: Endianness, S: CodesReaderFactory<E>, D, O: Offsets> RandomAccessLabe
     for BitStreamLabeling<E, S, D, O>
 where
     for<'a> S::CodesReader<'a>: BitRead<E> + BitSeek,
-    for<'a> D: BitDeserializer<E, S::CodesReader<'a>, DeserType = L>,
+    for<'a> D: BitDeserializer<E, S::CodesReader<'a>, DeserType = L, Error: Display>,
 {
     type Labels<'succ>
         = Labels<'succ, E, S::CodesReader<'succ>, D>

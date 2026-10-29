@@ -85,13 +85,14 @@ pub trait MergePolicy<S>: sealed::Sealed + Clone + Send + Sync {
     /// The type of the labels of the pairs after merging.
     type Output;
 
-    /// Merges into `state` the state `other` of a repeated pair.
+    /// Merges into `state`, a state of the repeated pair `pair`, another
+    /// state `other` of `pair`.
     #[doc(hidden)]
-    fn merge(&self, state: &mut S, other: S);
+    fn merge(&self, pair: (usize, usize), state: &mut S, other: S);
 
-    /// Turns a fully merged state into the label of the pair.
+    /// Turns a fully merged state of `pair` into the label of `pair`.
     #[doc(hidden)]
-    fn finish(&self, state: S) -> Self::Output;
+    fn finish(&self, pair: (usize, usize), state: S) -> Self::Output;
 }
 
 /// The way a [merge policy] handles repeated pairs labeled by `L` in a
@@ -129,12 +130,12 @@ impl<S> MergePolicy<S> for NoMerge {
     type Output = S;
 
     #[inline(always)]
-    fn merge(&self, _state: &mut S, _other: S) {
+    fn merge(&self, _pair: (usize, usize), _state: &mut S, _other: S) {
         unreachable!("NoMerge does not collapse repeated pairs");
     }
 
     #[inline(always)]
-    fn finish(&self, state: S) -> S {
+    fn finish(&self, _pair: (usize, usize), state: S) -> S {
         state
     }
 }
@@ -143,10 +144,10 @@ impl<S> MergePolicy<S> for Dedup {
     type Output = S;
 
     #[inline(always)]
-    fn merge(&self, _state: &mut S, _other: S) {}
+    fn merge(&self, _pair: (usize, usize), _state: &mut S, _other: S) {}
 
     #[inline(always)]
-    fn finish(&self, state: S) -> S {
+    fn finish(&self, _pair: (usize, usize), state: S) -> S {
         state
     }
 }
@@ -155,13 +156,13 @@ impl<M: MergeLabels + Clone + Send + Sync> MergePolicy<M::State> for WithMerge<M
     type Output = M::Output;
 
     #[inline(always)]
-    fn merge(&self, state: &mut M::State, other: M::State) {
-        self.0.merge(state, other);
+    fn merge(&self, pair: (usize, usize), state: &mut M::State, other: M::State) {
+        self.0.merge(pair, state, other);
     }
 
     #[inline(always)]
-    fn finish(&self, state: M::State) -> M::Output {
-        self.0.finish(state)
+    fn finish(&self, pair: (usize, usize), state: M::State) -> M::Output {
+        self.0.finish(pair, state)
     }
 }
 
@@ -204,8 +205,8 @@ impl<L: Copy, M: AddLabel<L> + Clone + Send + Sync> AddPolicy<L> for WithMerge<M
     #[inline(always)]
     fn state<'a>(&self, buffer: &'a mut M::State, run: &'a [((usize, usize), L)]) -> &'a M::State {
         self.0.init(buffer);
-        for &(_, label) in run {
-            self.0.add(buffer, label);
+        for &(pair, label) in run {
+            self.0.add(pair, buffer, label);
         }
         buffer
     }
@@ -238,11 +239,11 @@ mod test {
     fn test_merge_policies() {
         let policy = WithMerge(CountRepeats);
         let mut state = 2;
-        MergePolicy::<u64>::merge(&policy, &mut state, 3);
-        assert_eq!(policy.finish(state), 5);
+        MergePolicy::<u64>::merge(&policy, (0, 1), &mut state, 3);
+        assert_eq!(policy.finish((0, 1), state), 5);
         let mut state = 'x';
-        Dedup.merge(&mut state, 'y');
-        assert_eq!(Dedup.finish(state), 'x');
-        assert_eq!(NoMerge.finish('z'), 'z');
+        Dedup.merge((0, 1), &mut state, 'y');
+        assert_eq!(Dedup.finish((0, 1), state), 'x');
+        assert_eq!(NoMerge.finish((0, 1), 'z'), 'z');
     }
 }

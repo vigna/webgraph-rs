@@ -13,6 +13,7 @@ use crate::{
 };
 
 use anyhow::{Context, Result};
+use core::fmt::Display;
 use dsi_bitstream::prelude::*;
 
 /// A codec for encoding and decoding batches of triples using grouped gap compression.
@@ -191,8 +192,8 @@ impl<E, SD, const OUTDEGREE_CODE: usize, const SRC_CODE: usize, const DST_CODE: 
     BatchCodec for GroupedGapsCodec<E, SD, OUTDEGREE_CODE, SRC_CODE, DST_CODE, P, L>
 where
     E: Endianness,
-    SD: BitSerializer<E, BitWriter<E>>
-        + BitDeserializer<E, BitReader<E>, DeserType = SD::SerType>
+    SD: BitSerializer<E, BitWriter<E>, Error: Into<anyhow::Error>>
+        + BitDeserializer<E, BitReader<E>, DeserType = SD::SerType, Error: Display>
         + Send
         + Sync
         + Clone,
@@ -275,7 +276,10 @@ where
                         self.policy.state(&mut buffer, &batch[i..run_end]),
                         &mut stream,
                     )
-                    .context("Could not serialize label")?;
+                    .map_err(Into::<anyhow::Error>::into)
+                    .with_context(|| {
+                        format!("Could not serialize the label of arc ({src}, {dst})")
+                    })?;
                 prev_dst = dst;
                 i = run_end;
             }
@@ -334,7 +338,7 @@ pub struct GroupedGapsIter<
 
 impl<
     E: Endianness,
-    D: BitDeserializer<E, BitReader<E>>,
+    D: BitDeserializer<E, BitReader<E>, Error: Display>,
     const OUTDEGREE_CODE: usize,
     const SRC_CODE: usize,
     const DST_CODE: usize,
@@ -348,21 +352,34 @@ where
         if self.current >= self.len {
             return None;
         }
+        // Errors cannot be returned, and must not end the iteration silently
         if self.dst_left == 0 {
             // read a new source
-            let src_gap = ConstCode::<SRC_CODE>.read(&mut self.stream).ok()?;
+            let src_gap = ConstCode::<SRC_CODE>
+                .read(&mut self.stream)
+                .expect("Could not read source gap");
             self.src += src_gap as usize;
             // read the outdegree
-            self.dst_left = ConstCode::<OUTDEGREE_CODE>.read(&mut self.stream).ok()? as usize;
+            self.dst_left = ConstCode::<OUTDEGREE_CODE>
+                .read(&mut self.stream)
+                .expect("Could not read outdegree") as usize;
             self.prev_dst = 0;
         }
 
-        let dst_gap = ConstCode::<DST_CODE>.read(&mut self.stream).ok()?;
-        let label = self.deserializer.deserialize(&mut self.stream).ok()?;
+        let dst_gap = ConstCode::<DST_CODE>
+            .read(&mut self.stream)
+            .expect("Could not read destination gap");
         self.prev_dst += dst_gap as usize;
+        let (src, dst) = (self.src, self.prev_dst);
+        let label = self
+            .deserializer
+            .deserialize(&mut self.stream)
+            .unwrap_or_else(|err| {
+                panic!("Could not deserialize the label of arc ({src}, {dst}): {err:#}")
+            });
         self.current += 1;
         self.dst_left -= 1;
-        Some(((self.src, self.prev_dst), label))
+        Some(((src, dst), label))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

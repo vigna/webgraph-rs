@@ -8,7 +8,8 @@
   and `CountRepeats`, describing how to merge the labels of repeated arcs
   into a single label, possibly of a different type: labels are added to
   states, states are merged, and a final step turns a fully merged state
-  into a label.
+  into a label. All methods except `init` receive the arc whose labels are
+  being merged (e.g., to report it in log or panic messages).
 
 - `ParSortedLabeledGraphConf::merge_labels` merges the labels of repeated
   arcs while sorting with a `MergeLabels`: states are merged both in the
@@ -55,6 +56,28 @@
 - Repeated successors, or successors that are not sorted, now cause an
   error during compression instead of a panic (or, possibly, a corrupted
   bitstream).
+
+- `BitSerializer` and `BitDeserializer` have a new associated type `Error`,
+  the type of the errors returned by `serialize` and `deserialize`, which
+  must be convertible from the error type of the bitstream. Using
+  `anyhow::Error` makes it possible to report errors that are not errors of
+  the bitstream, even when the bitstream cannot fail; to keep the previous
+  behavior, use the error type of the bitstream (e.g., `type Error =
+  BW::Error;`). Code using serializers and deserializers requires the
+  bounds it needs on the error types: for example, `LabelSerDeser` requires
+  the errors of serializers to be convertible into an `anyhow::Error`, and
+  the errors of deserializers to implement `Display`.
+
+### Improved
+
+- Label-serialization errors of `GapsCodec` and `GroupedGapsCodec` report
+  the arc of the label.
+
+### Fixed
+
+- The iterators on the batches of `GapsCodec` and `GroupedGapsCodec` ended
+  silently on read errors, dropping the remaining arcs of the batch; they
+  now panic, reporting the arc in case of label-deserialization errors.
 
 ## [0.7.0] - 2026-10-12
 

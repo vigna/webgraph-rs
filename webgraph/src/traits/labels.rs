@@ -606,6 +606,9 @@ impl<I: Iterator + core::iter::FusedIterator> core::iter::FusedIterator
 /// their content. All methods take `&self`, as a single merger is shared by
 /// all sorting threads.
 ///
+/// All methods except [`init`] receive the arc whose labels are being merged,
+/// so that, for example, they can report it in log or panic messages.
+///
 /// Adding labels is the responsibility of the separate trait [`AddLabel`],
 /// as the merge stage never sees the type of the labels being sorted.
 ///
@@ -624,32 +627,33 @@ impl<I: Iterator + core::iter::FusedIterator> core::iter::FusedIterator
 ///     type State = u64;
 ///     type Output = u64;
 ///
-///     fn merge(&self, state: &mut u64, other: u64) {
+///     fn merge(&self, _arc: (usize, usize), state: &mut u64, other: u64) {
 ///         *state += other;
 ///     }
 ///
-///     fn finish(&self, state: u64) -> u64 {
+///     fn finish(&self, _arc: (usize, usize), state: u64) -> u64 {
 ///         state
 ///     }
 /// }
 ///
 /// impl<L> AddLabel<L> for Count {
-///     fn add(&self, state: &mut u64, _label: L) {
+///     fn add(&self, _arc: (usize, usize), state: &mut u64, _label: L) {
 ///         *state += 1;
 ///     }
 /// }
 ///
+/// let arc = (0, 1);
 /// // Batch stage
 /// let mut first = 0;
 /// Count.init(&mut first);
-/// Count.add(&mut first, 'a');
-/// Count.add(&mut first, 'b');
+/// Count.add(arc, &mut first, 'a');
+/// Count.add(arc, &mut first, 'b');
 /// let mut second = 0;
 /// Count.init(&mut second);
-/// Count.add(&mut second, 'c');
+/// Count.add(arc, &mut second, 'c');
 /// // Merge stage
-/// Count.merge(&mut first, second);
-/// assert_eq!(Count.finish(first), 3);
+/// Count.merge(arc, &mut first, second);
+/// assert_eq!(Count.finish(arc, first), 3);
 /// ```
 ///
 /// A merger collecting the labels of each arc into a sorted boxed slice,
@@ -668,33 +672,34 @@ impl<I: Iterator + core::iter::FusedIterator> core::iter::FusedIterator
 ///         state.clear();
 ///     }
 ///
-///     fn merge(&self, state: &mut Vec<u32>, mut other: Vec<u32>) {
+///     fn merge(&self, _arc: (usize, usize), state: &mut Vec<u32>, mut other: Vec<u32>) {
 ///         state.append(&mut other);
 ///     }
 ///
-///     fn finish(&self, mut state: Vec<u32>) -> Box<[u32]> {
+///     fn finish(&self, _arc: (usize, usize), mut state: Vec<u32>) -> Box<[u32]> {
 ///         state.sort_unstable();
 ///         state.into_boxed_slice()
 ///     }
 /// }
 ///
 /// impl AddLabel<u32> for Collect {
-///     fn add(&self, state: &mut Vec<u32>, label: u32) {
+///     fn add(&self, _arc: (usize, usize), state: &mut Vec<u32>, label: u32) {
 ///         state.push(label);
 ///     }
 /// }
 ///
+/// let arc = (0, 1);
 /// // Batch stage
 /// let mut first = Vec::new();
 /// Collect.init(&mut first);
-/// Collect.add(&mut first, 3);
-/// Collect.add(&mut first, 1);
+/// Collect.add(arc, &mut first, 3);
+/// Collect.add(arc, &mut first, 1);
 /// let mut second = Vec::new();
 /// Collect.init(&mut second);
-/// Collect.add(&mut second, 2);
+/// Collect.add(arc, &mut second, 2);
 /// // Merge stage
-/// Collect.merge(&mut first, second);
-/// assert_eq!(&*Collect.finish(first), &[1, 2, 3]);
+/// Collect.merge(arc, &mut first, second);
+/// assert_eq!(&*Collect.finish(arc, first), &[1, 2, 3]);
 /// ```
 ///
 /// [sorting labeled pairs]: crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf::merge_labels
@@ -718,19 +723,20 @@ pub trait MergeLabels {
         *state = Self::State::default();
     }
 
-    /// Merges into `state` another state `other`.
-    fn merge(&self, state: &mut Self::State, other: Self::State);
+    /// Merges into `state`, a state of `arc`, another state `other` of
+    /// `arc`.
+    fn merge(&self, arc: (usize, usize), state: &mut Self::State, other: Self::State);
 
-    /// Turns a fully merged state into the label of the arc.
-    fn finish(&self, state: Self::State) -> Self::Output;
+    /// Turns a fully merged state of `arc` into the label of `arc`.
+    fn finish(&self, arc: (usize, usize), state: Self::State) -> Self::Output;
 }
 
 /// Adds labels of type `L` to the states of a [`MergeLabels`].
 ///
 /// See [`MergeLabels`] for the semantics and the examples.
 pub trait AddLabel<L>: MergeLabels {
-    /// Adds `label` to `state`.
-    fn add(&self, state: &mut Self::State, label: L);
+    /// Adds `label`, a label of `arc`, to `state`, a state of `arc`.
+    fn add(&self, arc: (usize, usize), state: &mut Self::State, label: L);
 }
 
 /// A merger keeping one of the labels of each arc.
@@ -748,8 +754,8 @@ pub trait AddLabel<L>: MergeLabels {
 /// let keep = KeepOne::new();
 /// let mut state = 0_u32;
 /// keep.init(&mut state);
-/// keep.add(&mut state, 7);
-/// assert_eq!(keep.finish(state), 7);
+/// keep.add((0, 1), &mut state, 7);
+/// assert_eq!(keep.finish((0, 1), state), 7);
 /// ```
 ///
 /// [Deduplication]: crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf::dedup
@@ -787,17 +793,17 @@ impl<L: Default> MergeLabels for KeepOne<L> {
     type Output = L;
 
     #[inline(always)]
-    fn merge(&self, _state: &mut L, _other: L) {}
+    fn merge(&self, _arc: (usize, usize), _state: &mut L, _other: L) {}
 
     #[inline(always)]
-    fn finish(&self, state: L) -> L {
+    fn finish(&self, _arc: (usize, usize), state: L) -> L {
         state
     }
 }
 
 impl<L: Default> AddLabel<L> for KeepOne<L> {
     #[inline(always)]
-    fn add(&self, state: &mut L, label: L) {
+    fn add(&self, _arc: (usize, usize), state: &mut L, label: L) {
         *state = label;
     }
 }
@@ -813,10 +819,10 @@ impl<L: Default> AddLabel<L> for KeepOne<L> {
 ///
 /// let mut state = 0;
 /// CountRepeats.init(&mut state);
-/// CountRepeats.add(&mut state, 'x');
-/// CountRepeats.add(&mut state, 'y');
-/// CountRepeats.merge(&mut state, 3);
-/// assert_eq!(CountRepeats.finish(state), 5);
+/// CountRepeats.add((0, 1), &mut state, 'x');
+/// CountRepeats.add((0, 1), &mut state, 'y');
+/// CountRepeats.merge((0, 1), &mut state, 3);
+/// assert_eq!(CountRepeats.finish((0, 1), state), 5);
 /// ```
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CountRepeats;
@@ -826,19 +832,19 @@ impl MergeLabels for CountRepeats {
     type Output = u64;
 
     #[inline(always)]
-    fn merge(&self, state: &mut u64, other: u64) {
+    fn merge(&self, _arc: (usize, usize), state: &mut u64, other: u64) {
         *state += other;
     }
 
     #[inline(always)]
-    fn finish(&self, state: u64) -> u64 {
+    fn finish(&self, _arc: (usize, usize), state: u64) -> u64 {
         state
     }
 }
 
 impl<L> AddLabel<L> for CountRepeats {
     #[inline(always)]
-    fn add(&self, state: &mut u64, _label: L) {
+    fn add(&self, _arc: (usize, usize), state: &mut u64, _label: L) {
         *state += 1;
     }
 }
