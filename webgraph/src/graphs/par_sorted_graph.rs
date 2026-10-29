@@ -1099,6 +1099,12 @@ impl<PL, P> ParSortedLabeledGraphConf<PL, P> {
     /// methods. The serializer and deserializer passed to the sorting
     /// methods handle the states of the merger.
     ///
+    /// States need not implement [`Clone`], but in that case the sorted
+    /// graph can only be consumed by value, for example by passing it
+    /// (rather than a reference to it) to [`par_comp_labeled`]: iterating on
+    /// a sorted graph by reference clones its iterators, and thus their
+    /// states.
+    ///
     /// The merger must also implement [`Clone`], [`Send`], and [`Sync`], as
     /// it is shared by the sorting threads and cloned by the iterators of
     /// the sorted graph:
@@ -1160,6 +1166,7 @@ impl<PL, P> ParSortedLabeledGraphConf<PL, P> {
     ///
     /// [final step]: MergeLabels::finish
     /// [`dedup`]: Self::dedup
+    /// [`par_comp_labeled`]: crate::graphs::bvgraph::BvCompConf::par_comp_labeled
     pub fn merge_labels<M: MergeLabels + Clone + Send + Sync>(
         self,
         merger: M,

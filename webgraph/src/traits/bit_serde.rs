@@ -99,7 +99,8 @@ impl<E: Endianness, BR: BitRead<E>, S, D: BitDeserializer<E, BR>> BitDeserialize
 ///
 /// The type serialized need not be [`Copy`]: when [merging labels], it is
 /// the type of the states of the merger, which can be, for example, a
-/// vector (see [`VecOf`]).
+/// vector (see [`VecOf`]). It need not even be [`Clone`], but then the
+/// sorted graph can only be consumed by value (see [merging labels]).
 ///
 /// [merging labels]: crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf::merge_labels
 /// [`ParSortedLabeledGraph`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraph

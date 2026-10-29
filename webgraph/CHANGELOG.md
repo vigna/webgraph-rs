@@ -48,8 +48,9 @@
   parameter for the type of the labels to sort, which differs from the type
   serialized when merging labels.
 
-- `LabelSerDeser` and the implementations of `ParSortedLabeledGraph` no
-  longer require labels to be `Copy`.
+- `LabelSerDeser` no longer requires the type serialized to be `Copy` or
+  `Clone`, and the implementations of `ParSortedLabeledGraph` no longer
+  require labels to be `Copy`.
 
 - Repeated successors, or successors that are not sorted, now cause an
   error during compression instead of a panic (or, possibly, a corrupted

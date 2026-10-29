@@ -81,20 +81,32 @@ fn with_two_threads<T: Send>(f: impl FnOnce() -> T + Send) -> T {
 /// A sorted graph whose labels count the occurrences of each arc.
 type Counted = ParSortedLabeledGraph<SortedLabeledIter<FixedWidth<u64>, WithMerge<CountRepeats>>>;
 
+/// Returns the arcs of the test graph, each labeled by its multiplicity.
+fn counted_arcs() -> Vec<((usize, usize), u64)> {
+    common::TEST_GRAPH_ARCS
+        .into_iter()
+        .zip(MULTIPLICITIES)
+        .collect()
+}
+
 /// Checks that `graph` is the test graph, with `num_nodes` nodes, labeled
 /// with multiplicities, both as it is and after compressing it and loading
 /// it back.
 fn check_counted(num_nodes: usize, graph: Counted) -> Result<()> {
-    let expected: Vec<_> = common::TEST_GRAPH_ARCS
-        .into_iter()
-        .zip(MULTIPLICITIES)
-        .collect();
     assert_eq!(graph.num_nodes(), num_nodes);
-    assert_eq!(arcs(&graph), expected);
+    assert_eq!(arcs(&graph), counted_arcs());
+    check_compressed_counted(num_nodes, &graph)
+}
 
+/// Checks that compressing `graph` and loading it back yields the test
+/// graph, with `num_nodes` nodes, labeled with multiplicities.
+fn check_compressed_counted<G>(num_nodes: usize, graph: G) -> Result<()>
+where
+    G: for<'a> IntoParLenders<ParLender: NodeLabelsLender<'a, Label = (usize, u64)>>,
+{
     let (_dir, basename) = common::tmp_basename()?;
     BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(
-        &graph,
+        graph,
         BitStreamStoreLabelsConf::<BE, _>::new(FixedWidth::<u64>::new()),
     )?;
     let seq = BvGraphSeq::with_basename(&basename)
@@ -106,7 +118,7 @@ fn check_counted(num_nodes: usize, graph: Counted) -> Result<()> {
         FixedWidth::<u64>::new(),
     )?;
     let mut expected_graph = LabeledVecGraph::empty(num_nodes);
-    expected_graph.add_arcs(expected);
+    expected_graph.add_arcs(counted_arcs());
     graph::eq_labeled(&expected_graph, &Zip(seq, labeling))?;
     Ok(())
 }
@@ -165,6 +177,72 @@ fn test_count_repeats_empty_partition() -> Result<()> {
             pairs(arc_label),
         )?,
     )
+}
+
+/// The number of occurrences of an arc; it does not implement [`Clone`].
+#[derive(Debug, Default)]
+struct Occurrences(u64);
+
+/// Serializes and deserializes [`Occurrences`] using 64 bits.
+#[derive(Debug, Clone, Copy)]
+struct OccurrencesSD;
+
+impl<E: Endianness, BW: BitWrite<E>> BitSerializer<E, BW> for OccurrencesSD {
+    type SerType = Occurrences;
+
+    fn serialize(&self, value: &Occurrences, bitstream: &mut BW) -> Result<usize, BW::Error> {
+        bitstream.write_bits(value.0, 64)
+    }
+
+    fn name(&self) -> String {
+        "OccurrencesSD".to_string()
+    }
+}
+
+impl<E: Endianness, BR: BitRead<E>> BitDeserializer<E, BR> for OccurrencesSD {
+    type DeserType = Occurrences;
+
+    fn deserialize(&self, bitstream: &mut BR) -> Result<Occurrences, BR::Error> {
+        Ok(Occurrences(bitstream.read_bits(64)?))
+    }
+
+    fn name(&self) -> String {
+        "OccurrencesSD".to_string()
+    }
+}
+
+/// Counts the occurrences of each arc, like [`CountRepeats`], but using
+/// states that do not implement [`Clone`].
+#[derive(Debug, Clone, Copy)]
+struct CountOccurrences;
+
+impl MergeLabels for CountOccurrences {
+    type State = Occurrences;
+    type Output = u64;
+
+    fn merge(&self, state: &mut Occurrences, other: Occurrences) {
+        state.0 += other.0;
+    }
+
+    fn finish(&self, state: Occurrences) -> u64 {
+        state.0
+    }
+}
+
+impl AddLabel<u32> for CountOccurrences {
+    fn add(&self, state: &mut Occurrences, _label: u32) {
+        state.0 += 1;
+    }
+}
+
+#[test]
+fn test_count_non_clone_states() -> Result<()> {
+    let graph =
+        conf(1)
+            .merge_labels(CountOccurrences)
+            .sort_pairs(8, OccurrencesSD, pairs(arc_label))?;
+    // States are not Clone, so the graph can only be consumed by value
+    check_compressed_counted(8, graph)
 }
 
 /// Collects the labels of each arc into a sorted boxed slice.
