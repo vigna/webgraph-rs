@@ -102,7 +102,7 @@ pub trait BatchCodec: Send + Sync {
     ///
     /// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
     /// [`SortedLabeledGraph`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraph
-    type DecodedBatch: IntoIterator<Item = ((usize, usize), Self::State), IntoIter: Send + Sync>;
+    type DecodedBatch: IntoIterator<Item = ((usize, usize), Self::State), IntoIter: Send + Sync + Clone>;
 
     /// A type representing statistics about the encoded batch.
     ///

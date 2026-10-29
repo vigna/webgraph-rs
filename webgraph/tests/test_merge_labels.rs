@@ -180,7 +180,7 @@ fn test_count_repeats_empty_partition() -> Result<()> {
 }
 
 /// The number of occurrences of an arc; it does not implement [`Clone`].
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 struct Occurrences(u64);
 
 /// Serializes and deserializes [`Occurrences`] using 64 bits.
@@ -245,6 +245,81 @@ fn test_count_non_clone_states() -> Result<()> {
             .sort_pairs(8, OccurrencesSD, pairs(arc_label))?;
     // States are not Clone, so the graph can only be consumed by value
     check_compressed_counted(8, graph)
+}
+
+/// Counts the occurrences of each arc, like [`CountRepeats`], but
+/// returning labels that do not implement [`Clone`].
+#[derive(Debug, Clone, Copy)]
+struct CountToOccurrences;
+
+impl MergeLabels for CountToOccurrences {
+    type State = u64;
+    type Output = Occurrences;
+
+    fn merge(&self, _arc: (usize, usize), state: &mut u64, other: u64) {
+        *state += other;
+    }
+
+    fn finish(&self, _arc: (usize, usize), state: u64) -> Occurrences {
+        Occurrences(state)
+    }
+}
+
+impl AddLabel<u32> for CountToOccurrences {
+    fn add(&self, _arc: (usize, usize), state: &mut u64, _label: u32) {
+        *state += 1;
+    }
+}
+
+/// Returns the arcs of the test graph, each labeled by its multiplicity
+/// wrapped in [`Occurrences`].
+fn occurrences_arcs() -> Vec<((usize, usize), Occurrences)> {
+    counted_arcs()
+        .into_iter()
+        .map(|(arc, m)| (arc, Occurrences(m)))
+        .collect()
+}
+
+/// Checks that compressing `graph` and loading it back yields the test
+/// graph, with `num_nodes` nodes, labeled with multiplicities wrapped in
+/// [`Occurrences`].
+fn check_compressed_occurrences<G>(num_nodes: usize, graph: G) -> Result<()>
+where
+    G: for<'a> IntoParLenders<ParLender: NodeLabelsLender<'a, Label = (usize, Occurrences)>>,
+{
+    let (_dir, basename) = common::tmp_basename()?;
+    BvComp::with_basename(&basename).par_comp_labeled::<BE, _, _>(
+        graph,
+        BitStreamStoreLabelsConf::<BE, _>::new(OccurrencesSD),
+    )?;
+    let seq = BvGraphSeq::with_basename(&basename)
+        .endianness::<BE>()
+        .mode::<LoadMem>()
+        .load()?;
+    let labeling = BitStreamLabelingSeq::<BE, _, _>::load(
+        BvCompConf::default_labels_basename(&basename),
+        OccurrencesSD,
+    )?;
+    // LabeledVecGraph needs Clone labels, so we cannot use graph::eq_labeled
+    let graph = Zip(seq, labeling);
+    assert_eq!(graph.num_nodes(), num_nodes);
+    assert_eq!(arcs(&graph), occurrences_arcs());
+    Ok(())
+}
+
+#[test]
+fn test_count_non_clone_outputs() -> Result<()> {
+    let graph = conf(1).merge_labels(CountToOccurrences).sort_pairs(
+        8,
+        FixedWidth::<u64>::new(),
+        pairs(arc_label),
+    )?;
+    // States are Clone, so the graph can be used by reference
+    assert_eq!(graph.num_nodes(), 8);
+    assert_eq!(arcs(&graph), occurrences_arcs());
+    check_compressed_occurrences(8, &graph)?;
+    // Labels are not Clone, but the graph can be consumed by value
+    check_compressed_occurrences(8, graph)
 }
 
 /// Collects the labels of each arc into a sorted boxed slice.

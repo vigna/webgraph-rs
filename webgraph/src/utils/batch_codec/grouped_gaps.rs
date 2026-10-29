@@ -62,7 +62,8 @@ use dsi_bitstream::prelude::*;
 pub struct GroupedGapsCodec<
     E: Endianness = NE,
     SD: BitSerializer<E, BitWriter<E>>
-        + BitDeserializer<E, BitReader<E>, DeserType = <SD as BitSerializer<E, BitWriter<E>>>::SerType>= (),
+        + BitDeserializer<E, BitReader<E>, DeserType = <SD as BitSerializer<E, BitWriter<E>>>::SerType>
+        + Clone = (),
     const OUTDEGREE_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
     const SRC_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
     const DST_CODE: usize = { dsi_bitstream::dispatch::code_consts::DELTA },
@@ -105,7 +106,8 @@ where
     SD: BitSerializer<E, BitWriter<E>>
         + BitDeserializer<E, BitReader<E>, DeserType = SD::SerType>
         + Send
-        + Sync,
+        + Sync
+        + Clone,
     BitReader<E>: BitRead<E>,
     BitWriter<E>: BitWrite<E>,
 {
@@ -126,6 +128,7 @@ impl<
     E: Endianness,
     SD: BitSerializer<E, BitWriter<E>>
         + BitDeserializer<E, BitReader<E>, DeserType = SD::SerType>
+        + Clone
         + Default,
     const OUTDEGREE_CODE: usize,
     const SRC_CODE: usize,

@@ -494,8 +494,8 @@ impl ParSortedLabeledGraph<()> {
 
 // === SequentialLabeling for SortedLabeledGraph ===
 
-impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync>
-    SequentialLabeling for ParSortedLabeledGraph<I>
+impl<L: 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync> SequentialLabeling
+    for ParSortedLabeledGraph<I>
 {
     type Label = (usize, L);
     type Lender<'node>
@@ -552,10 +552,8 @@ impl<L: Send + Sync + 'static, I: Iterator<Item = ((usize, usize), L)> + Send + 
     }
 }
 
-impl<
-    L: Clone + Send + Sync + 'static,
-    I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync,
-> IntoParLenders for &ParSortedLabeledGraph<I>
+impl<L: Send + Sync + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync>
+    IntoParLenders for &ParSortedLabeledGraph<I>
 {
     type ParLender = arc_list_graph::NodeLabels<L, I>;
 
@@ -568,11 +566,11 @@ impl<
 // === IntoLender / Lending for SortedLabeledGraph ===
 
 impl_into_lender!(
-    [L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync]
+    [L: 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync]
     ParSortedLabeledGraph<I>
 );
 
-impl<'lend, L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync>
+impl<'lend, L: 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync>
     Lending<'lend> for &ParSortedLabeledGraph<I>
 {
     type Lend = Lend<'lend, <ParSortedLabeledGraph<I> as SequentialLabeling>::Lender<'lend>>;
@@ -1096,11 +1094,11 @@ impl<PL, P> ParSortedLabeledGraphConf<PL, P> {
     /// methods. The serializer and deserializer passed to the sorting
     /// methods handle the states of the merger.
     ///
-    /// States need not implement [`Clone`], but in that case the sorted
-    /// graph can only be consumed by value, for example by passing it
-    /// (rather than a reference to it) to [`par_comp_labeled`]: iterating on
-    /// a sorted graph by reference clones its iterators, and thus their
-    /// states.
+    /// Neither states nor outputs need implement [`Clone`]. However, if
+    /// states do not implement [`Clone`], the sorted graph can only be
+    /// consumed by value, for example by passing it (rather than a reference
+    /// to it) to [`par_comp_labeled`]: iterating on a sorted graph by
+    /// reference clones its iterators, and thus their states.
     ///
     /// The merger must also implement [`Clone`], [`Send`], and [`Sync`], as
     /// it is shared by the sorting threads and cloned by the iterators of

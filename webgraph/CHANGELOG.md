@@ -50,8 +50,10 @@
   serialized when merging labels.
 
 - `LabelSerDeser` no longer requires the type serialized to be `Copy` or
-  `Clone`, and the implementations of `ParSortedLabeledGraph` no longer
-  require labels to be `Copy`.
+  `Clone`, and the implementations of `ParSortedLabeledGraph`,
+  `ArcListGraph` (except for `SplitLabeling`), and
+  `arc_list_graph::NodeLabels` no longer require labels to be `Copy` or
+  `Clone`.
 
 - Repeated successors, or successors that are not sorted, now cause an
   error during compression instead of a panic (or, possibly, a corrupted
