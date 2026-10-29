@@ -80,12 +80,12 @@ pub struct NodeLabels<L, I: Iterator<Item = ((usize, usize), L)>> {
 }
 
 // SAFETY: the underlying iterator is assumed to be sorted by the caller.
-unsafe impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> SortedLender
+unsafe impl<L: 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> SortedLender
     for NodeLabels<L, I>
 {
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> NodeLabels<L, I> {
+impl<L: 'static, I: Iterator<Item = ((usize, usize), L)>> NodeLabels<L, I> {
     /// Creates an [`NodeLabels`] of outgoing arcs for nodes from `0` to `num_nodes-1`
     pub fn new(num_nodes: usize, iter: I) -> Self {
         NodeLabels {
@@ -117,20 +117,20 @@ impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> NodeLabels<L, 
     }
 }
 
-impl<'succ, L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> NodeLabelsLender<'succ>
+impl<'succ, L: 'static, I: Iterator<Item = ((usize, usize), L)>> NodeLabelsLender<'succ>
     for NodeLabels<L, I>
 {
     type Label = (usize, L);
     type IntoIterator = Succ<'succ, L, I>;
 }
 
-impl<'succ, L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Lending<'succ>
+impl<'succ, L: 'static, I: Iterator<Item = ((usize, usize), L)>> Lending<'succ>
     for NodeLabels<L, I>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Lender for NodeLabels<L, I> {
+impl<L: 'static, I: Iterator<Item = ((usize, usize), L)>> Lender for NodeLabels<L, I> {
     check_covariance!();
 
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -158,29 +158,24 @@ impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Lender for Nod
     }
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> ExactSizeLender
-    for NodeLabels<L, I>
-{
+impl<L: 'static, I: Iterator<Item = ((usize, usize), L)>> ExactSizeLender for NodeLabels<L, I> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.num_nodes - self.next_node
     }
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> lender::FusedLender
-    for NodeLabels<L, I>
-{
-}
+impl<L: 'static, I: Iterator<Item = ((usize, usize), L)>> lender::FusedLender for NodeLabels<L, I> {}
 
-impl<'lend, L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> Lending<'lend>
+impl<'lend, L: 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> Lending<'lend>
     for &ArcListGraph<I>
 {
     type Lend = (usize, Succ<'lend, L, I>);
 }
 
-impl_into_lender!([L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone] ArcListGraph<I>);
+impl_into_lender!([L: 'static, I: Iterator<Item = ((usize, usize), L)> + Clone] ArcListGraph<I>);
 
-impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> SequentialLabeling
+impl<L: 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> SequentialLabeling
     for ArcListGraph<I>
 {
     type Label = (usize, L);
