@@ -523,10 +523,7 @@ impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send 
 
 /// Creates labeled lenders from an iterator of labeled-pair-iterators and
 /// their boundaries.
-fn make_labeled_lenders<
-    L: Clone + 'static,
-    I: Iterator<Item = ((usize, usize), L)> + Send + Sync,
->(
+fn make_labeled_lenders<L: 'static, I: Iterator<Item = ((usize, usize), L)> + Send + Sync>(
     iters: impl IntoIterator<Item = I>,
     boundaries: &[usize],
 ) -> Box<[arc_list_graph::NodeLabels<L, I>]> {
@@ -544,8 +541,8 @@ fn make_labeled_lenders<
         .collect()
 }
 
-impl<L: Clone + Send + Sync + 'static, I: Iterator<Item = ((usize, usize), L)> + Send + Sync>
-    IntoParLenders for ParSortedLabeledGraph<I>
+impl<L: Send + Sync + 'static, I: Iterator<Item = ((usize, usize), L)> + Send + Sync> IntoParLenders
+    for ParSortedLabeledGraph<I>
 {
     type ParLender = arc_list_graph::NodeLabels<L, I>;
 
